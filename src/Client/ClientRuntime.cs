@@ -1081,7 +1081,7 @@ namespace PerformativeMail.Client
             for (int slot = 1; slot < hotbar.Cols; slot++)
             {
                 var entry = hotbar.EntryAt(slot, 0);
-                if (entry == null || entry.Stack.Kind != StackKind.Mail || entry.Stack.Address != dest.Address) continue;
+                if (entry == null || entry.Stack.Kind != StackKind.Mail || !dest.Takes(entry.Stack.Address)) continue;
                 Input.HeldSlot = (byte)slot;
                 break;
             }

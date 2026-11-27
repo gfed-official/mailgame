@@ -108,6 +108,13 @@ namespace PerformativeMail.Client
         /// <summary>The world's name for the Lobby: "Small Island", or a map file's own name.</summary>
         public static string WorldName(WorldMap map) => WorldGenerator.Generates(map.Id) ? ArchetypeName(map.Id) : map.Name;
 
+        /// <summary>The label over an Apartment Complex's boxes: "9 Larch Lane · Mail Room · Units 1-8"; a PO Box Bank's "PO Boxes 1-12".</summary>
+        public static string UnitsLabel(DestinationDef dest) =>
+            dest.IsPoBoxBank ? $"PO Boxes 1-{dest.Units}{Dot}{dest.Label}" : $"{dest.Label}{Dot}Mail Room{Dot}Units 1-{dest.Units}";
+
+        /// <summary>The prompt's noun for a destination: MAILBOX, MAIL ROOM (an Apartment Complex), PO BOXES.</summary>
+        public static string DestinationNoun(DestinationDef dest) => dest.IsApartment ? "MAIL ROOM" : dest.IsPoBoxBank ? "PO BOXES" : "MAILBOX";
+
         /// <summary>The word over a ferry lane on the map (doc 02 §3.8).</summary>
         public const string FerryLabel = "FERRY";
 
@@ -2340,14 +2347,14 @@ namespace PerformativeMail.Client
                 case InteractKind.Deliver:
                 {
                     var dest = p.Destination!;
-                    string noun = $"MAILBOX{Dot}{dest.Label}";
+                    string noun = $"{DestinationNoun(dest)}{Dot}{dest.Label}";
                     if (p.MailboxClosed) return Card($"{noun}{Dot}{ClosedWord}", "Closed until Delivery");
                     string all = p.MatchingStacks > 0 ? $"[F] Deliver all matching ({p.MatchingStacks})" : "";
                     if (p.Stack == null) return Card(noun, "Select mail (2–8) to deliver", all);
                     if (!p.KindAccepted)
                     {
                         tone = PromptTone.Mismatch;
-                        return Card(noun, $"{Name(world.Content, p.Stack.Stack)} does not fit this mailbox");
+                        return Card(noun, $"{Name(world.Content, p.Stack.Stack)} does not fit {(dest.Units > 0 ? "these boxes" : "this mailbox")}");
                     }
                     tone = p.AddressMatches ? PromptTone.Match : PromptTone.Mismatch;
                     string verdict = p.AddressMatches ? MatchWord : MismatchWord;

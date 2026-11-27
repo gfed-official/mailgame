@@ -196,7 +196,7 @@ namespace PerformativeMail.Sim
                 {
                     Id = PlaytestMailIdBase + _playtestMail++,
                     Kind = kind.Index,
-                    Address = dest.Address,
+                    Address = dest.MailAddress,
                     Value = (ushort)kind.BaseValue,
                     SpawnShift = (byte)Run.Shift,
                     DeadlineShift = (byte)(Run.Shift + kind.DeadlineOffsetShifts),
@@ -241,7 +241,7 @@ namespace PerformativeMail.Sim
 
         private void GivePlaytestMail(Player p, DestinationDef dest)
         {
-            if (Run.Phase != RunPhase.Delivery || CarriesMailFor(p.Hotbar, dest.Address) || CarriesMailFor(p.Inventory, dest.Address)) return;
+            if (Run.Phase != RunPhase.Delivery || CarriesMailFor(p.Hotbar, dest.MailAddress) || CarriesMailFor(p.Inventory, dest.MailAddress)) return;
             MailKindDef? kind = null;
             foreach (var k in Content.MailKinds)
                 if (DeliveryRules.KindAccepted(k, dest.Type)) { kind = k; break; }
@@ -252,7 +252,7 @@ namespace PerformativeMail.Sim
                 {
                     Id = PlaytestMailIdBase + _playtestMail++,
                     Kind = kind.Index,
-                    Address = dest.Address,
+                    Address = dest.MailAddress,
                     Value = (ushort)kind.BaseValue,
                     SpawnShift = (byte)Run.Shift,
                     DeadlineShift = (byte)(Run.Shift + kind.DeadlineOffsetShifts),

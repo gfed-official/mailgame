@@ -61,6 +61,23 @@ namespace PerformativeMail.Sim.World
         public float MailboxX { get; init; }
         public float MailboxZ { get; init; }
         public int Variant { get; init; }
+        /// <summary>
+        /// Doc 02 §3.5–§3.6: an Apartment Complex's units (6–12) or a PO Box Bank's boxes (8–16) behind its one interaction
+        /// point, mail addressed to "Unit 1".."Unit N" of its address; 0 for a house or a dock.
+        /// </summary>
+        public int Units { get; init; }
+
+        /// <summary>An address mail for it can have: its own, or its first unit's.</summary>
+        public AddressId MailAddress => Units == 0 ? Address : new AddressId(Address.Key, 1);
+
+        /// <summary>True for mail addressed here: this address, or one of its units (doc 03 §2.2 rule 2).</summary>
+        public bool Takes(AddressId mail) => Units == 0 ? mail == Address : mail.Key == Address.Key && mail.Unit >= 1 && mail.Unit <= Units;
+
+        /// <summary>An Apartment Complex's Mail Room (doc 03 §2.1): all non-Cargo kinds for any unit, one interaction point.</summary>
+        public bool IsApartment => Type.Id == "apartment";
+        /// <summary>A PO Box Bank (doc 02 §3.5): letters and postcards for its numbered boxes.</summary>
+        public bool IsPoBoxBank => Type.Id == "pobox";
+
         /// <summary>The shift it takes mail from when later than its district's (doc 02 §3.5: a Small Island's Business Dock from shift 4); 0 for its district's.</summary>
         public int UnlockShift { get; init; }
 
@@ -239,10 +256,11 @@ namespace PerformativeMail.Sim.World
         public DestinationDef? GetDestination(int id) =>
             id >= 0 && id < Destinations.Count ? Destinations[id] : null;
 
+        /// <summary>The destination mail of this address goes to: the house, or the complex or bank of its unit.</summary>
         public DestinationDef? FindDestination(AddressId address)
         {
             for (int i = 0; i < Destinations.Count; i++)
-                if (Destinations[i].Address == address) return Destinations[i];
+                if (Destinations[i].Takes(address)) return Destinations[i];
             return null;
         }
 
@@ -281,9 +299,10 @@ namespace PerformativeMail.Sim.World
         {
             var street = GetStreet(address.Street);
             if (street == null) return address.ToString();
-            return address.Unit == 0
-                ? $"{address.Number} {street.Name}"
-                : $"{address.Number} {street.Name}, Unit {address.Unit}";
+            if (address.Unit == 0) return $"{address.Number} {street.Name}";
+            // A PO Box Bank's boxes are boxes, not units (doc 02 §3.5).
+            var at = FindDestination(address);
+            return at != null && at.IsPoBoxBank ? $"PO Box {address.Unit}, {address.Number} {street.Name}" : $"{address.Number} {street.Name}, Unit {address.Unit}";
         }
 
         internal void ComputeHash()
@@ -315,6 +334,7 @@ namespace PerformativeMail.Sim.World
                 h.Add(d.Type.Id);
                 h.Add(d.Address.Key);
                 h.Add(d.Address.Unit);
+                if (d.Units > 0) h.Add(d.Units);
                 h.Add((int)MathF.Round(d.MailboxX * 100f));
                 h.Add((int)MathF.Round(d.MailboxZ * 100f));
             }

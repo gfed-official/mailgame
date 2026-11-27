@@ -107,7 +107,7 @@ namespace PerformativeMail.Sim
 
         /// <summary>Whether a stop of a route is where a piece of mail goes: its house, its street or its district.</summary>
         public bool StopTakes(MailFilter stop, in MailItem mail) => stop.Kind == FilterKind.Address
-            ? Map.GetDestination(stop.Value) is { } dest && dest.Address == mail.Address
+            ? Map.GetDestination(stop.Value) is { } dest && dest.Takes(mail.Address)
             : stop.Kind != FilterKind.Kind && stop.Matches(mail);
     }
 }

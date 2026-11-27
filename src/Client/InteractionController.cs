@@ -606,7 +606,7 @@ namespace PerformativeMail.Client
             if (entry != null && entry.Stack.Kind == StackKind.Mail)
             {
                 prompt.Stack = entry;
-                prompt.AddressMatches = entry.Stack.Address == target.Address;
+                prompt.AddressMatches = target.Takes(entry.Stack.Address);
                 prompt.KindAccepted = DeliveryRules.KindAccepted(world.Content.MailKinds[entry.Stack.DefIndex], target.Type);
             }
             return prompt;
@@ -690,7 +690,7 @@ namespace PerformativeMail.Client
         }
 
         private static bool Matches(ClientWorld world, GridEntry e, DestinationDef dest) =>
-            e.Stack.Kind == StackKind.Mail && e.Stack.Address == dest.Address
+            e.Stack.Kind == StackKind.Mail && dest.Takes(e.Stack.Address)
             && DeliveryRules.KindAccepted(world.Content.MailKinds[e.Stack.DefIndex], dest.Type);
 
         private int CountMatching(GridContainer container, DestinationDef dest)

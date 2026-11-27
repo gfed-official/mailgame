@@ -14,7 +14,7 @@ namespace PerformativeMail.Tools.SeedViewer
     /// (--large: the Large Island of the seed rather than the Small Island)
     /// One line of figures per seed (size, houses, districts and their houses, streets, nodes,
     /// the world hash) and with --map the town drawn in letters, a character a tile:
-    /// '@' a raiders' way in, '=' street, '#' house, '.' lot, 'P' Post Office, 'y' its yard, '~' beach, ',' shallow and ';' deep water, '-' a ferry lane, 'T' tree,
+    /// '@' a raiders' way in, '=' street, '#' house, 'A' an apartment complex, '.' lot, 'P' Post Office, 'y' its yard, '~' beach, ',' shallow and ';' deep water, '-' a ferry lane, 'T' tree,
     /// 'o' boulder, '*' bush, 's' sand pile, ' ' grass; the digit of a house's district on its
     /// mailbox. With --island the whole island, a character for 4 × 4 tiles, by its biome:
     /// '#' deep water, '~' shallow, ':' beach, '.' grassland, 'T' forest, '^' rocky, 'H' the town.
@@ -113,9 +113,11 @@ namespace PerformativeMail.Tools.SeedViewer
             }
             string edges = string.Join(" ", map.SpawnEdges.Select(e => $"{e.Direction}@{e.UnlockShift}"));
             int docks = map.Destinations.Count(d => d.IsDock);
+            string flats = string.Join(" ", map.Destinations.Where(d => d.IsApartment).Select(d => $"{d.Units} units in district {d.Address.District} at {d.MailboxX:F0},{d.MailboxZ:F0}"));
+            string apartments = flats.Length == 0 ? "" : $", apartments: {flats}";
             string ferries = map.FerryLanes.Count == 0 ? "" : string.Create(CultureInfo.InvariantCulture, $", ferry lanes {string.Join(" ", map.FerryLanes.Select(l => $"{l.Length:F0} m ({l.AX:F0},{l.AZ:F0} to {l.BX:F0},{l.BZ:F0})"))}");
             return string.Create(CultureInfo.InvariantCulture,
-                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count - docks} houses, {docks} docks, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}), routes {map.Routes.Nodes.Count} nodes {map.Routes.Edges.Count} edges {map.Routes.TotalLength:F0} m{ferries}, raiders from {edges}{island}, worldHash {map.MapHash:x16}");
+                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count - docks} houses, {docks} docks{apartments}, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}), routes {map.Routes.Nodes.Count} nodes {map.Routes.Edges.Count} edges {map.Routes.TotalLength:F0} m{ferries}, raiders from {edges}{island}, worldHash {map.MapHash:x16}");
         }
 
         public static string Draw(WorldMap map)
@@ -144,6 +146,10 @@ namespace PerformativeMail.Tools.SeedViewer
                 char c = p.Kind switch { PropKind.Tree => 'T', PropKind.Boulder => 'o', PropKind.Bush => '*', PropKind.SandPile => 's', _ => grid[z, x] };
                 grid[z, x] = c;
             }
+            foreach (var d in map.Destinations)
+                if (d.IsApartment)
+                    for (int z = d.Building.Y; z < d.Building.Y + d.Building.H; z++)
+                        for (int x = d.Building.X; x < d.Building.X + d.Building.W; x++) grid[z, x] = 'A';
             foreach (var d in map.Destinations)
             {
                 int x = (int)(d.MailboxX / 2f), z = (int)(d.MailboxZ / 2f);

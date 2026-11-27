@@ -428,6 +428,10 @@ namespace PerformativeMail.Sim.World
                     }
                 }
 
+            // Doc 02 §3.5: an Apartment Complex in the second town (medium or large), in its district of shift 4 (or 5); the
+            // Post Office's town has no district past 2 and the third is small.
+            Apartments.Place(content, seed, suffix, cols, tiles, tileDistrict, destinations, 4, three ? 4 : 5);
+
             // Doc 02 §3.5: Business Docks on the coast with deep water, "Yes on Large Island" — one on the beach of each of
             // the first two towns, at its east end, open from the Small Island's dock shift or the town's own, whichever is later.
             var dockType = content.DestinationType("business_dock");

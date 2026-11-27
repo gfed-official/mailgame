@@ -169,9 +169,9 @@ namespace PerformativeMail.Sim.Mail
             double distMult = 1.0 + mix.DistanceMultiplierPerDistrict * (dest.Address.District - 1);
             var item = new MailItem
             {
-                Id = _nextMailId++,
+                Id = _nextMailId,
                 Kind = kind.Index,
-                Address = dest.Address,
+                Address = UnitByTurn(dest, _nextMailId++),
                 Value = (ushort)Math.Min(ushort.MaxValue, Math.Round(kind.BaseValue * distMult * shiftMult)),
                 SpawnShift = (byte)shift,
                 DeadlineShift = (byte)(shift + kind.DeadlineOffsetShifts),
@@ -193,9 +193,9 @@ namespace PerformativeMail.Sim.Mail
             double distMult = 1.0 + mix.DistanceMultiplierPerDistrict * (dest.Address.District - 1);
             var item = new MailItem
             {
-                Id = _nextMailId++,
+                Id = _nextMailId,
                 Kind = kind.Index,
-                Address = dest.Address,
+                Address = UnitByTurn(dest, _nextMailId++),
                 Value = (ushort)Math.Min(ushort.MaxValue, Math.Round(kind.BaseValue * distMult * shiftMult * valueMult)),
                 SpawnShift = (byte)shift,
                 DeadlineShift = (byte)(shift + kind.DeadlineOffsetShifts),
@@ -214,7 +214,7 @@ namespace PerformativeMail.Sim.Mail
         {
             CollectEligible(kind);
             if (_eligible.Count == 0) return null;
-            var dest = _eligible[rng.NextInt(_eligible.Count)];
+            var (dest, address) = Weighted(_eligible, rng);
             var mix = _content.MailMix;
             double shiftMult = 1.0 + mix.ShiftMultiplierPerShift * (shift - 1);
             double distMult = 1.0 + mix.DistanceMultiplierPerDistrict * (dest.Address.District - 1);
@@ -222,7 +222,7 @@ namespace PerformativeMail.Sim.Mail
             {
                 Id = _nextMailId++,
                 Kind = kind.Index,
-                Address = dest.Address,
+                Address = address,
                 Value = (ushort)Math.Min(ushort.MaxValue, Math.Round(kind.BaseValue * distMult * shiftMult * valueMult)),
                 SpawnShift = (byte)shift,
                 DeadlineShift = (byte)(shift + kind.DeadlineOffsetShifts),
@@ -280,7 +280,7 @@ namespace PerformativeMail.Sim.Mail
                 long minValue = (long)Math.Round(kind.BaseValue * shiftMult) * Scale;
                 while (_accrued[kind.Index] >= minValue)
                 {
-                    var dest = PickDestination();
+                    var (dest, address) = PickDestination();
                     double distMult = 1.0 + mix.DistanceMultiplierPerDistrict * (dest.Address.District - 1);
                     int value = (int)Math.Min(ushort.MaxValue, Math.Round(kind.BaseValue * distMult * shiftMult));
                     _accrued[kind.Index] -= value * Scale;
@@ -290,7 +290,7 @@ namespace PerformativeMail.Sim.Mail
                     {
                         Id = _nextMailId++,
                         Kind = kind.Index,
-                        Address = dest.Address,
+                        Address = address,
                         Value = (ushort)value,
                         SpawnShift = (byte)_shift,
                         DeadlineShift = (byte)(_shift + kind.DeadlineOffsetShifts),
@@ -384,7 +384,7 @@ namespace PerformativeMail.Sim.Mail
         public int DistrictsEarly { get; set; }
 
         /// <summary>Uniform over unlocked addresses, except that streetStreakRatio of picks reuse a street already in the batch.</summary>
-        private DestinationDef PickDestination()
+        private (DestinationDef Dest, AddressId Address) PickDestination()
         {
             int streakPermille = (int)Math.Round(_content.MailMix.StreetStreakRatio * 1000.0);
             if (_batchStreets.Count > 0 && _addressRng.Chance(streakPermille))
@@ -392,10 +392,33 @@ namespace PerformativeMail.Sim.Mail
                 _streak.Clear();
                 foreach (var d in _eligible)
                     if (_batchStreets.Contains(d.Street.Id)) _streak.Add(d);
-                if (_streak.Count > 0) return _streak[_addressRng.NextInt(_streak.Count)];
+                if (_streak.Count > 0) return Weighted(_streak, _addressRng);
             }
-            return _eligible[_addressRng.NextInt(_eligible.Count)];
+            return Weighted(_eligible, _addressRng);
         }
+
+        /// <summary>
+        /// One address of the destinations, every address alike (doc 03 §1.3): an Apartment Complex or a PO Box Bank weighs
+        /// its units, and the draw that lands in its share says which unit. With none, the one draw of a plain pick.
+        /// </summary>
+        private static (DestinationDef Dest, AddressId Address) Weighted(List<DestinationDef> from, RngStream rng)
+        {
+            int total = 0;
+            foreach (var d in from) total += Math.Max(1, d.Units);
+            int r = rng.NextInt(total);
+            foreach (var d in from)
+            {
+                int w = Math.Max(1, d.Units);
+                if (r < w) return (d, d.Units == 0 ? d.Address : new AddressId(d.Address.Key, (byte)(r + 1)));
+                r -= w;
+            }
+            var last = from[from.Count - 1];
+            return (last, last.Address);
+        }
+
+        /// <summary>A unit of the destination for mail made for it without a draw (the debug world's feed, Bulk Drop): by the mail's id.</summary>
+        private static AddressId UnitByTurn(DestinationDef dest, uint id) =>
+            dest.Units == 0 ? dest.Address : new AddressId(dest.Address.Key, (byte)(id % (uint)dest.Units + 1));
 
         private void DrainBacklog()
         {

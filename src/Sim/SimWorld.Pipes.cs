@@ -109,7 +109,7 @@ namespace PerformativeMail.Sim
             if (!filter.IsEmpty) return filter.Matches(mail) ? 1 : -1;
             int front = FrontTile(outlet.Built);
             int dest = front >= 0 ? Belts.MailboxOn(front) : -1;
-            if (dest >= 0) return Map.GetDestination(dest)?.Address == mail.Address ? 1 : -1;
+            if (dest >= 0) return Map.GetDestination(dest)?.Takes(mail.Address) == true ? 1 : -1;
             return 0;
         }
 

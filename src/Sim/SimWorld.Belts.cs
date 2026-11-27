@@ -210,7 +210,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         private bool AutomatedDelivers(DestinationDef dest, in MailItem mail)
         {
-            if (Run.Phase != RunPhase.Delivery || mail.Address != dest.Address) return false;
+            if (Run.Phase != RunPhase.Delivery || !dest.Takes(mail.Address)) return false;
             var kind = Content.MailKinds[mail.Kind];
             if (!DeliveryRules.KindAccepted(kind, dest.Type)) return false;
             return DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats, Tick).Outcome == DeliveryOutcome.Delivered;

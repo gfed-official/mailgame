@@ -200,7 +200,7 @@ namespace PerformativeMail.Sim
         {
             foreach (var e in truck.Cargo.Entries)
             {
-                if (e.Stack.Kind != StackKind.Mail || e.Stack.Address != dest.Address) continue;
+                if (e.Stack.Kind != StackKind.Mail || !dest.Takes(e.Stack.Address)) continue;
                 foreach (var mail in e.Stack.Mail)
                     if (AutomatedDelivers(dest, mail)) return true;
             }
@@ -350,7 +350,7 @@ namespace PerformativeMail.Sim
         {
             foreach (var e in cargo.Entries)
             {
-                if (e.Stack.Kind != StackKind.Mail || e.Stack.Address != dest.Address) continue;
+                if (e.Stack.Kind != StackKind.Mail || !dest.Takes(e.Stack.Address)) continue;
                 var list = e.Stack.Mail;
                 for (int i = 0; i < list.Count; i++)
                 {

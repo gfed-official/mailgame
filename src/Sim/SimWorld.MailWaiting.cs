@@ -26,7 +26,12 @@ namespace PerformativeMail.Sim
             if (_destByAddress == null || _destByAddressMap != Map)
             {
                 _destByAddress = new Dictionary<AddressId, ushort>();
-                foreach (var d in Map.Destinations) _destByAddress[d.Address] = d.Id;
+                foreach (var d in Map.Destinations)
+                {
+                    _destByAddress[d.Address] = d.Id;
+                    // An apartment's or a bank's mail is for its units: each counts for the one interaction point.
+                    for (int u = 1; u <= d.Units; u++) _destByAddress[new AddressId(d.Address.Key, (byte)u)] = d.Id;
+                }
                 _destByAddressMap = Map;
             }
             Count(Intake);

@@ -3031,6 +3031,31 @@ top left? It takes up a lot of screen real estate."
       and a bot plays one to "BOT OK"; looked at rendered (`--lookdev` on Large Island #1: the ferry's view across the
       inlet, the inlet from above, the island)
 
+### 7b. M4 — Apartment Complexes (doc 02 §3.5–§3.6; doc 03 §2.1–§2.2), 2026-11-27
+
+- [x] **Apartment Complexes** (`Apartments`, design choice 170). After a town's houses are laid out, one house of its
+      districts of shift 4–5 whose lot has two tiles of open grass beside it becomes a complex: the lot widened to 6 × 4
+      tiles (doc 02 §3.5 "4 × 6 lot"), a block of 5 × 3 tiles at its back, its Mail Room entrance at the street where the
+      house's mailbox stood, and 6–12 units (from the "apartments" stream, so the town is drawn as before). At most one
+      a medium town: on the Small Island in district 4 or 5 (42 of seeds 1–50 find room), on the Large Island in the
+      second town (district 4, or 4–5 when that town is large; every seed), none in the Post Office's town (no district
+      past 2) nor the small third. One `DestinationDef` with `Units` and one interaction point; mail is addressed to
+      "9 Ropewalk, Unit 4" (`AddressId.Unit`, already in the codec), and `DestinationDef.Takes(address)` is the match
+      everywhere a destination meets mail — the hand, belts, pipes, the truck's stops and drivers, the HUD's mark and
+      F's "deliver all matching", the map and the Mail chip (`WorldMap.FindDestination` by the complex). The Mail Room
+      takes every kind but Cargo (content's `acceptedBy`); a unit it does not have is a misdelivery (doc 03 §2.2 rule
+      5). **Mail for it:** the spawner weighs every address alike (doc 03 §1.3), so a complex of 10 units draws ten
+      houses' share; the one draw that picks it says the unit (`MailSpawner.Weighted`; on a map without complexes the
+      draws are what they were). The debug world's feed and Bulk Drop give its units in turn. **On screen:** a
+      three-storey brick block with white bands, a parapet and a roof tank, rows of windows, the Mail Room's glazed door
+      under a canopy lit like a porch (`ApartmentBuilder`), "9  APARTMENTS" over it, and at the street a bank of steel
+      unit boxes on a post (`MailRoomBoxes`), labelled "9 Ropewalk · Mail Room · Units 1-10"; the prompt reads "MAIL ROOM
+      · 9 Ropewalk · MATCH" (`HudText.DestinationNoun`). SeedViewer lists it and draws its block as 'A'
+- `ApartmentTests` (3: placement over 30 Small and 12 Large Island seeds — district, units, wide lot, block tiles,
+      nothing on it, the map still valid, its units and label —; every kind but Cargo taken for its units, a wrong unit
+      and a house's mail misdelivered; its mail in shift 4 for its units, well over one house's share). Looked at rendered
+      (`--lookdev` on Small Island #1's complex: by day and dusk)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4673,6 +4698,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     archetype draw in the Lobby (the host picks with [V]); doc 02's 62.5 / 37.5 % would weigh such a draw, which
     nothing asks for yet. The Daily Seed stays the Small Island so that it is everybody's. (g) The seed string's tag is
     "LARGE" (`SeedStrings.Tag`: the map id's first word).
+
+170. **Apartment Complexes, what doc 02 / 03 leave open.** (a) A complex replaces a house rather than being added, so the
+    district counts the generators balance stay what they were and nothing else moves; its lot takes the gap to the
+    next lot (lots then touch). (b) "At most 1 per medium town": exactly one where a house of the right districts has
+    room; a large town (the Large Island's two-town case) also gets one, not two. (c) One destination with units, not a
+    destination a unit: one interaction point (doc 03 §2.1), one mailbox label, one map marker; the unit lives in the
+    mail's address only. (d) "Weights every unlocked address equally" counts each unit as an address, so a complex is
+    a hot spot worth a belt or a truck stop — the point of it in the doc's district 4–5. (e) A unit the complex does not
+    have is a wrong address, misdelivered like any other. (f) The Mail Room's boxes at the street, not a room inside:
+    the sim has no interiors; the door is drawn for the look.
 
 ## Commands
 

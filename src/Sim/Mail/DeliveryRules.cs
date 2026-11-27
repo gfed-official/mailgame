@@ -70,7 +70,7 @@ namespace PerformativeMail.Sim.Mail
         {
             if (!KindAccepted(kind, dest.Type)) return new DeliveryResult(DeliveryOutcome.WontFitHere);
 
-            if (item.Address == dest.Address)
+            if (dest.Takes(item.Address))
             {
                 double lateRatio = content.MailMix.LateValueRatio;
                 if (team != null) lateRatio = System.Math.Clamp(team.Resolve(Stat.LateValueRatio, (float)lateRatio), 0f, 1f);

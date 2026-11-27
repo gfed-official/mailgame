@@ -85,6 +85,13 @@ namespace PerformativeMail.Client.Presentation
                     AddDockSign(dest);
                     continue;
                 }
+                if (dest.IsApartment)
+                {
+                    AddLight(ApartmentBuilder.Build(batch, dest), HouseBuilder.LanternLight, 9f, 0.6f, 3.0f);
+                    AddApartmentSign(dest);
+                    AddMailbox(batch, dest);
+                    continue;
+                }
                 AddLight(HouseBuilder.Build(batch, dest), HouseBuilder.LanternLight, 7f, 0.5f, 2.6f);
                 AddHouseNumber(dest);
                 AddMailbox(batch, dest);
@@ -115,7 +122,7 @@ namespace PerformativeMail.Client.Presentation
                 int opens = HudText.DistrictOpensAt(_map, dest, early);
                 bool closed = opens > shift;
                 if (closed) locked++;
-                string name = dest.IsDock ? dest.Label + "  ·  Cargo" : dest.Label;
+                string name = dest.IsDock ? dest.Label + "  ·  Cargo" : dest.Units > 0 ? HudText.UnitsLabel(dest) : dest.Label;
                 label.Text = closed ? $"{name}\n{HudText.OpensInShift(opens)}" : name;
                 label.Modulate = closed ? new Color(0.78f, 0.78f, 0.8f, 0.6f) : Colors.White;
             }
@@ -319,11 +326,31 @@ namespace PerformativeMail.Client.Presentation
             Fade(number, NumberFadeStart, NumberFadeEnd, 0);
         }
 
+        /// <summary>The complex's number and "APARTMENTS" over its door, in place of a house number on the gable.</summary>
+        private void AddApartmentSign(DestinationDef dest)
+        {
+            var frame = HouseBuilder.Frame(dest, out _, out float depth);
+            var colour = Palette.HouseColour(dest.Variant);
+            AddLabel($"{dest.Address.Number}  APARTMENTS", frame * new Vector3(0f, ApartmentBuilder.Height + 2.1f, depth * 0.5f + 0.3f), 140, colour.Lightened(0.5f));
+        }
+
         private void AddMailbox(MeshBatch batch, DestinationDef dest)
         {
             var colour = Palette.HouseColour(dest.Variant);
             Scenery.Front(dest, out int fx, out int fz);
             var at = new Vector3(dest.MailboxX, 0f, dest.MailboxZ);
+            if (dest.IsApartment || dest.IsPoBoxBank)
+            {
+                // A bank of boxes, one a unit, its label saying how many (doc 03 §2.1 "one interaction point").
+                ApartmentBuilder.MailRoomBoxes(batch, dest, colour);
+                var bank = MakeLabel(HudText.UnitsLabel(dest), at + new Vector3(0f, 2.0f, 0f), 56, Colors.White, flat: false);
+                bank.Name = $"Mailbox{dest.Address.Number}";
+                Fade(bank, AddressFadeStart, AddressFadeEnd, 1);
+                AddChild(bank);
+                _mailboxLabels.Add((dest, bank));
+                MailboxCount++;
+                return;
+            }
             batch.Frame = new Transform3D(new Basis(Vector3.Up, Mathf.Atan2(fx, fz)), at);
             batch.Box(new Vector3(0f, 0.5f, 0f), new Vector3(0.12f, 1.0f, 0.12f), MeshKit.Mat(new Color("6b4630"), 0.8f), 0.03f);
             batch.Box(new Vector3(0f, 0.98f, 0.05f), new Vector3(0.3f, 0.06f, 0.5f), MeshKit.Mat(new Color("6b4630"), 0.8f), 0.02f);
