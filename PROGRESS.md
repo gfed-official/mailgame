@@ -3220,6 +3220,14 @@ tests were green (the island bot's 2 ms tick budget failed once under the box's 
 - Facts, as designed: `--playtest-perks` offers its perks past the pool's rank and prerequisites (extra_labels at rank
   1); `--raid` raids inside Delivery, so the plate reads "DELIVERY".
 
+Batch 8–8a (onboarding tips and the How to play card; the M4 replay acceptance test; cosmetics; the Results' Play again /
+New seed; the map's outline of the incoming district; the 24cbd0a playtest's N17–N19): `tools/smoke.sh` SMOKE OK ×3,
+BOT OK on the Small and the Large Island (once the island bot's 2 ms tick budget failed under the box's load, p99
+2.38 ms, as in the playtest's own run; it passed on the rerun); Sim.Tests 719 and Net.Tests 254 green. Rendered at
+1280×720: the default and raid smokes SMOKE OK; the How to play card, a tip, a guest in Post Red with a Gold cap, the
+map's outline and labels, and the playtest tag looked at. Next in the docs' order: Cargo by boat to the far town's
+dock (doc 11 §4's Motor Boat route), then M5.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
