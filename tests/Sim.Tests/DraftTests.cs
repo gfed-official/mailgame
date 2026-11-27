@@ -545,5 +545,103 @@ namespace PerformativeMail.Sim.Tests
                 Assert.Contains($"balance.json: missing required key '{key}'", errors);
             }
         }
+
+        // --- the personal cap (doc 01 §4.2: "up to 5 personal perks; the 6th pick must be a team perk if any is available") ---
+
+        private static string[] CapPool(int personal, int team) =>
+            Enumerable.Range(0, personal).Select(i => Perk($"p{i}", "personal"))
+                .Concat(Enumerable.Range(0, team).Select(i => Perk($"t{i}", "team"))).ToArray();
+
+        /// <summary>Into the run (a run starts without perks), and p0 to p4 to the carrier.</summary>
+        private void GrantFive(SimWorld world, ContentDb db, Player p)
+        {
+            Assert.Equal(OpResult.Ok, Request(world, world.GetPlayer(world.Run.Host)!, SimRequest.StartRun(0)));
+            Assert.Equal(RunPhase.Prep, world.Run.Phase);
+            for (int i = 0; i < 5; i++) Assert.Equal(OpResult.Ok, world.GrantPerk(p, db.Perks.Single(k => k.Id == $"p{i}")));
+        }
+
+        [Fact]
+        public void FivePersonalPerksCloseTheSixth_WhileATeamPerkIsLeft_ThenTheCapGivesWay()
+        {
+            var db = Content(Perks(CapPool(7, 1)));
+            var world = NewWorld(content: db);
+            var ada = world.AddPlayer("Ada")!;
+            Assert.Equal(5, world.PersonalPerkCap);
+            for (int i = 0; i < 5; i++) Assert.Equal(OpResult.Ok, world.GrantPerk(ada, db.Perks.Single(p => p.Id == $"p{i}")));
+            Assert.True(world.AtPersonalCap(ada));
+            var sixth = db.Perks.Single(p => p.Id == "p5");
+            var team = db.Perks.Single(p => p.Id == "t0");
+            Assert.Equal(OpResult.PerkCapped, world.CanTake(ada, sixth));
+            Assert.Equal(OpResult.PerkCapped, world.GrantPerk(ada, sixth));
+            Assert.Equal(5, ada.Perks.Count);
+            // The team perk is open, and once it is the team's no team perk is left: a sixth personal one may come.
+            Assert.Equal(OpResult.Ok, world.GrantPerk(ada, team));
+            Assert.Equal(OpResult.Ok, world.CanTake(ada, sixth));
+            // The cap is the carrier's own: somebody with fewer is not held back.
+            var bo = world.AddPlayer("Bo")!;
+            Assert.Equal(OpResult.Ok, world.CanTake(bo, sixth));
+        }
+
+        [Fact]
+        public void ACappedCarrierWithOnlyPersonalCards_IsDealtTeamCardsOfTheirOwn_ForFree()
+        {
+            var db = Content(Perks(CapPool(8, 2)));
+            bool dealt = false, shared = false;
+            for (uint seed = 1; seed <= 40 && !(dealt && shared); seed++)
+            {
+                var world = NewWorld(seed, content: db);
+                var ada = world.AddPlayer("Ada")!;
+                var bo = world.AddPlayer("Bo")!;
+                GrantFive(world, db, ada);
+                PastThePayday(world, bo);
+                Assert.Equal(RunPhase.Draft, world.Run.Phase);
+                var own = world.OfferFor(ada);
+                Assert.Equal(world.DraftOffer, world.OfferFor(bo));
+                Assert.Equal(1, world.RerollsLeft(ada));
+                if (world.DraftOffer.Any(p => p.Team))
+                {
+                    // A team card on the table: Ada keeps the shared cards, the personal ones closed to her.
+                    shared = true;
+                    Assert.Same(world.DraftOffer, own);
+                    for (int c = 0; c < own.Count; c++)
+                        Assert.Equal(own[c].Team ? OpResult.Ok : ada.Perks.Contains(own[c]) ? OpResult.PerkMaxed : OpResult.PerkCapped, world.CanTake(ada, own[c]));
+                }
+                else
+                {
+                    // Only personal cards: hers are team cards, and she was told of them as of a Draft's, not a reroll.
+                    dealt = true;
+                    Assert.NotEmpty(own);
+                    Assert.All(own, p => Assert.True(p.Team));
+                    var told = world.Events.OfType<DraftOfferEvent>().Single(e => e.Audience == ada.Id);
+                    Assert.False(told.Reroll);
+                    Assert.Equal(own.Select(p => p.Index), told.Perks);
+                    Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.PickPerk(0, 0)));
+                    Assert.Equal(own[0], world.TeamPerks.Single());
+                    Assert.Equal(5, ada.Perks.Count);
+                }
+            }
+            Assert.True(dealt && shared, $"in 40 seeds: dealt {dealt}, shared {shared}");
+        }
+
+        [Fact]
+        public void ACappedCarrierWithNoTeamPerkLeft_TakesAPersonalCard()
+        {
+            var db = Content(Perks(CapPool(9, 0)));
+            var world = NewWorld(content: db);
+            var ada = world.AddPlayer("Ada")!;
+            GrantFive(world, db, ada);
+            PastThePayday(world, ada);
+            Assert.Equal(RunPhase.Draft, world.Run.Phase);
+            Assert.Same(world.DraftOffer, world.OfferFor(ada));
+            Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.PickPerk(0, 0)));
+            Assert.Equal(6, ada.Perks.Count);
+        }
+
+        [Fact]
+        public void TheCapNeedsItsNumberInTheBalance()
+        {
+            var e = Assert.Throws<ContentException>(() => Content(balance: b => b.Replace("\"personalPerkCap\": 5,", "")));
+            Assert.Contains("personalPerkCap", e.Message);
+        }
     }
 }

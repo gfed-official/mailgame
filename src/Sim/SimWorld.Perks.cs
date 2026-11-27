@@ -48,9 +48,30 @@ namespace PerformativeMail.Sim
             {
                 if (Stacks(p, perk) >= perk.MaxStacks) return OpResult.PerkMaxed;
                 if (perk.ConflictsWithAny(p.Perks)) return OpResult.PerkExcluded;
+                if (AtPersonalCap(p) && TeamPerkLeftFor(p)) return OpResult.PerkCapped;
             }
             return perk.ConflictsWithAny(_teamPerks) ? OpResult.PerkExcluded : OpResult.Ok;
         }
+
+        /// <summary>Doc 01 §4.2: the personal perks a carrier may hold before a pick must be a team perk.</summary>
+        public int PersonalPerkCap => Content.Balance.GetInt("personalPerkCap");
+
+        /// <summary>The carrier holds as many personal perks as the cap allows (every stack counts).</summary>
+        public bool AtPersonalCap(Player p) => p.Perks.Count >= PersonalPerkCap;
+
+        /// <summary>
+        /// Some team perk of the pool for the next shift is still open to this carrier. Only then does the cap close
+        /// personal perks to them: with no team perk left, the 6th pick may be personal (design choice 155).
+        /// </summary>
+        private bool TeamPerkLeftFor(Player p)
+        {
+            foreach (var perk in Content.Perks)
+                if (perk.Team && InPool(perk, Run.Shift + 1) && CanTake(p, perk) == OpResult.Ok) return true;
+            return false;
+        }
+
+        /// <summary>The perk may be dealt for this shift: its shift and rank are reached.</summary>
+        private bool InPool(PerkDef perk, int shift) => perk.ShiftMin <= shift && perk.RankMin <= 1;
 
         /// <summary>
         /// Gives the perk if <see cref="CanTake"/> allows it: a team perk to everybody, a personal
@@ -140,7 +161,8 @@ namespace PerformativeMail.Sim
             {
                 p.DraftPick = -1;
                 p.Offer = null;
-                // The same cards to everybody, each with the rerolls they have left.
+                DealIfCapped(p);
+                // The same cards to everybody (but a capped carrier with none open), each with the rerolls they have left.
                 Events.Add(OfferEvent(p, reroll: false));
             }
             EnterPhase(RunPhase.Draft, Content.Balance.GetDouble("draftSeconds"));
@@ -209,7 +231,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         private bool Offerable(PerkDef perk, int shift, List<PerkDef> offer, Player? only, IReadOnlyList<PerkDef>? avoid)
         {
-            if (perk.ShiftMin > shift || perk.RankMin > 1) return false;
+            if (!InPool(perk, shift)) return false;
             foreach (var card in offer)
                 if (ReferenceEquals(card, perk) || perk.ConflictsWith(card)) return false;
             if (avoid != null)
@@ -219,6 +241,19 @@ namespace PerformativeMail.Sim
             foreach (var p in _players)
                 if (!p.Away && CanTake(p, perk) == OpResult.Ok) return true;
             return false;
+        }
+
+        /// <summary>
+        /// Doc 01 §4.2: "the 6th pick must be a team perk if any is available". A carrier at the cap whose shared cards
+        /// are all personal (or otherwise closed to them) is dealt cards of their own, which the cap fills with team
+        /// perks; free, not a reroll. With no team perk left there is nothing to deal, and the cap gives way.
+        /// </summary>
+        private void DealIfCapped(Player p)
+        {
+            if (p.Away || !AtPersonalCap(p) || FirstOpenCard(p) >= 0) return;
+            var cards = new List<PerkDef>();
+            RollOffer(cards, Run.Shift + 1, p, null);
+            if (cards.Count > 0) p.Offer = cards;
         }
 
         private int FirstOpenCard(Player p)

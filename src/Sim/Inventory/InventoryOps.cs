@@ -98,6 +98,8 @@ namespace PerformativeMail.Sim.Inventory
         NotOnSeep,
         /// <summary>Doc 05 §4: another carrier operates the turret.</summary>
         Manned,
+        /// <summary>Doc 01 §4.2: the carrier holds five personal perks, and a team perk is still to be had.</summary>
+        PerkCapped,
     }
 
     public enum SortKey : byte { Address = 0, Size = 1 }

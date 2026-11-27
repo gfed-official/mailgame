@@ -12,6 +12,7 @@
   "draftRareWeightPerShift": 5,
   "rerollsPerRun": 1,
   "rerollSecondRank": 4,
+  "personalPerkCap": 5,
   "shopSpecialSlots": 2,
   "shopSpecialDiscount": 0.2,
   "emptyServerGraceSeconds": 60,

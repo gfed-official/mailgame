@@ -761,6 +761,7 @@ namespace PerformativeMail.Client
             {
                 case OpResult.PerkTaken: return "The team has it";
                 case OpResult.PerkMaxed: return "You hold all you can of it";
+                case OpResult.PerkCapped: return PerkCapNote(world);
                 case OpResult.PerkExcluded:
                 {
                     var with = HeldConflict(world, perk);
@@ -770,6 +771,10 @@ namespace PerformativeMail.Client
             int held = perk.Team ? 0 : perk.StacksIn(world.LocalPerks);
             return held > 0 ? $"You hold {held} of {perk.MaxStacks}" : "";
         }
+
+        /// <summary>Doc 01 §4.2: a personal card closed by the cap, while a team card is open ("5 personal perks held: a team perk now").</summary>
+        public static string PerkCapNote(ClientWorld world) =>
+            $"{world.Content.Balance.GetInt("personalPerkCap").ToString(CultureInfo.InvariantCulture)} personal perks held: a team perk now";
 
         /// <summary>The perk already in the run that keeps <paramref name="perk"/> from the local player.</summary>
         private static PerkDef? HeldConflict(ClientWorld world, PerkDef perk)

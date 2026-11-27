@@ -449,8 +449,23 @@ namespace PerformativeMail.Client
             {
                 if (perk.StacksIn(player.Perks) >= perk.MaxStacks) return OpResult.PerkMaxed;
                 if (perk.ConflictsWithAny(player.Perks)) return OpResult.PerkExcluded;
+                if (AtPersonalCap(player) && TeamCardOpen(player)) return OpResult.PerkCapped;
             }
             return perk.ConflictsWithAny(TeamPerks) ? OpResult.PerkExcluded : OpResult.Ok;
+        }
+
+        /// <summary>Doc 01 §4.2: the player holds as many personal perks as the cap allows.</summary>
+        public bool AtPersonalCap(ClientPlayer player) => player.Perks.Count >= Content.Balance.GetInt("personalPerkCap");
+
+        /// <summary>
+        /// A team card on the table is open to the player. The server deals a capped player team cards of their own
+        /// while a team perk is left (SimWorld.DealIfCapped), so a team card before them is what closes the personal ones.
+        /// </summary>
+        private bool TeamCardOpen(ClientPlayer player)
+        {
+            foreach (var card in DraftOffer)
+                if (card.Team && CanTake(player, card) == OpResult.Ok) return true;
+            return false;
         }
 
         /// <summary>What stands between the local player and a card of the Draft; Ok: it is theirs to take.</summary>

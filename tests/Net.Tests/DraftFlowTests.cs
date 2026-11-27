@@ -448,7 +448,9 @@ namespace PerformativeMail.Net.Tests
         /// Cards with a face: a team perk, a personal one that stacks, one that is held once, and
         /// Heavy Boots, which never go with Long Legs and are never dealt (the test hands them out).
         /// </summary>
-        private static readonly Lazy<ContentDb> CardFaces = new Lazy<ContentDb>(() =>
+        private static readonly Lazy<ContentDb> CardFaces = new Lazy<ContentDb>(() => LoadCardFaces(0));
+
+        private static ContentDb LoadCardFaces(int cap)
         {
             string root = DirectoryContentSource.FindContentRoot(AppContext.BaseDirectory)!;
             var source = new MemoryContentSource();
@@ -466,8 +468,41 @@ namespace PerformativeMail.Net.Tests
                 { ""id"": ""boots"", ""name"": ""Heavy Boots"", ""description"": ""Weight speed penalty -50%."", ""category"": ""defense"", ""scope"": ""personal"", ""rarity"": ""common"",
                   ""modifiers"": [ { ""stat"": ""WeightPenalty"", ""op"": ""mul"", ""value"": 0.5 } ], ""prerequisites"": { ""shiftMin"": 9 }, ""excludes"": [""legs""] }
             ]";
+            if (cap > 0) source.Files["balance.json"] = source.Files["balance.json"].Replace("\"personalPerkCap\": 5", $"\"personalPerkCap\": {cap}");
             return ContentDb.Load(source);
-        });
+        }
+
+        /// <summary>The cards of <see cref="CardFaces"/> with a personal cap of one (doc 01 §4.2 has five).</summary>
+        private static readonly Lazy<ContentDb> CardFacesCapOne = new Lazy<ContentDb>(() => LoadCardFaces(1));
+
+        [Fact]
+        public void AtThePersonalCap_ThePersonalCardsSaySo_AndOnlyTheTeamsCardIsTaken()
+        {
+            var s = new Session(CardFacesCapOne.Value);
+            var ada = s.Join("Ada");
+            // Bo holds none, so the personal cards are dealt to the table (alone, Ada would be dealt only the team's).
+            s.Join("Bo");
+            s.StartDelivery();
+            Assert.Equal(OpResult.Ok, s.Sim.GrantPerk(s.Sim.GetPlayer(ada.World!.LocalId)!, s.Content.Perk("legs")));
+            s.MeetTheQuota(ada);
+            Assert.True(s.RunUntil(() => s.Sim.Run.Phase == RunPhase.Draft, 330));
+            s.Run(10);
+            var a = ada.World!;
+            Assert.True(a.AtPersonalCap(a.Players[a.LocalId]));
+            int rep = a.DraftOffer.FindIndex(p => p.Id == "rep"), legs = a.DraftOffer.FindIndex(p => p.Id == "legs"), hands = a.DraftOffer.FindIndex(p => p.Id == "hands");
+            Assert.True(rep >= 0 && legs >= 0 && hands >= 0);
+            Assert.Equal((OpResult.Ok, OpResult.PerkCapped, OpResult.PerkCapped), (a.CardState(rep), a.CardState(legs), a.CardState(hands)));
+            Assert.Equal("1 personal perks held: a team perk now", HudText.CardNote(a, hands));
+            Assert.Equal($"Take a perk: [{rep + 1}]   ·   [R] new cards   ·   0 / 2 have chosen", HudText.PhaseHint(a));
+            // The server agrees: a personal card's key takes nothing; the team's does.
+            Assert.True(ada.PressCardKey(hands));
+            s.Run(10);
+            Assert.Equal(-1, a.LocalDraftPick);
+            Assert.True(ada.PressCardKey(rep));
+            s.Run(10);
+            Assert.Equal(rep, a.LocalDraftPick);
+            Assert.Equal("rep", s.Sim.TeamPerks.Single().Id);
+        }
 
         [Fact]
         public void ACardSaysWhatItIs_WhoTookIt_AndWhatKeepsItFromYou()

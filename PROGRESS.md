@@ -2632,6 +2632,18 @@ The report was played on f40acb7, before the HUD polish of 5f; each bug was chec
 Items 1 and 6–11: `tools/smoke.sh` (SMOKEEXIT 0: SMOKE OK ×3, BOT OK, island OK), Sim.Tests 621 and Net.Tests 227
 green; the base smoke passes rendered at 1280×720 (`--shots`).
 
+### 6. M4 — Rogue-lite depth (doc 12 M4; doc 01 §4, §6; doc 10 §4), in the docs' order (2026-11-26)
+
+- [x] **The personal perk cap** (doc 01 §4.2; design choice 155). A carrier may hold five personal perks (every stack
+      counts; `personalPerkCap` in the balance, required). At the cap a personal card is closed to them
+      (`OpResult.PerkCapped`, "5 personal perks held: a team perk now" on the card) while a team perk of the next
+      shift's pool is still open to them; with none left the cap gives way and the sixth may be personal. A capped
+      carrier whose shared cards are all closed to them is dealt three of their own at the Draft's start (free, not a
+      reroll; the cap fills them with team perks), and a reroll of theirs is team cards too. The client closes a
+      personal card while a team card before the player is open (`ClientWorld.AtPersonalCap`). `DraftTests` (the cap,
+      the deal, the cap giving way, the balance key), `DraftFlowTests.AtThePersonalCap_…`. `tools/smoke.sh`: SMOKE OK ×3,
+      the island bot once over its tick budget on a loaded box (p99 4.4 ms, mean 0.25 ms), BOT OK when run again
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4131,6 +4143,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     not read, and re-inking every panel label dark is a larger change than "theme values only"; the panels are dark
     kraft (warm brown) with a tan rim instead, which keeps every label legible and moves the look off the slate
     glass. A light-paper variant with dark ink is a follow-up if Evan wants it.
+
+155. **The personal cap when no team card is before a capped carrier.** Doc 01 §4.2: "the 6th pick must be a team perk
+    if any is available". "Available" is read as "in the pool for the next shift and open to the carrier" (shift,
+    rank, prerequisites, not taken, no exclusion), not "on the shared cards": a capped carrier whose shared cards hold
+    no open team card is dealt cards of their own, which can only be team cards, rather than going without. When no
+    team perk is left at all, the cap gives way and the pick may be personal: holding the player to nothing would make
+    the late Drafts of a long run empty for them. Left as is: if a teammate takes the only team card a capped carrier
+    was dealt, that carrier has no open card in that Draft and goes without (no new deal mid-Draft, which would need a
+    wire flag to tell it from a reroll). In a solo run the shared cards of a capped carrier are team cards only,
+    as every card already has to be one somebody present can take.
 
 ## Commands
 
