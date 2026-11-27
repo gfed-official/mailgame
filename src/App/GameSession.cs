@@ -34,6 +34,10 @@ namespace PerformativeMail.App
         public EventFeed Feed { get; } = new EventFeed();
         /// <summary>The local player's Postal Rank and stats, saved at every Payday and at Results.</summary>
         public ProfileTracker Profile { get; private set; } = null!;
+        /// <summary>The onboarding tips of a first run (doc 09 §6).</summary>
+        public TipTracker Tips { get; private set; } = null!;
+        /// <summary><c>--playtest-tips</c>: the tips as on a first run, whatever the profile has done.</summary>
+        public bool ForceTips;
         /// <summary>Host: the UDP port remote clients join on, 0 when the host does not listen.</summary>
         public int ListenPort => _enetServer?.Port ?? 0;
 
@@ -145,6 +149,7 @@ namespace PerformativeMail.App
             Client.EventReceived += ev => Feed.OnEvent(Client.World!, ev);
             Client.RequestCompleted += Feed.OnRequest;
             Profile = new ProfileTracker(Client, profile, store);
+            Tips = new TipTracker(Client, Profile, ForceTips);
         }
 
         public override void _Process(double delta)

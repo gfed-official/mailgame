@@ -37,6 +37,8 @@ namespace PerformativeMail.Client.Meta
         public ProfileUnlocks Unlocks = new ProfileUnlocks();
         /// <summary>Newest first.</summary>
         public readonly List<RecentRun> RecentRuns = new List<RecentRun>();
+        /// <summary>The onboarding tips (doc 09 §6) done or put away, never shown again (<see cref="TipTracker"/>; design choice 173).</summary>
+        public readonly List<string> TipsDone = new List<string>();
 
         public static MetaProfile Create(string displayName) =>
             new MetaProfile { ProfileId = "local:" + Guid.NewGuid().ToString("N"), DisplayName = displayName };
@@ -108,6 +110,9 @@ namespace PerformativeMail.Client.Meta
                     w.WriteEndObject();
                 }
                 w.WriteEndArray();
+                w.WriteStartArray("tipsDone");
+                foreach (string id in TipsDone) w.WriteStringValue(id);
+                w.WriteEndArray();
                 w.WriteStartObject("settings");
                 w.WriteEndObject();
                 w.WriteEndObject();
@@ -165,6 +170,7 @@ namespace PerformativeMail.Client.Meta
                         });
                     }
                 }
+                Strs(root, "tipsDone", profile.TipsDone);
                 return profile;
             }
         }

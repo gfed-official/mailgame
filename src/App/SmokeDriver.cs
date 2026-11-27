@@ -35,6 +35,8 @@ namespace PerformativeMail.App
         /// <summary>Once the close-up checks are done the remaining shifts run at one second per frame.</summary>
         private const int RunOutTicksPerFrame = 30;
         private const int BootFrames = 3;
+        /// <summary>The Lobby's frames for the "How to play" card, before the driver presses "go".</summary>
+        private const int LobbyHelpFrames = 8;
         private const int TimeoutTicks = 5400;
         /// <summary>Longer than five full shifts with their Prep and Payday.</summary>
         private const int RunTimeoutTicks = 70000;
@@ -67,6 +69,7 @@ namespace PerformativeMail.App
         private int _startWallet, _paid, _penalties, _deliveredEvents, _misdeliveredEvents, _mailArrived;
         private int _framesSinceInventoryShown;
         private bool _sawFourRows;
+        private readonly HashSet<string> _tipsSeen = new HashSet<string>();
         private bool _sawIntakePrompt, _sawMailboxPrompt, _sawManifest, _sawCarriedMail, _sawMatchMark, _sawMismatchMark;
         private int _overlayFrames, _overlayChecks;
         private string? _overlaySeen;
@@ -290,7 +293,25 @@ namespace PerformativeMail.App
                     hud.Refresh();
                     if (_frames > 0) TrackCamera();
                     if (_frames == 1) Shot("boot");
-                    if (_frames == BootFrames)
+                    // Doc 09 §6: the help key puts the "How to play" card up in the Lobby, clear of the corner's plate, the
+                    // hint and the Lobby's plates (at 1280 x 720 too), and down again.
+                    if (_frames == BootFrames) _screen.Help(client);
+                    if (_frames == BootFrames + 4)
+                    {
+                        Check(hud.OverlayText == string.Join("\n", HudText.HowToPlayLines(world)), $"the help key in the Lobby put up \"{hud.OverlayText}\"");
+                        var card = hud.Overlay.GetGlobalRect();
+                        var box = new ScreenBox(card.Position.X, card.Position.Y, card.End.X, card.End.Y);
+                        var corner = hud.TopPlate.GetGlobalRect();
+                        Check(!box.Overlaps(new ScreenBox(corner.Position.X, corner.Position.Y, corner.End.X, corner.End.Y)), $"the How to play card {card} is on the corner's plate {corner}");
+                        if (hud.HintTextBox is { } hintAt) Check(!box.Overlaps(hintAt), $"the How to play card {card} is on the hint \"{hud.HintText}\"");
+                        foreach (var row in hud.TrackerRects)
+                            Check(!box.Overlaps(new ScreenBox(row.Position.X, row.Position.Y, row.End.X, row.End.Y)), $"the How to play card {card} is on a Lobby plate at {row}");
+                        Check(GetViewport().GetVisibleRect().Encloses(card), $"the How to play card {card} runs off the screen");
+                        Shot("how-to-play");
+                    }
+                    if (_frames == BootFrames + 5) _screen.Help(client);
+                    if (_frames == BootFrames + 7) Check(hud.OverlayText.Length == 0, $"the help key left the How to play card up: \"{hud.OverlayText}\"");
+                    if (_frames == BootFrames + LobbyHelpFrames)
                     {
                         Check(server.Run.Phase == RunPhase.Lobby && world.Global.Phase == RunPhase.Lobby, $"booted into {server.Run.Phase}, not the Lobby");
                         Check(world.IsHost, "the hosting player is not the host");
@@ -298,7 +319,7 @@ namespace PerformativeMail.App
                         Check(hud.HintText.Contains($"Press {HudText.GoKey} to start", StringComparison.Ordinal), $"in the Lobby the HUD hint is \"{hud.HintText}\"");
                         Check(hud.QuotaText.Length == 0, $"in the Lobby the HUD shows a quota: \"{hud.QuotaText}\"");
                         // At Postal Rank 1 the Land kit is the one open: the hint names it, K finds no other.
-                        Check(hud.HintText.EndsWith($"{HudText.KitKey} kit: Land", StringComparison.Ordinal), $"in the Lobby the HUD hint does not name the kit: \"{hud.HintText}\"");
+                        Check(hud.HintText.Contains($"{HudText.KitKey} kit: Land", StringComparison.Ordinal), $"in the Lobby the HUD hint does not name the kit: \"{hud.HintText}\"");
                         Check(client.CycleKit() == 0, "at rank 1 the kit key asked for another kit than Land");
                         Check(_mailArrived == 0 && server.Intake.EntryCount == 0, "mail arrived before the run started");
                         // As if the screen were still drawing a new world: the Generating phase waits a few frames for it.
@@ -324,7 +345,7 @@ namespace PerformativeMail.App
                         Check(!hud.Generating.Visible, "the loading panel stayed up in Prep");
                         Enter(Stage.Prep);
                     }
-                    else if (_frames > BootFrames + 90) Fail($"the run did not leave the Lobby after the host pressed go ({world.Global.Phase})");
+                    else if (_frames > BootFrames + LobbyHelpFrames + 90) Fail($"the run did not leave the Lobby after the host pressed go ({world.Global.Phase})");
                     break;
 
                 case Stage.Prep:
@@ -813,6 +834,12 @@ namespace PerformativeMail.App
                 Check(!tracker.StartsWith("Delivered", StringComparison.Ordinal) && !tracker.StartsWith("Backlog", StringComparison.Ordinal),
                     $"the HUD's corner still shows \"{tracker}\"");
             if (world.Hotbar.EntryCount + world.Inventory.EntryCount > 0) _sawCarriedMail = true;
+            // Doc 09 §6: a first run's tips stand on the hint's line (the per-frame checks above keep it off the plate and trackers).
+            if (_screen.Hud.TipText.Length > 0)
+            {
+                Check(_screen.Hud.HintText == _screen.Hud.TipText && world.Global.Phase == RunPhase.Delivery, $"the tip \"{_screen.Hud.TipText}\" is not the hint (\"{_screen.Hud.HintText}\") in Delivery");
+                if (_tipsSeen.Add(_screen.Hud.TipText) && _tipsSeen.Count == 1) Shot("tip");
+            }
             StepCompass(world, server);
             TrackCamera();
             StepMap();
@@ -1137,6 +1164,13 @@ namespace PerformativeMail.App
             Check(_sawManifest, "the Intake manifest never listed mail");
             Check(_sawFourRows, "the Intake's screen was never seen with four inventory rows (Big Pockets twice) under the hint");
             Check(_sawCarriedMail, "no mail was ever carried");
+            // The smoke's profile has no run: shift 1 shows the Intake's tip, and taking mail puts it away for good.
+            if (_session.StartShift <= 1 && _startRuns == 0 && _session.Playtest == PlaytestFlags.None)
+            {
+                Check(_tipsSeen.Contains(HudText.Tip(world, TipTracker.Intake)), $"shift 1 of a first run showed no Intake tip (saw {string.Join(" | ", _tipsSeen)})");
+                Check(_session.Profile.Profile.TipsDone.Contains(TipTracker.Intake) && _session.Profile.Profile.TipsDone.Contains(TipTracker.Address),
+                    $"the tips done are [{string.Join(", ", _session.Profile.Profile.TipsDone)}] after the bot took and delivered mail");
+            }
             Check(_compassSeen.Length > 0, "the Local Knowledge marker was never seen");
             Check(_sawMailboxPrompt, "the mailbox prompt never showed");
             Check(_deliveredEvents > 0 && _paid > 0, "no paid delivery event reached the client");

@@ -440,7 +440,7 @@ namespace PerformativeMail.Client
             {
                 case RunPhase.Lobby:
                 {
-                    string kit = $"   ·   {KitKey} kit: {LocalKit(world).Name}";
+                    string kit = $"   ·   {KitKey} kit: {LocalKit(world).Name}   ·   {HelpKey} how to play";
                     if (world.IsHost)
                         return $"Press {GoKey} to start the run   ·   {(players == 1 ? "1 player" : $"{players} players")} here"
                             + (players > 1 ? $", {ready} ready" : "") + kit;
@@ -497,6 +497,46 @@ namespace PerformativeMail.Client
                         : $"Playtest: the shift clock is stopped   ·   {host} ends the shift";
                 default: return "";
             }
+        }
+
+        /// <summary>The Lobby's "How to play" card and, in a run, the onboarding tip put away (doc 09 §6). H.</summary>
+        public const string HelpKey = "[H]";
+
+        /// <summary>The words of an onboarding tip (<see cref="Meta.TipTracker"/>, doc 09 §6), on the hint's line.</summary>
+        public static string Tip(ClientWorld world, string id) => id switch
+        {
+            Meta.TipTracker.Intake => $"Tip: pick up mail from the Intake — [E] at the Intake, click its rows   ·   {HelpKey} hide tip",
+            Meta.TipTracker.Address => $"Tip: match the address — hold [E] at the mailbox that says MATCH   ·   {HelpKey} hide tip",
+            Meta.TipTracker.Belt => $"Tip: build a belt from the Intake's outfeed — [B], then [{BeltKey(world)}] for the belt   ·   {HelpKey} hide tip",
+            Meta.TipTracker.Raids => $"Tip: raids start next shift — build walls and turrets in Prep   ·   {HelpKey} hide tip",
+            _ => "",
+        };
+
+        /// <summary>The Build mode key of the belts' recipes ("1" .. "0", "-", "="), as the recipe bar numbers them.</summary>
+        private static string BeltKey(ClientWorld world)
+        {
+            var keys = world.Content.RecipeKeys;
+            for (int i = 0; i < keys.Count; i++)
+                foreach (var r in keys[i])
+                    if (r.Building.Carries) return i < 9 ? (i + 1).ToString(CultureInfo.InvariantCulture) : i == 9 ? "0" : i == 10 ? "-" : "=";
+            return "1";
+        }
+
+        /// <summary>The Lobby's "How to play" card (doc 09 §6): the shift loop in a few lines, its title first.</summary>
+        public static List<string> HowToPlayLines(ClientWorld world)
+        {
+            int shifts = ShiftCount(world);
+            return new List<string>
+            {
+                "HOW TO PLAY",
+                $"A run is {shifts} shifts; each is Prep, Delivery and Payday",
+                "Prep: build, buy at the Post Office counter, then " + GoKey + " ready",
+                "Delivery: take mail from the Intake and match each address",
+                "Belts, sorters and trucks carry mail once they are built",
+                "Payday: meet the quota in gold or the run ends, then take a perk",
+                "Raiders come from shift 2: keep the Post Office standing",
+                $"{HelpKey} close",
+            };
         }
 
         public const string HostLostTitle = "HOST LOST";

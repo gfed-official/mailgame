@@ -54,7 +54,7 @@ namespace PerformativeMail.Net.Tests
             Run(10);
             Assert.Same(content.Kit("sea"), bo.LocalKit);
             Assert.Equal(content.Kit("sea").Index, a.Players[b.LocalId].Kit);
-            Assert.EndsWith("[K] kit: Sea", HudText.PhaseHint(b));
+            Assert.EndsWith("[K] kit: Sea   ·   [H] how to play", HudText.PhaseHint(b));
             Assert.Contains(boFeed.Entries, e => e.Text == "Your kit: Sea — Axe, Rope ×2 for you   ·   Log ×10 for the team");
             // Round again: back to Land.
             bo.CycleKit();

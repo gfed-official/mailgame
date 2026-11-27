@@ -56,6 +56,7 @@ namespace PerformativeMail.App
             string mapId = "test_street";
             string? forcedEvent = null;
             string[]? forcedPerks = null;
+            bool forceTips = false;
             foreach (string arg in OS.GetCmdlineUserArgs())
             {
                 if (arg == "--smoke") smoke = true;
@@ -75,6 +76,8 @@ namespace PerformativeMail.App
                 else if (arg.StartsWith("--event=", StringComparison.Ordinal) && arg.Length > 8) forcedEvent = arg.Substring(8);
                 else if (arg.StartsWith("--playtest-perks=", StringComparison.Ordinal) && arg.Length > 17)
                     forcedPerks = arg.Substring(17).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                // Doc 09 §6's onboarding tips on a profile that has played (design choice 173); the client's own, not the server's.
+                else if (arg == "--playtest-tips") forceTips = true;
                 else if (arg == "--quick") quick = true;
                 // Design choice 119: the showcase map, everything built and running, the debug toggles on.
                 else if (arg == "--debug-world") { debugWorld = true; mapId = "debug_world"; }
@@ -129,7 +132,7 @@ namespace PerformativeMail.App
             // The smoke without playtest flags checks the game as it ships; with them, the flags themselves.
             bool playtesting = playtest != PlaytestFlags.None || startShift != 0 || startWallet != 0;
             if (playtesting) GD.Print($"[boot] playtest: {playtest}{(startShift != 0 ? $", shift {startShift}" : "")}{(startWallet != 0 ? $", wallet {startWallet} g" : "")}");
-            var session = new GameSession { Name = "Session", Playtest = playtest, StartShift = startShift, StartWallet = startWallet };
+            var session = new GameSession { Name = "Session", Playtest = playtest, StartShift = startShift, StartWallet = startWallet, ForceTips = forceTips };
             if (join != null && !smoke)
             {
                 ParseAddress(join, out string address, out int joinPort);

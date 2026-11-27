@@ -4,6 +4,7 @@ using PerformativeMail.Client.InputHandling;
 using PerformativeMail.Client.Presentation;
 using PerformativeMail.Client.UI;
 using PerformativeMail.Sim.Combat;
+using PerformativeMail.Sim.Run;
 
 namespace PerformativeMail.App
 {
@@ -165,6 +166,7 @@ namespace PerformativeMail.App
             layer.AddChild(PingWheel);
             PingWheel.Setup(session.Ping);
             Hud.Profile = session.Profile;
+            Hud.Tips = session.Tips;
             Hud.Setup(client, session.Interaction, session.Feed);
             // Bars over raiders and constructs keep off the HUD's plates (the e5be644 playtest's N10).
             Enemies.Camera = Camera;
@@ -206,8 +208,16 @@ namespace PerformativeMail.App
             _input.Cancelled += Cancel;
             _input.SeedCopied += () => { if (client.World != null) session.Feed.Add(HudText.SeedCopied(client.World)); };
             _input.SeedPasted += line => session.Feed.Add(line);
+            _input.HelpPressed += () => Help(client);
             AddChild(_input);
             session.InputSource = _input.Sample;
+        }
+
+        /// <summary>The help key (doc 09 §6): in the Lobby the "How to play" card up or down, in a run the tip shown put away.</summary>
+        public void Help(ClientRuntime client)
+        {
+            if (client.World?.Global.Phase == RunPhase.Lobby) Hud.HowToPlayOpen = !Hud.HowToPlayOpen;
+            else _session.Tips.Dismiss();
         }
 
         /// <summary>

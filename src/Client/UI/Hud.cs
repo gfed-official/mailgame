@@ -93,6 +93,12 @@ namespace PerformativeMail.Client.UI
         public LootPanel Loot => _loot;
         /// <summary>The local player's profile; without one the HUD shows no rank.</summary>
         public ProfileTracker? Profile;
+        /// <summary>The onboarding tips (doc 09 §6); without them the hint's line shows none.</summary>
+        public TipTracker? Tips;
+        /// <summary>The Lobby's "How to play" card is asked for (the help key); it shows while the run is in the Lobby.</summary>
+        public bool HowToPlayOpen;
+        /// <summary>The onboarding tip on the hint's line this frame, else empty.</summary>
+        public string TipText { get; private set; } = "";
         /// <summary>The lines of the Payday summary / Results panel while it is shown, else empty.</summary>
         public string OverlayText => _overlay.Visible ? _overlayText : "";
         public Control Overlay => _overlay;
@@ -624,6 +630,10 @@ namespace PerformativeMail.Client.UI
             // A playtest's note is a small tag in the top left corner, not a line competing with the banners (UI polish plan item 9).
             bool playtest = !lost && HudText.IsPlaytestHint(world);
             _hint.Text = playtest ? "" : hint;
+            // Doc 09 §6: a first run's tip stands where the hint does, while the run has nothing else to say there.
+            string? tip = lost || _hint.Text.Length > 0 ? null : Tips?.Current;
+            TipText = tip != null ? HudText.Tip(world, tip) : "";
+            if (TipText.Length > 0) _hint.Text = TipText;
             // The e5be644 playtest's N11: the shop's head stands where the hint does; under it, the hint waits.
             _hint.Visible = !(panel is { } covering && _hint.Text.Length > 0 && TextBox(_hint).Overlaps(covering));
             FitHint();
@@ -809,8 +819,10 @@ namespace PerformativeMail.Client.UI
         /// <summary>Payday shows the shift summary, Results the run results; the lines are rebuilt only when their source changes.</summary>
         private void RefreshOverlay(ClientWorld world)
         {
+            if (world.Global.Phase != RunPhase.Lobby) HowToPlayOpen = false;
             object? source = world.Global.Phase == RunPhase.Payday ? world.LastSummary
                 : world.Global.Phase == RunPhase.Results ? world.Results
+                : HowToPlayOpen ? HowToPlay
                 : null;
             // At Payday's counter the shop's cards stand where the summary does.
             _overlay.Visible = source != null && !world.ShopOpen;
@@ -829,6 +841,21 @@ namespace PerformativeMail.Client.UI
             _stamp = null;
             _overlayAge = 0f;
             if (source == null) return;
+            if (source == HowToPlay)
+            {
+                // The Lobby's card (doc 09 §6): the title as on the Payday card, the loop in plain lines.
+                var howTo = HudText.HowToPlayLines(world);
+                for (int i = 0; i < howTo.Count; i++)
+                {
+                    var line = i == 0 ? MakeDisplayLabel($"Line{i}", 28, HorizontalAlignment.Center) : MakeLabel($"Line{i}", 18, HorizontalAlignment.Center);
+                    line.Text = howTo[i];
+                    if (i == 0) line.Modulate = CardTitle;
+                    if (i == howTo.Count - 1) line.Modulate = Palette.Amber;
+                    _overlayLines.AddChild(line);
+                }
+                _overlayText = string.Join("\n", howTo);
+                return;
+            }
             var lines = source is ShiftSummary summary
                 ? HudText.SummaryLines(world, summary)
                 : HudText.ResultsLines(world, (RunResults)source, Profile?.Profile, Profile?.LastGain);
@@ -877,6 +904,8 @@ namespace PerformativeMail.Client.UI
             StepOverlay(0f);
         }
 
+        /// <summary>The overlay's source while it is the Lobby's "How to play" card.</summary>
+        private static readonly object HowToPlay = new object();
         private static readonly Color StampGrey = new Color("b8c4d0");
         private static readonly Color CardTitle = new Color("f6f0e4");
         private static readonly Color FeedGood = new Color("a8f0b0");
