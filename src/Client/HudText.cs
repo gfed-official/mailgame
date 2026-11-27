@@ -188,7 +188,7 @@ namespace PerformativeMail.Client
         /// <summary>The Lobby's keys for the uniform and the cap (doc 10 §8). Doc 09 §4 has none; U and J.</summary>
         public const string UniformKey = "[U]", CapKey = "[J]";
 
-        /// <summary>"Look: Royal Blue, Gold cap   ·   [U] [J]"; with nothing but the defaults open, when more come.</summary>
+        /// <summary>"Look: Royal Blue, Gold cap   ·   [U] [J]"; with nothing but the defaults open, "Look: team colour   ·   more at rank 15".</summary>
         public static string LookTracker(ContentDb content, Meta.Looks looks)
         {
             var u = looks.Uniform;
@@ -199,7 +199,7 @@ namespace PerformativeMail.Client
             int first = int.MaxValue;
             foreach (var d in Meta.RankUnlocks.Cosmetics(content))
                 if (d.Rank > 1) first = Math.Min(first, d.Rank);
-            return first == int.MaxValue ? worn : $"{worn}   ·   more from Postal Rank {first}";
+            return first == int.MaxValue ? worn : $"Look: team colour   ·   more at rank {first}";
         }
 
         public static string KitTracker(ClientWorld world) => $"Kit: {LocalKit(world).Name}   ·   {KitKey}";

@@ -466,6 +466,40 @@ namespace PerformativeMail.Client.UI
             return ImageTexture.CreateFromImage(image);
         }
 
+        /// <summary>How many edges the outline of the district opening next shift has on the map this frame (0 for none).</summary>
+        public int IncomingOutlineSegments { get; private set; }
+        private WorldMap? _outlineMap;
+        private int _outlineShift = -1;
+        private readonly List<(Vector2 A, Vector2 B)> _outline = new List<(Vector2, Vector2)>();
+
+        /// <summary>
+        /// The edges, in world metres, between the tiles of the district(s) opening at shift <paramref name="shift"/> + 1
+        /// (its lots, yards and houses; not its streets) and every other tile. Kept until the map or the shift changes.
+        /// </summary>
+        private List<(Vector2 A, Vector2 B)> IncomingOutline(WorldMap map, int shift)
+        {
+            if (ReferenceEquals(map, _outlineMap) && shift == _outlineShift) return _outline;
+            _outlineMap = map;
+            _outlineShift = shift;
+            _outline.Clear();
+            if (map.Districts.Count <= 1) return _outline;
+            var incoming = new HashSet<int>();
+            foreach (var d in map.Districts) if (d.UnlockShift == shift + 1) incoming.Add(d.Id);
+            if (incoming.Count == 0) return _outline;
+            bool In(int x, int y) => map.InBounds(x, y) && map.GetTile(x, y) != TileType.Street && incoming.Contains(map.TileDistrict[y * map.Cols + x]);
+            const float t = SimConstants.TileSize;
+            for (int y = 0; y < map.Rows; y++)
+                for (int x = 0; x < map.Cols; x++)
+                {
+                    if (!In(x, y)) continue;
+                    if (!In(x, y - 1)) _outline.Add((new Vector2(x * t, y * t), new Vector2((x + 1) * t, y * t)));
+                    if (!In(x, y + 1)) _outline.Add((new Vector2(x * t, (y + 1) * t), new Vector2((x + 1) * t, (y + 1) * t)));
+                    if (!In(x - 1, y)) _outline.Add((new Vector2(x * t, y * t), new Vector2(x * t, (y + 1) * t)));
+                    if (!In(x + 1, y)) _outline.Add((new Vector2((x + 1) * t, y * t), new Vector2((x + 1) * t, (y + 1) * t)));
+                }
+            return _outline;
+        }
+
         private static int Unlock(WorldMap map, int district)
         {
             foreach (var d in map.Districts) if (d.Id == district) return d.UnlockShift;
@@ -557,6 +591,10 @@ namespace PerformativeMail.Client.UI
                     DrawCircle(at, 3.5f, colour);
                     DrawString(font, at + new Vector2(12f, 5f), HudText.PingLabel(_client.World, ping), HorizontalAlignment.Left, 260f, 12, colour.Lightened(0.3f));
                 }
+            // Doc 01 §2.1 "Preview": the district that opens next shift, outlined in amber round its lots.
+            var outline = IncomingOutline(map, shift);
+            foreach (var (a, b) in outline) DrawLine(At(a.X, a.Y), At(b.X, b.Y), Palette.Amber, 2.5f);
+            IncomingOutlineSegments = outline.Count;
             // The districts not open yet say when they open.
             foreach (var district in map.Districts)
             {
@@ -576,9 +614,10 @@ namespace PerformativeMail.Client.UI
                     if (dd < best) { best = dd; middle = d; }
                 }
                 var at = At(middle!.Lot.CenterX, middle.Lot.CenterZ);
-                string text = $"Opens in shift {district.UnlockShift}";
+                bool next = district.UnlockShift == shift + 1;
+                string text = next ? "Opens next shift" : $"Opens in shift {district.UnlockShift}";
                 DrawStringOutline(font, at + new Vector2(-90f, 5f), text, HorizontalAlignment.Center, 180f, 12, 4, new Color(0f, 0f, 0f, 0.9f));
-                DrawString(font, at + new Vector2(-90f, 5f), text, HorizontalAlignment.Center, 180f, 12, new Color(0.88f, 0.88f, 0.88f));
+                DrawString(font, at + new Vector2(-90f, 5f), text, HorizontalAlignment.Center, 180f, 12, next ? Palette.Amber : new Color(0.88f, 0.88f, 0.88f));
             }
             // The raiders' ways in: a red arrowhead pointing into the town; the raid's own bright,
             // with its way to the Post Office.

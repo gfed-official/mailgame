@@ -322,7 +322,7 @@ namespace PerformativeMail.App
                         Check(hud.HintText.Contains($"{HudText.KitKey} kit: Land", StringComparison.Ordinal), $"in the Lobby the HUD hint does not name the kit: \"{hud.HintText}\"");
                         Check(client.CycleKit() == 0, "at rank 1 the kit key asked for another kit than Land");
                         // Doc 10 §8: the look's line; at rank 1 only the defaults are open, and it says when more come.
-                        Check(hud.LookText == HudText.LookTracker(world.Content, _session.Looks) && hud.LookText.StartsWith("Look: Team colour, Matching cap", StringComparison.Ordinal),
+                        Check(hud.LookText == HudText.LookTracker(world.Content, _session.Looks) && hud.LookText.StartsWith("Look: team colour", StringComparison.Ordinal),
                             $"in the Lobby the look's line reads \"{hud.LookText}\"");
                         Check(!_session.Looks.Next(PerformativeMail.Sim.Content.CosmeticKind.Uniform), "at rank 1 the uniform key found another uniform than the team colour");
                         Check(_mailArrived == 0 && server.Intake.EntryCount == 0, "mail arrived before the run started");

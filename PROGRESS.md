@@ -3179,7 +3179,7 @@ green at 24cbd0a (Sim.Tests 716, Net.Tests 245, `tools/smoke.sh` SMOKE OK ×3, B
       from 15 (uniform 15, cap 16, … up to 25), four by the doc's achievements: first Victory (the Gold cap), Victory with 3
       stamps (Stamp Violet), 1000 lifetime deliveries (Charcoal), a zero-misdelivery run (Spotless White). In the Lobby
       U steps the uniform and J the cap through what is open; the Lobby's "Look: Royal Blue, Gold cap   ·   [U] [J]"
-      plate says what is worn (at rank 1, when more come). The profile keeps them (`"cosmetics": {"uniform", "cap"}`,
+      plate says what is worn (at rank 1 "Look: team colour   ·   more at rank 15"). The profile keeps them (`"cosmetics": {"uniform", "cap"}`,
       `"achievements"`, `unlocks.cosmetics`); the client sends its look to every server it joins (`SetLook`, Lobby or
       Prep), and the others see it: the carrier's jacket and cap are drawn in it (the body drawn anew when it changes).
       The Results' "Unlocked:" line names a rank's cosmetic and an achievement's ("the Gold cap for first Victory").
@@ -3193,6 +3193,12 @@ green at 24cbd0a (Sim.Tests 716, Net.Tests 245, `tools/smoke.sh` SMOKE OK ×3, B
       team back to the Lobby and starts the run again at once on the same world, seed and stamps; N the same on a new
       seed of the same world (as the Lobby's N draws it). Client-side, no protocol change (`ClientRuntime.PlayAgain`:
       ContinueRun, then in the Lobby NewSeed and StartRun). `ResultsKeysTests`; the smoke checks the Results' hint.
+
+- [x] **The map's outline of the incoming district** (doc 01 §2.1 "Preview: the map shows the incoming district
+      outline"). The M map draws an amber line round the lots, yards and houses of the district(s) opening next shift
+      (not their streets), and that district's "Opens in shift N" reads "Opens next shift" in amber; the later ones stay
+      hatched grey with their shift. The forecast half of the preview is the Forecast Desk perk's (choice 160). The
+      smoke opens the map on the Small Island in the Lobby and checks the outline is drawn (shot `map-incoming`).
 
 ## How to build and check
 

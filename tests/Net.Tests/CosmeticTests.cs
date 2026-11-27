@@ -102,7 +102,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(royal.Index, bo.World!.Players[adaId].Uniform);
             Assert.Equal(0, bo.World.Players[adaId].Cap);
             Assert.Equal("Look: Royal Blue, Matching cap   ·   [U] [J]", HudText.LookTracker(Content, adaLooks));
-            Assert.Equal("Look: Team colour, Matching cap   ·   more from Postal Rank 15", HudText.LookTracker(Content, boLooks));
+            Assert.Equal("Look: team colour   ·   more at rank 15", HudText.LookTracker(Content, boLooks));
             Assert.False(boLooks.Next(CosmeticKind.Uniform));
 
             // J: the next cap open to her, rank 16's red; again and again, round to the Gold cap of her Victory.

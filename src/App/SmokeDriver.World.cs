@@ -68,6 +68,22 @@ namespace PerformativeMail.App
                     Check(_session.Feed.Entries.Any(e => e.Text.StartsWith("You chose Small Island · PM1-SMALL-", StringComparison.Ordinal)), "the feed does not say the host chose the island");
                     Shot("lobby-island");
                     _worldHash = world.Map.MapHash;
+                    // Doc 01 §2.1 "Preview": the map outlines the district that opens next shift.
+                    if (!_screen.Map.Visible) _screen.Map.Toggle();
+                    _worldStep = 10;
+                    _worldFrames = 0;
+                    break;
+                }
+                case 10:
+                {
+                    if (_worldFrames < 4) break;
+                    if (_worldFrames == 4)
+                    {
+                        Check(_screen.Map.IncomingOutlineSegments > 0, "on the Small Island the map draws no outline round the district opening next shift");
+                        Shot("map-incoming");
+                        break;
+                    }
+                    _screen.Map.Toggle();
                     Check(client.NewSeed() != 0, "the host's seed key asked for nothing");
                     _worldStep = 2;
                     _worldFrames = 0;
