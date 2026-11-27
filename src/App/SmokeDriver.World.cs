@@ -80,6 +80,18 @@ namespace PerformativeMail.App
                     if (_worldFrames == 4)
                     {
                         Check(_screen.Map.IncomingOutlineSegments > 0, "on the Small Island the map draws no outline round the district opening next shift");
+                        // The 24cbd0a playtest's N19: "Opens in shift N" off the street names and off each other; no crosshair on the map.
+                        var opens = _screen.Map.OpensLabelRects;
+                        Check(opens.Count > 0, "on the Small Island the map says of no district when it opens");
+                        for (int i = 0; i < opens.Count; i++)
+                        {
+                            foreach (var street in _screen.Map.StreetLabelRects)
+                                Check(!opens[i].Intersects(street), $"the map's \"Opens in shift\" label at {opens[i]} lies on a street name at {street}");
+                            for (int j = i + 1; j < opens.Count; j++)
+                                Check(!opens[i].Intersects(opens[j]), $"the map's \"Opens in shift\" labels at {opens[i]} and {opens[j]} lie on each other");
+                        }
+                        hud.Refresh();
+                        Check(!hud.CrosshairShown, "the crosshair is drawn over the map");
                         Shot("map-incoming");
                         break;
                     }

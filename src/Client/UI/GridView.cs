@@ -215,7 +215,7 @@ namespace PerformativeMail.Client.UI
                 var dest = world.Map.FindDestination(stack.Address);
                 // The stripe is the colour of the house the mail is addressed to.
                 if (dest != null) canvas.DrawRect(new Rect2(rect.Position + new Vector2(1f, 3f), new Vector2(rect.Size.X - 2f, 6f)), new Color(Palette.HouseColour(dest.Variant), alpha));
-                canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 23f), "#" + stack.Address.Number, HorizontalAlignment.Left, rect.Size.X - 3f, 13, ink);
+                canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 23f), HudText.MailTag(stack.Address, dest), HorizontalAlignment.Left, rect.Size.X - 3f, 13, ink);
                 // Doc 05 §6: cursed mail's glowing purple label — a purple rim and its word.
                 if (stack.Cursed)
                 {

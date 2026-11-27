@@ -185,6 +185,18 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>The Lobby's kit plate: "Kit: Land · [K]".</summary>
+        /// <summary>
+        /// The short tag on a mail stack in a grid: "#17" for a house, "#12-3" for a unit of an Apartment Complex, "Box 13"
+        /// for a PO box (the 24cbd0a playtest's N18: every box read the bank's "#17").
+        /// </summary>
+        public static string MailTag(AddressId address, DestinationDef? dest)
+        {
+            string number = address.Number.ToString(CultureInfo.InvariantCulture);
+            if (address.Unit == 0) return "#" + number;
+            string unit = address.Unit.ToString(CultureInfo.InvariantCulture);
+            return dest != null && dest.IsPoBoxBank ? "Box " + unit : $"#{number}-{unit}";
+        }
+
         /// <summary>The Lobby's keys for the uniform and the cap (doc 10 §8). Doc 09 §4 has none; U and J.</summary>
         public const string UniformKey = "[U]", CapKey = "[J]";
 

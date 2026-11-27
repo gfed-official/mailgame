@@ -3200,6 +3200,26 @@ green at 24cbd0a (Sim.Tests 716, Net.Tests 245, `tools/smoke.sh` SMOKE OK ×3, B
       hatched grey with their shift. The forecast half of the preview is the Forecast Desk perk's (choice 160). The
       smoke opens the map on the Small Island in the Lobby and checks the outline is drawn (shot `map-incoming`).
 
+### 8a. Playtest bugs of the 24cbd0a report (`mailgame-harness/results/20261127-120917-24cbd0a/report.md`, 2026-11-27)
+
+The report played 24cbd0a (before section 8). Its checks of the top-left plate, the 16e094f fixes, the Large Island,
+the apartments, the PO boxes and the forced perks passed or were partial for want of time at the box's frame rate; its
+tests were green (the island bot's 2 ms tick budget failed once under the box's load and passed idle). Its new bugs:
+
+- [x] **N17: the "PROTECTED at the mailbox" banner lay on the playtest's tag** ("Playtest: the shift clock is stopped")
+      under the corner's plate. The banner's line, the cards and the panels now hang under the tag while it is up
+      (`Hud.LayoutTop`), and `HintBottom` (the prompt's ceiling, the map's top, the inventory's) counts it. The raid
+      playtest smoke stops the clock for a few frames and checks the banner's line stands under the tag (shot
+      `playtest-tag`); without the fix the check fails.
+- [x] **N18: every PO box's mail read "#17" in the hotbar** (the bank's street number). A stack's tag is now "Box 13"
+      for a PO box and "#12-3" for a flat of an Apartment Complex, "#17" for a house (`HudText.MailTag`). `MailTagTests`.
+- [x] **N19: the map's "Opens in shift 3" lay on street names; the crosshair was drawn over the map.** Each such label
+      takes the first place near its district's middle house clear of the street names and the other labels
+      (`MapPanel.OpensLabelRects`), and the crosshair waits while the map is up. The smoke checks both on the Small
+      Island's map (which showed three labels on one another before).
+- Facts, as designed: `--playtest-perks` offers its perks past the pool's rank and prerequisites (extra_labels at rank
+  1); `--raid` raids inside Delivery, so the plate reads "DELIVERY".
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).

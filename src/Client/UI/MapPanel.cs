@@ -466,6 +466,19 @@ namespace PerformativeMail.Client.UI
             return ImageTexture.CreateFromImage(image);
         }
 
+        private readonly List<Rect2> _streetLabels = new List<Rect2>(), _openLabels = new List<Rect2>();
+        /// <summary>Where the street names were written on the map, last drawn.</summary>
+        public IReadOnlyList<Rect2> StreetLabelRects => _streetLabels;
+        /// <summary>Where the districts not open yet say when they open, last drawn.</summary>
+        public IReadOnlyList<Rect2> OpensLabelRects => _openLabels;
+        /// <summary>Where an "Opens in shift N" label may stand round its district's middle house, nearest first.</summary>
+        private static readonly Vector2[] LabelOffsets =
+        {
+            Vector2.Zero, new Vector2(0f, -16f), new Vector2(0f, 16f), new Vector2(0f, -32f), new Vector2(0f, 32f),
+            new Vector2(-60f, 0f), new Vector2(60f, 0f), new Vector2(0f, -48f), new Vector2(0f, 48f),
+            new Vector2(-60f, -16f), new Vector2(60f, -16f), new Vector2(-60f, 16f), new Vector2(60f, 16f),
+        };
+
         /// <summary>How many edges the outline of the district opening next shift has on the map this frame (0 for none).</summary>
         public int IncomingOutlineSegments { get; private set; }
         private WorldMap? _outlineMap;
@@ -539,6 +552,8 @@ namespace PerformativeMail.Client.UI
             DrawLayers(world, scale, At);
 
             // Street names, once per street: in the middle of its longest stretch.
+            _streetLabels.Clear();
+            _openLabels.Clear();
             var longest = new Dictionary<string, StreetDef>();
             foreach (var s in map.Streets)
                 if (!longest.TryGetValue(s.Name, out var l) || Math.Max(s.Rect.W, s.Rect.H) > Math.Max(l.Rect.W, l.Rect.H)) longest[s.Name] = s;
@@ -547,6 +562,8 @@ namespace PerformativeMail.Client.UI
                 RoutingGraph.CentreLine(s, out float x0, out float z0, out float x1, out float z1);
                 var mid = At((x0 + x1) * 0.5f, (z0 + z1) * 0.5f);
                 bool alongX = s.Rect.W >= s.Rect.H;
+                float nameWidth = font.GetStringSize(s.Name, HorizontalAlignment.Left, -1, 12).X + 6f;
+                _streetLabels.Add(alongX ? new Rect2(mid.X - nameWidth * 0.5f, mid.Y - 9f, nameWidth, 16f) : new Rect2(mid.X - 9f, mid.Y - nameWidth * 0.5f, 16f, nameWidth));
                 DrawSetTransform(mid, alongX ? 0f : -Mathf.Pi * 0.5f, Vector2.One);
                 DrawStringOutline(font, new Vector2(-100f, 4f), s.Name, HorizontalAlignment.Center, 200f, 12, 3, new Color(0f, 0f, 0f, 0.85f));
                 DrawString(font, new Vector2(-100f, 4f), s.Name, HorizontalAlignment.Center, 200f, 12, Ink);
@@ -613,9 +630,21 @@ namespace PerformativeMail.Client.UI
                     float dd = MathF.Abs(d.Lot.CenterX - sx / n) + MathF.Abs(d.Lot.CenterZ - sz / n);
                     if (dd < best) { best = dd; middle = d; }
                 }
-                var at = At(middle!.Lot.CenterX, middle.Lot.CenterZ);
+                var home = At(middle!.Lot.CenterX, middle.Lot.CenterZ);
                 bool next = district.UnlockShift == shift + 1;
                 string text = next ? "Opens next shift" : $"Opens in shift {district.UnlockShift}";
+                // The 24cbd0a playtest's N19: the label lay on street names and on the next district's. It takes the
+                // first place near its house that is clear of both.
+                float width = font.GetStringSize(text, HorizontalAlignment.Left, -1, 12).X + 8f;
+                var at = home;
+                foreach (var offset in LabelOffsets)
+                {
+                    var box = new Rect2(home.X + offset.X - width * 0.5f, home.Y + offset.Y - 9f, width, 16f);
+                    if (_streetLabels.Exists(r => r.Intersects(box)) || _openLabels.Exists(r => r.Intersects(box))) continue;
+                    at = home + offset;
+                    break;
+                }
+                _openLabels.Add(new Rect2(at.X - width * 0.5f, at.Y - 9f, width, 16f));
                 DrawStringOutline(font, at + new Vector2(-90f, 5f), text, HorizontalAlignment.Center, 180f, 12, 4, new Color(0f, 0f, 0f, 0.9f));
                 DrawString(font, at + new Vector2(-90f, 5f), text, HorizontalAlignment.Center, 180f, 12, next ? Palette.Amber : new Color(0.88f, 0.88f, 0.88f));
             }

@@ -42,7 +42,7 @@ namespace PerformativeMail.App
         private int _ptStep, _ptFrames, _ptSwings, _ptShots, _ptBlasts, _ptBlastHits, _ptDeaths, _ptProtected;
         private uint _ptDeliveryTick;
         private bool _ptWasDead, _ptSawEnemyView, _ptSawTracker, _ptBadTracker, _ptSawHammer, _ptSawCannon, _ptSawCards, _ptBadBanner, _ptPicked;
-        private int _ptMostSeen;
+        private int _ptMostSeen, _ptTagFrames;
         private readonly List<(float X, float Z)> _ptPath = new List<(float, float)>();
         private int _ptWaypoint;
         private float _ptGoalX, _ptGoalZ;
@@ -348,6 +348,22 @@ namespace PerformativeMail.App
                     }
                     // Doc 05 §6: a cursed letter at the wrong mailbox, its mini-raid seen.
                     if (StepCursedMail()) break;
+                    // The 24cbd0a playtest's N17: with the clock stopped (--playtest-no-timer, here for a few frames) the
+                    // playtest's tag stands under the plate, and the banner's line under the tag.
+                    if (_ptTagFrames < 8)
+                    {
+                        if (_ptTagFrames == 0) player.Playtest |= PlaytestFlags.NoTimer;
+                        if (++_ptTagFrames == 7)
+                        {
+                            hud.Refresh();
+                            Check(hud.PlaytestTagText.Length > 0 && hud.BannerHome >= hud.PlaytestTagRect.End.Y && hud.BannerTextRect.Position.Y >= hud.PlaytestTagRect.End.Y,
+                                $"with the clock stopped the playtest tag \"{hud.PlaytestTagText}\" at {hud.PlaytestTagRect} has the banner's line (from y {hud.BannerHome:0}, now {hud.BannerTextRect}) on it");
+                            GD.Print($"[smoke] playtest tag: \"{hud.PlaytestTagText}\" down to y {hud.PlaytestTagRect.End.Y:0}, the banner's line from y {hud.BannerHome:0}");
+                            Shot("playtest-tag");
+                            player.Playtest &= ~PlaytestFlags.NoTimer;
+                        }
+                        break;
+                    }
                     // A wall broken in the shift, for its ruin to be rebuilt in the next Prep.
                     LeaveRuinForPrep();
                     ArmPostOfficeBlow();

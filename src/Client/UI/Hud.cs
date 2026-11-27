@@ -248,6 +248,18 @@ namespace PerformativeMail.Client.UI
             }
         }
 
+        /// <summary>The top of the banner's own line, where it stands with nothing to dodge, px.</summary>
+        public float BannerHome => _bannerTop;
+        /// <summary>Where the playtest's tag's words are drawn under the plate (left-aligned).</summary>
+        public Rect2 PlaytestTagRect
+        {
+            get
+            {
+                var rect = _playtestTag.GetGlobalRect();
+                return new Rect2(rect.Position, new Vector2(TextWidth(_playtestTag), rect.Size.Y));
+            }
+        }
+
         /// <summary>How wide the banner's words are drawn, px.</summary>
         public float BannerTextWidth => TextWidth(_banner);
 
@@ -296,7 +308,9 @@ namespace PerformativeMail.Client.UI
         /// <summary>The top of the hotbar at the screen's foot.</summary>
         public float HotbarTop => _hotbar.GetGlobalRect().Position.Y;
         /// <summary>The lowest of the corner's plate and the hint while it says something: what the map, the banner and the prompt keep under.</summary>
-        public float HintBottom => Mathf.Max(_topPlate.GetGlobalRect().End.Y, _hint.Visible && _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : 0f);
+        public float HintBottom => Mathf.Max(Mathf.Max(_topPlate.GetGlobalRect().End.Y, _hint.Visible && _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : 0f),
+            // The 24cbd0a playtest's N17: the playtest's tag under the plate is kept clear as the plate is.
+            _playtestTag.Visible ? _playtestTag.GetGlobalRect().End.Y : 0f);
         private HBoxContainer _promptRow = null!;
         private Label _playtestTag = null!;
         private Label _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
@@ -629,7 +643,8 @@ namespace PerformativeMail.Client.UI
             _draft.Mouse = Mouse;
             _draft.Refresh(world);
             // The e5be644 playtest's N3: the ring stood on the card's words. The cards take the mouse; the ring waits.
-            _crosshair.Visible = !_overlay.Visible && !_draft.Visible;
+            // The 24cbd0a playtest's N19: nor on the map.
+            _crosshair.Visible = !_overlay.Visible && !_draft.Visible && MapOpen?.Invoke() != true;
             var panel = PanelBox();
             LayoutTrackers(panel);
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
@@ -645,7 +660,7 @@ namespace PerformativeMail.Client.UI
             // The e5be644 playtest's N11: the shop's head stands where the hint does; under it, the hint waits.
             _hint.Visible = !(panel is { } covering && _hint.Text.Length > 0 && TextBox(_hint).Overlaps(covering));
             FitHint();
-            LayoutTop(quota: !between, hintLow: _hintLow);
+            LayoutTop(quota: !between, hintLow: _hintLow, tag: playtest);
             _playtestTag.Text = playtest ? hint : "";
             _playtestTag.Visible = playtest;
             _paused.Visible = world.Paused || lost;
@@ -1171,9 +1186,9 @@ namespace PerformativeMail.Client.UI
         /// its words fit there at no size, under the plate; the playtest's tag under the plate; the banner, the Payday /
         /// Results card and the Draft's cards under all of them.
         /// </summary>
-        private void LayoutTop(bool quota, bool hintLow)
+        private void LayoutTop(bool quota, bool hintLow, bool tag = false)
         {
-            int layout = (quota ? 1 : 0) | (hintLow ? 2 : 0);
+            int layout = (quota ? 1 : 0) | (hintLow ? 2 : 0) | (tag ? 4 : 0);
             if (_topLayout == layout) return;
             _topLayout = layout;
             const float m = SafeMargin;
@@ -1184,6 +1199,8 @@ namespace PerformativeMail.Client.UI
             Place(_playtestTag, 0f, 0f, m, m + plateBottom + 4f, m + 420f, m + plateBottom + 22f);
             // Under the plate and the hint, whichever reaches lower (the cards of the Draft are wide enough to reach the plate's column at 720p).
             float under = Mathf.Max(m + plateBottom, hintTop + TopCorner.Hint.Bottom - TopCorner.Hint.Top);
+            // The 24cbd0a playtest's N17: the banner ("PROTECTED at the mailbox") lay on the playtest's tag under the plate.
+            if (tag) under = Mathf.Max(under, m + plateBottom + 22f);
             _bannerTop = under + 8f;
             Place(_banner, 0.5f, 0f, -520f, _bannerTop, 520f, _bannerTop + 40f);
             float panelTop = under + 10f;

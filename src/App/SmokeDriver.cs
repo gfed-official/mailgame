@@ -833,6 +833,13 @@ namespace PerformativeMail.App
             // The 16e094f playtest's "white pills": no keycap is drawn while there is no prompt.
             if (_screen.Hud.PromptText.Length == 0)
                 Check(!_screen.Hud.PromptKeycaps.Any(), $"{_screen.Hud.PromptKeycaps.Count()} empty keycaps drawn with no prompt");
+            // The 24cbd0a playtest's N17: the banner ("PROTECTED at the mailbox") lay on the playtest's tag under the plate.
+            // Its line stands under the tag while the tag is up, whether it says something or not.
+            if (_screen.Hud.PlaytestTagText.Length > 0)
+            {
+                Check(_screen.Hud.BannerTextRect.Position.Y >= _screen.Hud.PlaytestTagRect.End.Y,
+                    $"the banner's line at {_screen.Hud.BannerTextRect} (\"{_screen.Hud.BannerText}\") is on the playtest tag at {_screen.Hud.PlaytestTagRect}");
+            }
             // Design choice 168: the hint on the top row keeps off the corner's plate and the trackers standing from the top right.
             if (_screen.Hud.HintTextBox is { } hintWords)
             {
