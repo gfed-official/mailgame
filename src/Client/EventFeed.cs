@@ -9,8 +9,11 @@ using PerformativeMail.Sim.Run;
 namespace PerformativeMail.Client
 {
     /// <summary>
-    /// HUD event feed (doc 09 §2.4): the last 5 events, 6 s each. A stack goes into a mailbox item
+    /// HUD event feed (doc 09 §2.4): the last events, 6 s each. A stack goes into a mailbox item
     /// by item, so consecutive deliveries by one player to one mailbox are compressed into one line.
+    /// UI polish plan item 9 (ref Lethal Company): the HUD draws the newest four; a line said again while it is
+    /// still up counts up instead ("Mega Swarmling sighted, east ×2"); a line is good news (green), bad news (red)
+    /// or neither.
     /// </summary>
     public sealed class EventFeed
     {
@@ -23,13 +26,18 @@ namespace PerformativeMail.Client
         private const double PostOfficeNewsTicks = 10 * Sim.Core.SimConstants.TickRate;
 
         public const int MaxEntries = 5;
+        /// <summary>How many of them the HUD draws, the newest (UI polish plan item 9).</summary>
+        public const int VisibleRows = 4;
         public const double EntrySeconds = 6.0;
 
         public sealed class Entry
         {
             public string Text = "";
-            public bool Bad;
+            public bool Bad, Good;
             public double Age;
+            /// <summary>How many times the line was said while up; the text ends in " ×N" from two.</summary>
+            public int Repeats = 1;
+            internal string Said = "";
 
             internal EntityId Player;
             internal ushort DestId, Kind;
@@ -52,7 +60,23 @@ namespace PerformativeMail.Client
             if (_entries.RemoveAll(e => e.Age >= EntrySeconds) > 0) Revision++;
         }
 
-        public void Add(string text, bool bad = false) => Push(new Entry { Text = text, Bad = bad });
+        public void Add(string text, bool bad = false, bool good = false)
+        {
+            // Said again while it is up: the line counts up and starts its six seconds over, at the bottom.
+            for (int i = _entries.Count - 1; i >= 0; i--)
+            {
+                var e = _entries[i];
+                if (e.Said != text || e.Delivery || e.Kill || e.Harvest || e.Build) continue;
+                _entries.RemoveAt(i);
+                e.Repeats++;
+                e.Text = $"{text} ×{e.Repeats}";
+                e.Age = 0;
+                _entries.Add(e);
+                Revision++;
+                return;
+            }
+            Push(new Entry { Text = text, Said = text, Bad = bad, Good = good });
+        }
 
         public void OnEvent(ClientWorld world, SimEvent ev)
         {
@@ -74,7 +98,7 @@ namespace PerformativeMail.Client
                     string books = $"{HudText.Gold(s.Earned)} of {HudText.Gold(s.Quota)}";
                     // --no-quota: "quota off", as the Payday card says (the e36633c playtest read "quota missed" under "QUOTA OFF").
                     string verdict = s.QuotaMet ? "quota met" : world.QuotaWaived ? "quota off" : "quota missed";
-                    Add($"Shift {s.Shift} is over: {verdict} ({books})", bad: !s.QuotaMet && !world.QuotaWaived);
+                    Add($"Shift {s.Shift} is over: {verdict} ({books})", bad: !s.QuotaMet && !world.QuotaWaived, good: s.QuotaMet);
                     break;
                 }
                 case PhaseChangedEvent e:
@@ -361,7 +385,7 @@ namespace PerformativeMail.Client
             }
             if (entry == null)
             {
-                entry = new Entry { Delivery = true, Player = player, Machine = machine, DestId = destId, Kind = kind, Bad = bad };
+                entry = new Entry { Delivery = true, Player = player, Machine = machine, DestId = destId, Kind = kind, Bad = bad, Good = !bad };
                 Push(entry);
             }
             entry.Count++;

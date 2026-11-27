@@ -553,10 +553,18 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(new[] { "[4]  Defense Blueprint", "300 g", "Walls that hold.", "Once per run, for the whole team" }, HudText.ShopCard(a, blueprint, 3));
             // A rotating entry is on the counter because it is a special; its price is its price.
             Assert.Equal(new[] { "[5]  First-Aid Kit", "SPECIAL   ·   105 g", "Five Bandages for the price of four.", "" }, HudText.ShopCard(a, kit, 4));
+            // UI polish plan item 6: tiles in sections, a chip, a struck old price and a tag; the rest in the tooltip.
+            Assert.Equal(new[] { "[1]  Bandages  ×3", "64 g  (was 80 g)", "SPECIAL" }, HudText.ShopTile(a, bandages, 0));
+            Assert.Equal(new[] { "[2]  Planks  ×20", "140 g", "" }, HudText.ShopTile(a, planks, 1));
+            Assert.Equal(new[] { "[4]  Defense", "300 g", "ONCE A RUN" }, HudText.ShopTile(a, blueprint, 3));
+            Assert.Equal(new[] { "SHIFT 2" }, HudText.ShopTile(a, oil, 2)[2..]);
+            Assert.Equal("Bandages ×3\nEach gives 50 HP back at once.", HudText.ShopTooltip(a, bandages));
+            Assert.Equal("Defense Blueprint\nWalls that hold.\nOnce per run, for the whole team", HudText.ShopTooltip(a, blueprint));
+            Assert.Equal((HudText.ShopSection.Supplies, HudText.ShopSection.Blueprints), (HudText.ShopSectionOf(bandages), HudText.ShopSectionOf(blueprint)));
             string text = HudText.ShopText(a);
-            Assert.StartsWith("SHOP   ·   team wallet 1000 g\n[1]  Bandages ×3\n", text);
+            Assert.StartsWith("SHOP   ·   team wallet 1000 g\nSUPPLIES\n[1]  Bandages  ×3\n64 g  (was 80 g)\nSPECIAL\n", text);
             Assert.EndsWith("\n" + HudText.ShopHint, text);
-            Assert.Equal(1 + 3 + 3 + 4 + 4 + 4 + 4 + 4 + 4 + 3 + 1, text.Split('\n').Length);
+            Assert.True(text.IndexOf("\nSUPPLIES\n", StringComparison.Ordinal) < text.IndexOf("\nBLUEPRINTS\n", StringComparison.Ordinal));
             Assert.Equal("", HudText.ShopText(b));
 
             // The key of a card buys it: the card waits for the server, a second press asks nothing more.
@@ -736,5 +744,13 @@ namespace PerformativeMail.Net.Tests
                 Assert.False(w.ShopServes);
             }
         }
+
+        [Theory]
+        [InlineData("Repair Hammer", "RH")]
+        [InlineData("Axe", "Ax")]
+        [InlineData("First-Aid Kit", "FA")]
+        [InlineData("Iron Ingots", "II")]
+        [InlineData("X", "X")]
+        public void ATileWithoutAnIcon_HasALetterMark(string name, string mark) => Assert.Equal(mark, HudText.Monogram(name));
     }
 }

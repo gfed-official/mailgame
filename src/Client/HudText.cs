@@ -23,6 +23,10 @@ namespace PerformativeMail.Client
         /// <summary>The sim's integer amounts shown as gold, one gold a unit: "1820 g"; negative balances as "-150 g"
         /// (Evan, 2026-11-25; design choice 124).</summary>
         /// <summary>Doc 05 §5: the line beside the HUD's marker for a construct under attack.</summary>
+        /// <summary>The marker's short tag, read at a glance: "PO  42 m", "Stone Wall  8 m" (UI polish plan item 10).</summary>
+        public static string MarkerTag(ConstructHit hit, float metres) =>
+            $"{(hit.Def == null ? "PO" : hit.Name)}  {Math.Max(0, (int)MathF.Round(metres)).ToString(CultureInfo.InvariantCulture)} m";
+
         public static string UnderAttack(ConstructHit hit) => hit.Broke ? (hit.Def == null ? "Post Office fallen" : $"{hit.Name} broken") : $"{hit.Name} under attack";
 
         /// <summary>
@@ -82,7 +86,6 @@ namespace PerformativeMail.Client
         public const string ClockStoppedTag = "(stopped)";
         /// <summary>In the Payday hint of a missed quota that a playtest flag keeps from ending the run (nit 13).</summary>
         public const string QuotaWaivedTag = "playtest: the run goes on";
-        public const string QuotaOffTag = "playtest";
 
         public const string GoKey = "[G]";
         /// <summary>The host's keys for the world in the Lobby. Doc 09 §4 has none; V steps through the worlds, N draws a new seed.</summary>
@@ -255,6 +258,9 @@ namespace PerformativeMail.Client
         /// <summary>Esc with nothing open and others in the run: nothing stops, only the mouse is let go.</summary>
         public const string MouseReleased = "Mouse let go   ·   a click or " + PauseKey + " takes the view back";
 
+        /// <summary>Whether the phase's hint is a playtest's note (the stopped clock), shown as a corner tag, not under the plate.</summary>
+        public static bool IsPlaytestHint(ClientWorld world) => world.Global.Phase == RunPhase.Delivery && world.ClockStopped && !world.Paused;
+
         /// <summary>
         /// What the run is waiting for and what the "go" key does about it (doc 01 §1: the host
         /// starts the run, Ready ends Prep early). Empty during Delivery, unless a playtest flag has
@@ -388,14 +394,19 @@ namespace PerformativeMail.Client
         /// <summary>"Chest" for "chest", "Bike cargo" for "bike_cargo": the title over an open container.</summary>
         public static string ContainerTitle(ContainerDef def) => Capitalised(def.Id.Replace('_', ' '));
 
-        /// <summary>The Payday summary (doc 01 §1 Payday): title first, then one fact per line.</summary>
+        /// <summary>
+        /// The Payday summary (doc 01 §1 Payday) as a report card (UI polish plan item 7; ref Lethal Company, R.E.P.O.):
+        /// the title, the stamp, the postal grade, what was earned, then one row a fact.
+        /// </summary>
         public static List<string> SummaryLines(ClientWorld world, ShiftSummary s)
         {
             var lines = new List<string>
             {
+                $"SHIFT {s.Shift} — PAYDAY",
                 // --no-quota: a missed quota is no miss (the 0e940bc playtest read "QUOTA MISSED" over a run that went on).
-                s.QuotaMet ? $"SHIFT {s.Shift} — QUOTA MET" : world.QuotaWaived ? $"SHIFT {s.Shift} — QUOTA OFF ({QuotaOffTag})" : $"SHIFT {s.Shift} — QUOTA MISSED",
-                $"Earned {Gold(s.Earned)} of {Gold(s.Quota)}",
+                SummaryStamp(world, s, out _),
+                GradeLine(Math.Max(0, s.Deliveries - s.LateDeliveries), s.Deliveries + s.Misdeliveries),
+                Earned(s.Earned, s.Quota),
             };
             var kinds = new List<string>();
             for (int i = 0; i < s.DeliveriesByKind.Length; i++)
@@ -411,6 +422,41 @@ namespace PerformativeMail.Client
             if (!s.Mvp.IsNone) lines.Add($"Most deliveries: {PlayerName(world, s.Mvp)} ({s.MvpDeliveries})");
             return lines;
         }
+
+        /// <summary>Where the stamp and the grade stand in the lines of the report card, and the earned line (Payday only).</summary>
+        public const int StampLine = 1, GradeLineIndex = 2, EarnedLine = 3;
+
+        /// <summary>"Earned 1240 g of 4237 g": the line the Payday card counts up.</summary>
+        public static string Earned(int earned, int quota) => $"Earned {Gold(earned)} of {Gold(quota)}";
+
+        public enum StampTone { Good, Bad, Off }
+
+        /// <summary>Payday's rubber stamp: QUOTA MET, MISSED, or QUOTA OFF under --no-quota.</summary>
+        public static string SummaryStamp(ClientWorld world, ShiftSummary s, out StampTone tone)
+        {
+            tone = s.QuotaMet ? StampTone.Good : world.QuotaWaived ? StampTone.Off : StampTone.Bad;
+            return s.QuotaMet ? "QUOTA MET" : world.QuotaWaived ? "QUOTA OFF" : "MISSED";
+        }
+
+        /// <summary>The Results' stamp: DELIVERED for a victory, QUOTA OFF for a playtest run, else RETURNED (to sender).</summary>
+        public static string ResultsStamp(RunResults r, out StampTone tone)
+        {
+            tone = r.Outcome == RunOutcome.Victory ? StampTone.Good : r.QuotaWaived && r.Outcome != RunOutcome.PostOfficeLost ? StampTone.Off : StampTone.Bad;
+            return tone == StampTone.Good ? "DELIVERED" : tone == StampTone.Off ? "QUOTA OFF" : "RETURNED";
+        }
+
+        /// <summary>
+        /// The postal letter grade: what went to the right box in time, of all that went into a box. A from 95 %,
+        /// B from 85 %, C from 70 %, D from 50 %, else F; a dash when nothing was delivered.
+        /// </summary>
+        public static string PostalGrade(int good, int total)
+        {
+            if (total <= 0) return "—";
+            float r = good / (float)total;
+            return r >= 0.95f ? "A" : r >= 0.85f ? "B" : r >= 0.7f ? "C" : r >= 0.5f ? "D" : "F";
+        }
+
+        public static string GradeLine(int good, int total) => "Grade " + PostalGrade(good, total);
 
         /// <summary>The Results screen (doc 01 §1 RunOver / Victory): title, totals, then one line per player.</summary>
         /// <param name="profile">The local player's profile and what this run added to it; adds the Postal Rank line.</param>
@@ -435,6 +481,8 @@ namespace PerformativeMail.Client
             var lines = new List<string>
             {
                 ResultsHeadline(world.Content, r),
+                ResultsStamp(r, out _),
+                GradeLine(r.Deliveries, r.Deliveries + r.Misdeliveries),
                 $"{ShiftsLine(world.Content, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" ({Gold(r.TotalEarned)} × the stamps)" : "")}",
                 $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}",
             };
@@ -854,23 +902,107 @@ namespace PerformativeMail.Client
             return def.OncePerRun ? "Once per run, for the whole team" : "";
         }
 
-        /// <summary>The lines of a card from the top: key and name, price, what it is, and the note (empty if none).</summary>
+        /// <summary>The lines of a card from the top: key and name, price, what it is, and the note (empty if none); a tile's tooltip says them.</summary>
         public static string[] ShopCard(ClientWorld world, ShopItemDef def, int place)
         {
             return new[]
             {
                 $"{CardKey(place)}  {def.Name}",
                 ShopPriceLine(world, def),
-                ShopCompact(world) ? "" : def.Description,
+                def.Description,
                 ShopNote(world, def),
             };
         }
 
-        /// <summary>The most cards the counter lays out in full (seven rows of three, the last short, at 1280 × 720).</summary>
-        public const int ShopRoomyCards = 20;
+        // --- the shop's tiles (UI polish plan item 6; ref Webfishing, DRG) ----------------------------
 
-        /// <summary>More cards than that: four narrower ones abreast, without what each is (its name, price and note stay).</summary>
-        public static bool ShopCompact(ClientWorld world) => world.ShopShelf.Count > ShopRoomyCards;
+        /// <summary>The counter's sections, top to bottom.</summary>
+        public enum ShopSection { Supplies, Tools, Vehicles, Blueprints }
+
+        public static readonly string[] ShopSectionNames = { "SUPPLIES", "TOOLS", "VEHICLES", "BLUEPRINTS" };
+
+        public static ShopSection ShopSectionOf(ShopItemDef def) =>
+            def.Kind == ShopKind.Vehicle ? ShopSection.Vehicles
+            : def.Kind == ShopKind.Blueprint ? ShopSection.Blueprints
+            : def.Item != null && def.Item.IsTool ? ShopSection.Tools
+            : ShopSection.Supplies;
+
+        /// <summary>The shelf's places in section order, each section in shelf order (the key of a card stays its place).</summary>
+        public static List<int>[] ShopSections(IReadOnlyList<ShopItemDef> shelf)
+        {
+            var sections = new List<int>[ShopSectionNames.Length];
+            for (int i = 0; i < sections.Length; i++) sections[i] = new List<int>();
+            for (int i = 0; i < shelf.Count; i++) sections[(int)ShopSectionOf(shelf[i])].Add(i);
+            return sections;
+        }
+
+        /// <summary>What a tile is called: the section says "Blueprint", the badge the count ("Planks ×20" is "Planks").</summary>
+        public static string ShopTileName(ShopItemDef def)
+        {
+            string name = def.Name;
+            if (name.StartsWith("Blueprint: ", StringComparison.Ordinal)) name = name.Substring(11);
+            else if (name.EndsWith(" Blueprint", StringComparison.Ordinal)) name = name.Substring(0, name.Length - 10);
+            int times = name.LastIndexOf(" ×", StringComparison.Ordinal);
+            return times > 0 ? name.Substring(0, times) : name;
+        }
+
+        /// <summary>The count badge, "×20"; empty for one.</summary>
+        public static string ShopCountBadge(ShopItemDef def) => def.Count > 1 ? "×" + def.Count.ToString(CultureInfo.InvariantCulture) : "";
+
+        /// <summary>A letter-mark until there are icons: the initials of two words ("Repair Hammer" RH), else two letters ("Axe" Ax).</summary>
+        public static string Monogram(string name)
+        {
+            var words = name.Split(new[] { ' ', '-' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 0) return "?";
+            if (words.Length > 1 && char.IsLetter(words[1][0])) return char.ToUpperInvariant(words[0][0]).ToString() + char.ToUpperInvariant(words[1][0]);
+            string w = words[0];
+            return w.Length == 1 ? w.ToUpperInvariant() : char.ToUpperInvariant(w[0]).ToString() + char.ToLowerInvariant(w[1]);
+        }
+
+        /// <summary>A tile's price chip: what it costs this shift.</summary>
+        public static string ShopChip(ClientWorld world, ShopItemDef def) => Gold(world.ShopPrice(def));
+
+        /// <summary>A special's old price, struck through beside the chip; empty when it is not cheaper.</summary>
+        public static string ShopWasPrice(ClientWorld world, ShopItemDef def) =>
+            world.IsSpecial(def) && world.ShopPrice(def) < def.Price ? Gold(def.Price) : "";
+
+        /// <summary>The small tag on a tile: what stands in the way in a word or two ("OWNED", "SHIFT 3"); the chip's red says "not enough gold".</summary>
+        public static string ShopTag(ClientWorld world, ShopItemDef def)
+        {
+            if (world.IsBuying(def)) return "ON ITS WAY";
+            switch (world.ShopState(def))
+            {
+                case OpResult.ShopLocked: return "SHIFT " + def.FromShift.ToString(CultureInfo.InvariantCulture);
+                case OpResult.AlreadyOwned: return "OWNED";
+                case OpResult.DoesNotFit: return "NO ROOM";
+                case OpResult.WrongPhase: return "CLOSED";
+                case OpResult.OnePerCarrier: return "1 EACH";
+                case OpResult.NeedsBlueprint: return "NEEDS BLUEPRINT";
+            }
+            if (world.IsSpecial(def)) return SpecialWord;
+            return def.OncePerRun ? "ONCE A RUN" : "";
+        }
+
+        /// <summary>A tile's lines for the smoke, top down: key and name, the chip (and the struck price), the tag.</summary>
+        public static string[] ShopTile(ClientWorld world, ShopItemDef def, int place)
+        {
+            string key = place < 12 ? CardKey(place) + "  " : "";
+            string count = ShopCountBadge(def);
+            string was = ShopWasPrice(world, def);
+            return new[]
+            {
+                key + ShopTileName(def) + (count.Length > 0 ? "  " + count : ""),
+                ShopChip(world, def) + (was.Length > 0 ? $"  (was {was})" : ""),
+                ShopTag(world, def),
+            };
+        }
+
+        /// <summary>The hover tooltip of a tile: its whole name, what it is, the note.</summary>
+        public static string ShopTooltip(ClientWorld world, ShopItemDef def)
+        {
+            string note = ShopNote(world, def);
+            return def.Name + (def.Description.Length > 0 ? "\n" + def.Description : "") + (note.Length > 0 ? "\n" + note : "");
+        }
 
         /// <summary>Under the cards: how to buy, how to sell, how to leave.</summary>
         /// <summary>The shop key (doc 09 §4 has none, and B is Build mode there): C, for the counter.</summary>
@@ -885,9 +1017,15 @@ namespace PerformativeMail.Client
             if (!world.ShopOpen) return "";
             var lines = new List<string> { ShopTitle(world) };
             var shelf = world.ShopShelf;
-            for (int i = 0; i < shelf.Count; i++)
-                foreach (string line in ShopCard(world, shelf[i], i))
-                    if (line.Length > 0) lines.Add(line);
+            var sections = ShopSections(shelf);
+            for (int k = 0; k < sections.Length; k++)
+            {
+                if (sections[k].Count == 0) continue;
+                lines.Add(ShopSectionNames[k]);
+                foreach (int i in sections[k])
+                    foreach (string line in ShopTile(world, shelf[i], i))
+                        if (line.Length > 0) lines.Add(line);
+            }
             lines.Add(ShopHint);
             return string.Join("\n", lines);
         }

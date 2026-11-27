@@ -60,6 +60,7 @@ namespace PerformativeMail.Net.Tests
             Assert.True(a.HitWithin(wall, ClientWorld.HitShownSeconds));
             Assert.Same(hit, a.UnderAttack(a.Local.X, a.Local.Z));
             Assert.Equal("Stone Wall under attack", HudText.UnderAttack(hit));
+            Assert.Equal("Stone Wall  0 m", HudText.MarkerTag(hit, -1f));
 
             // Mended with the hammer is no blow.
             var mended = sim.Constructs.At(Tx, Tz)!;

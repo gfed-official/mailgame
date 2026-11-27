@@ -474,5 +474,22 @@ namespace PerformativeMail.Net.Tests
             feed.Update(0.2);
             Assert.Empty(feed.Entries);
         }
+
+        [Fact]
+        public void TheFeedCountsALineSaidAgain_AndKeepsItsTone()
+        {
+            // UI polish plan item 9: "Mega Swarmling sighted, east ×2", not two rows.
+            var feed = new EventFeed();
+            feed.Add("Mega Swarmling sighted, east", bad: true);
+            feed.Add("4 items of mail arrived at the Intake");
+            feed.Update(3.0);
+            feed.Add("Mega Swarmling sighted, east", bad: true);
+            Assert.Equal(2, feed.Entries.Count);
+            var last = feed.Entries[^1];
+            Assert.Equal(("Mega Swarmling sighted, east ×2", true, 0.0), (last.Text, last.Bad, last.Age));
+            feed.Add("Mega Swarmling sighted, east", bad: true);
+            Assert.Equal("Mega Swarmling sighted, east ×3", feed.Entries[^1].Text);
+            Assert.True(EventFeed.VisibleRows < EventFeed.MaxEntries);
+        }
     }
 }

@@ -835,6 +835,12 @@ namespace PerformativeMail.App
                     string want = string.Join("\n", HudText.SummaryLines(world, summary));
                     Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Payday of shift {summary.Shift} the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
                     Check(hud.PhaseText.Contains("PAYDAY", StringComparison.Ordinal), $"at Payday the HUD phase line is \"{hud.PhaseText}\"");
+                    // UI polish plan item 7: a stamp turned as if pressed by hand, and the earned gold counting up to the line.
+                    var lines = HudText.SummaryLines(world, summary);
+                    var (stamp, degrees) = hud.StampShown;
+                    Check(stamp == lines[HudText.StampLine] && Mathf.Abs(degrees - Hud.StampDegrees) < 0.5f, $"at Payday the stamp reads \"{stamp}\" turned {degrees:0.0}°, expected \"{lines[HudText.StampLine]}\"");
+                    Check(hud.EarnedShown.StartsWith("Earned ", StringComparison.Ordinal) && hud.EarnedShown.EndsWith($" of {HudText.Gold(summary.Quota)}", StringComparison.Ordinal),
+                        $"at Payday the earned line reads \"{hud.EarnedShown}\"");
                     Check(hud.HintText.Contains(summary.QuotaMet ? "uota met" : "Quota missed", StringComparison.Ordinal), $"at Payday the HUD hint is \"{hud.HintText}\"");
                     Shot($"payday{summary.Shift}");
                     break;
@@ -855,6 +861,7 @@ namespace PerformativeMail.App
                         var tracker = _session.Profile;
                         string want = string.Join("\n", HudText.ResultsLines(world, results, tracker.Profile, tracker.LastGain));
                         Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Results the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
+                        Check(hud.StampShown.Text == HudText.ResultsStamp(results, out _), $"at Results the stamp reads \"{hud.StampShown.Text}\"");
                         CheckProfile(world, results);
                         Check(hud.PhaseText.StartsWith("RESULTS", StringComparison.Ordinal), $"at Results the HUD phase line is \"{hud.PhaseText}\"");
                         Check(hud.HintText.Contains($"Press {HudText.GoKey}", StringComparison.Ordinal), $"at Results the HUD hint is \"{hud.HintText}\"");

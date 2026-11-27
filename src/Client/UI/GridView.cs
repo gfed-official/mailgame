@@ -30,6 +30,13 @@ namespace PerformativeMail.Client.UI
         private static readonly StyleBoxFlat ReservedBox = Rounded(new Color(0.10f, 0.22f, 0.30f, 0.8f), new Color(0.62f, 0.84f, 0.94f, 0.25f), 6, 1);
         private static readonly StyleBoxFlat SelectedBox = Rounded(new Color("f0a020"), new Color("ffe08a"), 6, 2);
         private static readonly StyleBoxFlat StackBox = Rounded(Colors.White, new Color(0f, 0f, 0f, 0.35f), 4, 1);
+        // The HUD's hotbar (UI polish plan item 8; ref Valheim, Peak): the held slot keeps its teal, rimmed thick in gold
+        // and lifted; an empty slot is half there.
+        private static readonly StyleBoxFlat HeldBox = Rounded(new Color(0.20f, 0.47f, 0.62f, 0.95f), new Color("ffd24a"), 7, 3);
+        private static readonly StyleBoxFlat EmptyBox = Rounded(new Color(0.16f, 0.39f, 0.52f, 0.43f), new Color(0.62f, 0.84f, 0.94f, 0.22f), 6, 1);
+        private static readonly StyleBoxFlat BadgeBox = Rounded(new Color(0.05f, 0.08f, 0.12f, 0.92f), new Color(1f, 1f, 1f, 0.25f), 4, 1);
+        /// <summary>How far the held slot rises out of the bar, px.</summary>
+        public const float HeldLift = 5f;
 
         private static StyleBoxFlat Rounded(Color fill, Color border, int radius, int borderWidth)
         {
@@ -51,6 +58,11 @@ namespace PerformativeMail.Client.UI
         public int SelectedColumn = -1;
         /// <summary>Print 1..n under the cells (the hotbar strip).</summary>
         public bool ShowSlotNumbers;
+        /// <summary>The HUD's hotbar look: the held slot lifted in a gold rim, empty slots faint, a tool's uses as a badge.</summary>
+        public bool HotbarStyle;
+        /// <summary>The badge in a slot's corner ("90" Stone shots on a Slingshot), by its stack; null or empty for none.</summary>
+        public Func<ItemStack, string>? Badge;
+        private string _drawnBadges = "";
         /// <summary>The drag of the screen this view belongs to, so the lifted stack is drawn as lifted.</summary>
         public InventoryDrag? Drag;
 
@@ -93,7 +105,11 @@ namespace PerformativeMail.Client.UI
             var c = Shown;
             uint id = c?.Id ?? 0, version = c?.Version ?? 0;
             int revision = _client?.World?.Prediction.Revision ?? -1;
-            if (id == _drawnId && version == _drawnVersion && revision == _drawnRevision && SelectedColumn == _drawnSelected) return;
+            string badges = "";
+            if (Badge != null && c != null)
+                foreach (var e in c.Entries) badges += Badge(e.Stack) + ",";
+            if (id == _drawnId && version == _drawnVersion && revision == _drawnRevision && SelectedColumn == _drawnSelected && badges == _drawnBadges) return;
+            _drawnBadges = badges;
             if (id != _drawnId) Resize();
             _drawnId = id;
             _drawnVersion = version;
@@ -115,11 +131,18 @@ namespace PerformativeMail.Client.UI
                 {
                     var rect = new Rect2(x * Cell + 2f, y * Cell + 2f, Cell - 4f, Cell - 4f);
                     bool reserved = c.IsReserved(x, y);
-                    DrawStyleBox(x == SelectedColumn ? SelectedBox : reserved ? ReservedBox : CellBox, rect);
+                    if (HotbarStyle)
+                    {
+                        bool held = x == SelectedColumn;
+                        if (held) rect.Position -= new Vector2(0f, HeldLift);
+                        DrawStyleBox(held ? HeldBox : reserved ? ReservedBox : c.EntryAt(x, y) == null ? EmptyBox : CellBox, rect);
+                    }
+                    else DrawStyleBox(x == SelectedColumn ? SelectedBox : reserved ? ReservedBox : CellBox, rect);
+                    float lift = HotbarStyle && x == SelectedColumn ? HeldLift : 0f;
                     if (reserved)
-                        DrawString(font, new Vector2(x * Cell, y * Cell + Cell * 0.58f), "hands", HorizontalAlignment.Center, Cell, 11, new Color(1f, 1f, 1f, 0.75f));
+                        DrawString(font, new Vector2(x * Cell, y * Cell + Cell * 0.58f - lift), "hands", HorizontalAlignment.Center, Cell, 11, new Color(1f, 1f, 1f, 0.75f));
                     if (ShowSlotNumbers && y == c.Rows - 1)
-                        DrawString(font, new Vector2(x * Cell + 6f, y * Cell + 15f), (x + 1).ToString(), HorizontalAlignment.Left, -1f, 10, new Color(1f, 1f, 1f, 0.7f));
+                        DrawString(font, new Vector2(x * Cell + 6f, y * Cell + 15f - lift), (x + 1).ToString(), HorizontalAlignment.Left, -1f, 10, new Color(1f, 1f, 1f, 0.7f));
                 }
             }
 
@@ -127,6 +150,7 @@ namespace PerformativeMail.Client.UI
             foreach (var e in c.Entries)
             {
                 var rect = new Rect2(e.X * Cell + 5f, e.Y * Cell + 5f, e.W * Cell - 10f, e.H * Cell - 10f);
+                if (HotbarStyle && e.X == SelectedColumn) rect.Position -= new Vector2(0f, HeldLift);
                 int count = e.Stack.Count;
                 float alpha = world.Prediction.IsPending(c.Id, e) ? PendingAlpha : 1f;
                 if (lifting && Drag!.EntryId == e.EntryId)
@@ -137,6 +161,15 @@ namespace PerformativeMail.Client.UI
                     else count -= carried;
                 }
                 DrawStack(this, font, world, e.Stack, rect, count, alpha);
+                string badge = Badge?.Invoke(e.Stack) ?? "";
+                if (badge.Length > 0)
+                {
+                    // Top right, over the corner of the slot.
+                    float w = font.GetStringSize(badge, HorizontalAlignment.Left, -1f, 10).X + 7f;
+                    var at = new Rect2(rect.End.X - w + 4f, rect.Position.Y - 5f, w, 14f);
+                    DrawStyleBox(BadgeBox, at);
+                    DrawString(font, new Vector2(at.Position.X + 3.5f, at.End.Y - 3f), badge, HorizontalAlignment.Left, -1f, 10, new Color(1f, 1f, 1f, alpha));
+                }
             }
 
         }
@@ -197,7 +230,16 @@ namespace PerformativeMail.Client.UI
             {
                 StackBox.BgColor = new Color(ItemColour, alpha);
                 canvas.DrawStyleBox(StackBox, rect);
-                canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 16f), HudText.Name(world.Content, stack), HorizontalAlignment.Left, rect.Size.X - 3f, 11, ink);
+                string name = HudText.Name(world.Content, stack);
+                canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 16f), name, HorizontalAlignment.Left, rect.Size.X - 3f, 11, ink);
+                // A tool's letter-mark until there are icons (UI polish plan item 8): "Ax", "RH", under its name.
+                if (world.Content.Items[stack.DefIndex].IsTool && rect.Size.Y >= 30f)
+                {
+                    var display = UiTheme.DisplayFont ?? font;
+                    string mark = HudText.Monogram(name);
+                    float w = display.GetStringSize(mark, HorizontalAlignment.Left, -1f, 18).X;
+                    canvas.DrawString(display, new Vector2(rect.GetCenter().X - w * 0.5f, rect.Position.Y + Mathf.Max(34f, rect.Size.Y * 0.62f)), mark, HorizontalAlignment.Left, -1f, 18, new Color(Ink, 0.55f * alpha));
+                }
             }
             if (count <= 1) return;
             // Bottom right, over the edge of the stack so two neighbours' counts never run together.

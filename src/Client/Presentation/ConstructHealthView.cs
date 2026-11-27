@@ -151,7 +151,8 @@ namespace PerformativeMail.Client.Presentation
             var p = _camera.UnprojectPosition(at);
             var screen = _marker.GetViewportRect().Size;
             bool over = EdgeMarker.Place(p.X, p.Y, behind, screen.X, screen.Y, MarkerMargin, out float x, out float y, out float angle);
-            _marker.Place(new Vector2(x, y), angle, over, HudText.UnderAttack(hit));
+            float dx = hit.X - world.Local.X, dz = hit.Z - world.Local.Z;
+            _marker.Place(new Vector2(x, y), angle, over, HudText.UnderAttack(hit), HudText.MarkerTag(hit, Mathf.Sqrt(dx * dx + dz * dz)), !hit.Broke);
         }
     }
 }

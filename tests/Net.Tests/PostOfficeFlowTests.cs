@@ -48,6 +48,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((40, false, "Post Office"), (hit.Amount, hit.Broke, hit.Name));
             Assert.Null(hit.Def);
             Assert.Equal("Post Office under attack", HudText.UnderAttack(hit));
+            // UI polish plan item 10: a tag read at a glance, and how far.
+            Assert.Equal("PO  42 m", HudText.MarkerTag(hit, 41.6f));
             Assert.Same(hit, a.UnderAttack(a.Local.X, a.Local.Z));
             Assert.Equal("Post Office   2960 / 3000 HP   ·   under attack", HudText.PostOfficeTracker(a));
             Assert.Contains(feed.Entries, e => e.Bad && e.Text == HudText.PostOfficeUnderAttack);

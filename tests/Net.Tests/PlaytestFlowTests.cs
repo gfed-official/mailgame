@@ -254,7 +254,7 @@ namespace PerformativeMail.Net.Tests
             Assert.False(world.LastSummary!.QuotaMet);
             Assert.StartsWith($"Quota off — {HudText.QuotaWaivedTag}   ·   shift 3 in 00:", HudText.PhaseHint(world));
             // The 0e940bc playtest: "SHIFT 5 — QUOTA MISSED" over a run with the quota off.
-            Assert.Equal("SHIFT 2 — QUOTA OFF (playtest)", HudText.SummaryLines(world, world.LastSummary!)[0]);
+            Assert.Equal(("SHIFT 2 — PAYDAY", "QUOTA OFF"), (HudText.SummaryLines(world, world.LastSummary!)[0], HudText.SummaryLines(world, world.LastSummary!)[HudText.StampLine]));
             // The e36633c playtest: the feed said "quota missed" under it.
             Assert.Contains(feed.Entries, e => !e.Bad && e.Text.StartsWith("Shift 2 is over: quota off (", StringComparison.Ordinal));
             Assert.DoesNotContain(feed.Entries, e => e.Text.Contains("quota missed", StringComparison.Ordinal));
@@ -285,7 +285,8 @@ namespace PerformativeMail.Net.Tests
             // The 0abedd1 playtest: the headline names the shift it ended on, not shift 1.
             var results = HudText.ResultsLines(host.World, host.World.Results!);
             Assert.Equal("RUN OVER — quota missed on shift 3", results[0]);
-            Assert.StartsWith("Shifts completed 0 / 4   ·   Score ", results[1]);
+            Assert.Equal("RETURNED", results[HudText.StampLine]);
+            Assert.StartsWith("Shifts completed 0 / 4   ·   Score ", results[3]);
             Assert.Equal(0, host.ContainerDesyncs + host.BadPackets + guest.BadPackets);
         }
 
@@ -315,7 +316,8 @@ namespace PerformativeMail.Net.Tests
             var lines = HudText.ResultsLines(world, r);
             Assert.Equal("RUN OVER — shifts 3–5 played, quota off (0 of 3 met)", lines[0]);
             // The e36633c playtest: "Shifts completed 0 / 2" after shift 4 was played with the quota off.
-            Assert.StartsWith("Shifts played 3–5   ·   quota off   ·   Score ", lines[1]);
+            Assert.Equal("QUOTA OFF", lines[HudText.StampLine]);
+            Assert.StartsWith("Shifts played 3–5   ·   quota off   ·   Score ", lines[3]);
             Assert.Equal(0, host.ContainerDesyncs + host.BadPackets);
         }
 

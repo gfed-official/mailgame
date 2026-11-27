@@ -48,6 +48,10 @@ namespace PerformativeMail.App
             if (_screen.AttackMarker.Text == "Post Office under attack")
             {
                 _poMarker = true;
+                // UI polish plan item 10: "PO  42 m" over the words, and the chevron beats while it is struck.
+                string tag = _screen.AttackMarker.Tag;
+                Check(tag.StartsWith("PO  ", StringComparison.Ordinal) && tag.EndsWith(" m", StringComparison.Ordinal) && _screen.AttackMarker.Pulsing,
+                    $"the Post Office's marker is tagged \"{tag}\"{(_screen.AttackMarker.Pulsing ? "" : ", not beating")}");
                 // The 0e940bc playtest: the marker over "PROTECTED in the yard".
                 var at = _screen.AttackMarker.WordsRect;
                 var words = new ScreenBox(at.Position.X, at.Position.Y, at.End.X, at.End.Y);

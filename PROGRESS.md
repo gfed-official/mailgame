@@ -2561,6 +2561,59 @@ The report was played on f40acb7, before the HUD polish of 5f; each bug was chec
       they are back on their feet; in the inventory before the hotbar. Only for who asked; nothing in the Lobby,
       Payday or Results (nothing is built then). No shop price or drop table changed. Protocol `m2.27` (the Hello's
       flag). `PlaytestTests.Materials_…`, `CodecTests`
+- [x] **(d-a) "The hedge past the yard blocked the way to the boulders."** Checked on the sim: no. The test street's
+      10 rock nodes (8 Boulders, 2 Ore Veins, grown by `Scenery.Generate`) were all reached from the spawn pad by a
+      flood fill over the real `PlayerMovement.ResolveCollisions` (99 360 of 104 215 free 0.2 m cells reachable, every
+      rock within reach even at twice a carrier's radius) and by a sim carrier walked to each; the nearest are 14 m
+      south-west and 17 m north of the yard. The hedge and the east palisade stand on the sim's own map edge. What
+      misled: `IslandView.Greenery` drew boulders from 3.5 m past the hedge, larger than the town's (×1.4–2.2 against
+      ×0.85–1.35), the first rocks one sees from the yard — and no node. No rocks are drawn within 15 m past the
+      town's edge now (`IslandView.RocksOff`; the island's own growth likewise); trees and bushes stay. The
+      materials flag above is the unblock either way
+
+### 5h. HUD polish, the rest (`logs/fable52/ui-polish-plan.md` items 6–11, refs in `/workspace/ui-refs/`, 2026-11-26)
+
+- [x] **The shop as icon tiles in sections** (plan item 6; ref Webfishing 03, DRG 05; design choice 153). The counter
+      is four sections — SUPPLIES, TOOLS, VEHICLES, BLUEPRINTS (`HudText.ShopSectionOf`: by kind, a tool item under
+      Tools) — that flow side by side as room allows (Tools and Vehicles share a row at 1280×720). Each card is an
+      80×84 tile drawn with StyleBoxes and strings (`ShopTile`, no art): a swatch in its section's colour with a
+      letter-mark (`HudText.Monogram`: "RH", "Ax"), the buy key as a badge top left, the count ("×20") top right, the
+      name without "Blueprint" or the count, a short tag for what stands in the way ("SHIFT 3", "OWNED", "ONCE A
+      RUN", "1 EACH", "NO ROOM") and a price chip at the foot. A special has a gold frame, a gold chip and its old
+      price struck through (a filled box, no DrawLine); a tile that cannot be bought is at half opacity, its chip red
+      when the gold is short. What it is and the whole note are the tile's tooltip (`HudText.ShopTooltip`). Keys stay
+      the shelf's places. `ShopFlowTests` (tiles, tooltip, sections, letter-marks); the smoke's shop text, card
+      count, greyed and specials checks and "every card inside the view" hold
+- [x] **Payday and Results as a stamped report card** (plan item 7; ref Lethal Company, R.E.P.O., DRG; design choice
+      153). The Payday card: "SHIFT 2 — PAYDAY", a rubber stamp turned −8° — QUOTA MET (green), MISSED (red), QUOTA
+      OFF (grey) — a rotated Label in a rimmed PanelContainer that lands with a thump, beside the postal grade in a
+      ring; "Earned 1240 g of 4237 g" in gold counting up over 1.2 s; then the rows as before (delivered by kind,
+      misdelivered and late, backlog and complaint, bonus, most deliveries). The grade (`HudText.PostalGrade`) is
+      what went to the right box in time over all that went into a box: A from 95 %, B 85, C 70, D 50, else F; a dash
+      for nothing delivered. Results: the headline, a stamp — DELIVERED for a victory, QUOTA OFF for a run with the
+      quota waived, else RETURNED — and the grade, the rows per player as before, and an XP bar under the Postal Rank
+      line filling with the count-up. `RunFlowTests`, `PlaytestFlowTests`; the smoke checks the stamp's words and
+      turn at every Payday and at Results, and the earned line
+- [x] **Hotbar polish** (plan item 8; ref Valheim, Peak). The held slot keeps its teal, rimmed thick in gold and
+      lifted 5 px out of the bar with its stack; an empty slot is drawn at half strength; a tool's tile carries its
+      letter-mark under its name ("Ax", "RH"; `HudText.Monogram`, inventory grids too); the Slingshot carries its shots
+      left as a corner badge (`GridView.HotbarStyle`, `GridView.Badge`). The held stack's name over the bar shows for
+      1.5 s after a switch (or a change of what is held) and fades in 0.4 s (`Hud.HeldAlpha`); Build mode's keys stay
+- [x] **The event feed and the banners** (plan item 9; ref Lethal Company). A line said again while it is up counts
+      up ("Mega Swarmling sighted, east ×2") and starts its six seconds over (`EventFeed.Add`); the HUD draws the newest
+      four of the doc's five (`EventFeed.VisibleRows`), the last 1.5 s of each fading; only bad news is red, good news
+      (a paid delivery, a quota met) light green. The playtest's note ("Playtest: the shift clock is stopped · [G]
+      ends the shift") is a small amber tag in the top left corner, no longer a line under the plate competing with
+      PROTECTED and the raid's banner (`HudText.IsPlaytestHint`, `Hud.PlaytestTagText`; a keep-clear box). One
+      banner at a time held already (down, else PROTECTED, else the raid). `InteractionTests.TheFeedCountsALineSaidAgain_…`
+- [x] **Edge markers that read at a glance** (plan item 10; ref DRG, Lethal Company). Over the words, a short tag and
+      the distance in the display face: "PO  42 m", "Stone Wall  8 m" (`HudText.MarkerTag`); the words under it,
+      smaller. While the construct is being struck (not broken) the chevron beats: a fading copy swells from it. The
+      tag and the words stay one group with the chevron (item 1's `GroupClear`), right-aligned when they stand left of
+      it. `PostOfficeFlowTests`, `ConstructHitFlowTests`; the raid smoke checks "PO  … m" and the beat
+- [x] Seen in a rendered 1280×720 `--shots` run: the stamp measured before the theme was on it overlapped the grade
+      ring (now measured from the face, with room for the turn), and an oil pump's prompt stood on the Results card
+      (the prompt now dodges the Payday / Results card as it does the inventory screen)
 
 ## How to build and check
 
@@ -4049,6 +4102,13 @@ See "Commands" at the bottom (filled in as the tooling lands).
     only if the panel covers them at the bottom; the prompt prefers under the panel, then over it, then the left
     gutter. `--playtest-materials` tops up rather than adds (as `--playtest-package`), so a playtest can build all
     shift without the box's resource nodes or the raiders' drops.
+
+153. **The shop's sections and the report card's grade.** The plan named the sections; which entry goes where is by
+    kind (vehicle, blueprint) and, for items, by whether the item is a tool — a First-Aid Kit is a supply. The tile's
+    key badge is the card's place on the shelf, as before, so keys do not run in order across sections; the hint
+    still says a number key buys. The grade's "in time" counts a late delivery as a miss (doc 01 has no grade);
+    Results grade the whole run on its deliveries and misdeliveries (the run keeps no late count). RETURNED is the
+    stamp of a run that ended badly, the Post Office's fall included.
 
 ## Commands
 

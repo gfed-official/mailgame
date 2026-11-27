@@ -52,6 +52,8 @@ namespace PerformativeMail.Client.UI
         /// <summary>Where the map is drawn while it is up: kept clear of world labels like the HUD's panels.</summary>
         public Func<Rect2>? MapArea;
         public string HintText => _hint.Text;
+        /// <summary>The playtest's note in the top left corner ("Playtest: the shift clock is stopped · [G] ends the shift").</summary>
+        public string PlaytestTagText => _playtestTag.Visible ? _playtestTag.Text : "";
         /// <summary>The big PAUSED line while a solo run is paused, else empty.</summary>
         public string PausedText => _paused.Visible ? _paused.Text : "";
         /// <summary>The Postal Rank line (Lobby and Results only), else empty.</summary>
@@ -139,6 +141,11 @@ namespace PerformativeMail.Client.UI
             // As wide as its words, at least: "PROTECTED in the yard   ·   until you leave it …" is wider
             // than the raid's banner, and the under-attack marker stood on its ends (the 0e940bc playtest).
             if (_banner.Visible) AddClear(_banner, Mathf.Max(BannerClearWidth, BannerTextWidth + 2f * BannerClearMargin));
+            if (_playtestTag.Visible)
+            {
+                var tag = _playtestTag.GetGlobalRect();
+                _keepClear.Add(new ScreenBox(tag.Position.X, tag.Position.Y, tag.Position.X + TextWidth(_playtestTag) + 8f, tag.End.Y));
+            }
             AddPanel(_draft);
             AddPanel(_generating);
             AddPanel(_overlay);
@@ -241,6 +248,7 @@ namespace PerformativeMail.Client.UI
         public float RepairBarValue => _repairBar.Visible ? _repairBar.Value : -1f;
         private PromptCard _card = null!;
         private HBoxContainer _promptRow = null!;
+        private Label _playtestTag = null!;
         private Label _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
         private ColorRect _hurt = null!;
@@ -259,7 +267,7 @@ namespace PerformativeMail.Client.UI
         private const float RecipeCardGap = 18f;
         /// <summary>How far the feed goes up while Build mode is up, for the recipe bar's fifth row and the keys line over it.</summary>
         private const float FeedLiftBuilding = 36f;
-        private readonly Label[] _feedLines = new Label[EventFeed.MaxEntries];
+        private readonly Label[] _feedLines = new Label[EventFeed.VisibleRows];
         private int _feedRevision = -1;
         private RunPhase _clockPhase;
         private int _clockShift;
@@ -303,6 +311,9 @@ namespace PerformativeMail.Client.UI
             // What the run waits for and what the "go" key does, under the plate.
             _hint = AddLabel("Hint", 18, 0.5f, 0f, -520f, 0f, 520f, 0f, HorizontalAlignment.Center);
             _hint.Modulate = Palette.Amber;
+            _playtestTag = AddLabel("PlaytestTag", 13, 0f, 0f, m, m - 8f, m + 420f, m + 12f, HorizontalAlignment.Left);
+            _playtestTag.Modulate = Palette.Amber;
+            _playtestTag.Visible = false;
 
             // The raid warning and the countdown while down: across the view, above the crosshair.
             _banner = AddLabel("Banner", 28, 0.5f, 0.25f, -520f, -20f, 520f, 20f, HorizontalAlignment.Center, display: true);
@@ -424,7 +435,15 @@ namespace PerformativeMail.Client.UI
             _worldKeys = AddTracker("WorldKeys", 3, new Color("b8c4d0"));
             _stamps = AddTracker("Stamps", 4, Palette.Cursed);
 
-            _hotbar = new GridView { Name = "Hotbar", ShowSlotNumbers = true, MouseFilter = MouseFilterEnum.Ignore };
+            _hotbar = new GridView { Name = "Hotbar", ShowSlotNumbers = true, HotbarStyle = true, MouseFilter = MouseFilterEnum.Ignore };
+            // The Slingshot's shots left as a badge on it (UI polish plan item 8).
+            _hotbar.Badge = stack =>
+            {
+                var world = client.World;
+                if (world == null || stack.Kind != StackKind.Item) return "";
+                var def = world.Content.Items[stack.DefIndex];
+                return def.Shoots && def.Ammo != null ? SlingRules.Shots(def, client.SlingLoaded, world.Hotbar, world.Inventory).ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+            };
             _hotbar.Setup(client, world => world.Hotbar);
             float half = _hotbar.CustomMinimumSize.X * 0.5f;
             _hotbar.AnchorLeft = _hotbar.AnchorRight = 0.5f;
@@ -476,6 +495,9 @@ namespace PerformativeMail.Client.UI
         {
             Refresh();
             StepEarnPop((float)delta);
+            StepOverlay((float)delta);
+            _heldAge += (float)delta;
+            _held.SelfModulate = new Color(1f, 1f, 1f, HeldAlpha);
             var world = _client?.World;
             if (world == null || !world.HasLocal) return;
             _hurtFlash = Mathf.MoveToward(_hurtFlash, 0f, (float)delta * 2.5f);
@@ -546,7 +568,12 @@ namespace PerformativeMail.Client.UI
             LayoutTrackers(panel);
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
             bool lost = _client!.State == ClientState.Disconnected;
-            _hint.Text = lost ? HudText.HostLostHint : HudText.PhaseHint(world);
+            string hint = lost ? HudText.HostLostHint : HudText.PhaseHint(world);
+            // A playtest's note is a small tag in the top left corner, not a line competing with the banners (UI polish plan item 9).
+            bool playtest = !lost && HudText.IsPlaytestHint(world);
+            _hint.Text = playtest ? "" : hint;
+            _playtestTag.Text = playtest ? hint : "";
+            _playtestTag.Visible = playtest;
             _paused.Visible = world.Paused || lost;
             _paused.Text = lost ? HudText.HostLostTitle : HudText.PausedTitle;
             _mouseNote.Visible = Mouse != null && Mouse.Released && !Mouse.PanelOpen && !_paused.Visible;
@@ -604,7 +631,7 @@ namespace PerformativeMail.Client.UI
             }
             _card.SetText(text);
             FitPrompt();
-            _promptOnHeld = DodgePrompt(panel) && text.Length > 0;
+            DodgePrompt(panel);
             _card.SetTone(tone == PromptTone.Match ? Palette.Match : tone == PromptTone.Mismatch ? Palette.Mismatch : Colors.White);
             _mark.Tone = text.Length > 0 ? tone : PromptTone.Neutral;
             float mendHealth = building || MapOpen?.Invoke() == true ? -1f : HudText.RepairTargetHealth(world, _client!.Input.HeldSlot);
@@ -620,8 +647,7 @@ namespace PerformativeMail.Client.UI
             _held.Text = held == null ? "" : HudText.Held(world, held.Stack);
             var heldDest = held != null && held.Stack.Kind == StackKind.Mail ? world.Map.FindDestination(held.Stack.Address) : null;
             _held.Modulate = heldDest != null ? Palette.HouseColour(heldDest.Variant).Lightened(0.35f) : Colors.White;
-            // Under an open panel's foot the prompt may stand where the held stack's name does: the panel shows the hotbar.
-            _held.Visible = !_loot.Cards.Visible && !_promptOnHeld;
+            _held.Visible = !_loot.Cards.Visible;
             // Over the hotbar, or over the recipe bar's rows while Build mode is up.
             float m = SafeMargin;
             _held.OffsetTop = building ? -m - RecipeBarHeight - 24f : -GridView.Cell - m - 30f;
@@ -640,6 +666,13 @@ namespace PerformativeMail.Client.UI
                 _held.Modulate = Palette.Amber;
                 _held.Visible = true;
             }
+            // UI polish plan item 8 (ref Valheim): the name of what is in the hand shows for a moment after a switch, then fades.
+            string heldKey = building ? "" : $"{slot}|{_held.Text}";
+            if (heldKey != _heldKey)
+            {
+                _heldKey = heldKey;
+                _heldAge = 0f;
+            }
             // The keys of Build mode fit over the recipe bar, clear of the trackers beside it.
             _held.AddThemeFontSizeOverride("font_size", building ? 14 : 16);
 
@@ -652,8 +685,17 @@ namespace PerformativeMail.Client.UI
                 {
                     var entry = i >= offset ? _feed.Entries[i - offset] : null;
                     _feedLines[i].Text = entry?.Text ?? "";
-                    _feedLines[i].Modulate = entry != null && entry.Bad ? Palette.Mismatch : Colors.White;
+                    // Only bad news is red; good news is green (UI polish plan item 9).
+                    _feedLines[i].Modulate = entry == null ? Colors.White : entry.Bad ? Palette.Mismatch : entry.Good ? FeedGood : Colors.White;
                 }
+            }
+            // The last second and a half of a line's six, it fades.
+            int first = _feedLines.Length - _feed.Entries.Count;
+            for (int i = 0; i < _feedLines.Length; i++)
+            {
+                var entry = i >= first ? _feed.Entries[i - first] : null;
+                float alpha = entry == null ? 1f : Mathf.Clamp((float)((EventFeed.EntrySeconds - entry.Age) / FeedFadeSeconds), 0f, 1f);
+                _feedLines[i].SelfModulate = new Color(1f, 1f, 1f, alpha);
             }
         }
 
@@ -710,28 +752,164 @@ namespace PerformativeMail.Client.UI
 
             foreach (var child in _overlayLines.GetChildren()) child.QueueFree();
             _overlayText = "";
+            _earnedLabel = null;
+            _xpBar = null;
+            _stamp = null;
+            _overlayAge = 0f;
             if (source == null) return;
             var lines = source is ShiftSummary summary
                 ? HudText.SummaryLines(world, summary)
                 : HudText.ResultsLines(world, (RunResults)source, Profile?.Profile, Profile?.LastGain);
-            bool good = source is ShiftSummary s ? s.QuotaMet : ((RunResults)source).Outcome == RunOutcome.Victory;
+            HudText.StampTone tone;
+            if (source is ShiftSummary ss)
+            {
+                HudText.SummaryStamp(world, ss, out tone);
+                _earnedTarget = ss.Earned;
+                _earnedQuota = ss.Quota;
+            }
+            else HudText.ResultsStamp((RunResults)source, out tone);
+            var toneColour = tone == HudText.StampTone.Good ? Palette.Match : tone == HudText.StampTone.Bad ? Palette.Mismatch : StampGrey;
             for (int i = 0; i < lines.Count; i++)
             {
-                var label = i == 0 ? MakeDisplayLabel($"Line{i}", 28, HorizontalAlignment.Center) : MakeLabel($"Line{i}", 18, HorizontalAlignment.Center);
+                if (i == HudText.GradeLineIndex) continue;
+                if (i == HudText.StampLine)
+                {
+                    _overlayLines.AddChild(StampRow(lines[i], lines[HudText.GradeLineIndex], toneColour));
+                    continue;
+                }
+                bool earned = source is ShiftSummary && i == HudText.EarnedLine;
+                var label = i == 0 ? MakeDisplayLabel($"Line{i}", 28, HorizontalAlignment.Center)
+                    : earned ? MakeDisplayLabel($"Line{i}", 24, HorizontalAlignment.Center)
+                    : MakeLabel($"Line{i}", 18, HorizontalAlignment.Center);
                 label.Text = lines[i];
-                if (i == 0) label.Modulate = good ? Palette.Match : Palette.Mismatch;
+                if (earned)
+                {
+                    // Counted up from nothing (UI polish plan item 7; ref R.E.P.O.).
+                    label.Modulate = Palette.Gold;
+                    label.Text = HudText.Earned(0, _earnedQuota);
+                    _earnedLabel = label;
+                }
                 _overlayLines.AddChild(label);
+                // The Results' rank line has the XP towards the next rank as a bar under it, filling.
+                if (source is RunResults && Profile != null && i == lines.Count - 1 && lines[i].Contains("Postal Rank", StringComparison.Ordinal))
+                {
+                    int perRank = HudText.RankXpPerRank(world.Content);
+                    _xpTarget = perRank > 0 ? Mathf.Clamp(Profile.Profile.XpIntoRank(perRank) / (float)perRank, 0f, 1f) : 0f;
+                    _xpBar = new MeterBar { Name = "XpBar", Fill = new Color("c3a6ff"), CustomMinimumSize = new Vector2(360f, 8f), SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
+                    _overlayLines.AddChild(_xpBar);
+                }
             }
             _overlayText = string.Join("\n", lines);
+            StepOverlay(0f);
+        }
+
+        private static readonly Color StampGrey = new Color("b8c4d0");
+        private static readonly Color FeedGood = new Color("a8f0b0");
+        private const float FeedFadeSeconds = 1.5f;
+        private string _heldKey = "";
+        private float _heldAge;
+        /// <summary>How long the held stack's name stays after a switch, then how long it takes to fade, s.</summary>
+        public const float HeldShowSeconds = 1.5f, HeldFadeSeconds = 0.4f;
+        /// <summary>How much of the held stack's name is drawn this frame: 1 after a switch, 0 once faded (Build mode's keys stay).</summary>
+        public float HeldAlpha => _heldKey.Length == 0 ? 1f : Mathf.Clamp(1f - (_heldAge - HeldShowSeconds) / HeldFadeSeconds, 0f, 1f);
+        /// <summary>How long the earned gold and the XP bar take to count up, s; the stamp's thump.</summary>
+        private const float CountUpSeconds = 1.2f, StampSeconds = 0.25f;
+        private Label? _earnedLabel;
+        private MeterBar? _xpBar;
+        private Control? _stamp;
+        private int _earnedTarget, _earnedQuota;
+        private float _xpTarget, _overlayAge;
+
+        /// <summary>What the Payday card's earned line reads this frame (it counts up), for the smoke.</summary>
+        public string EarnedShown => _earnedLabel?.Text ?? "";
+        /// <summary>The stamp's words and its turn, while the card is up.</summary>
+        public (string Text, float Degrees) StampShown => _stamp is { } st && st.GetChildCount() > 0 && st.GetChild(0) is Label l ? (l.Text, Mathf.RadToDeg(st.Rotation)) : ("", 0f);
+
+        /// <summary>
+        /// The stamp, a word in a rimmed plate turned 8° as if pressed by hand (a rotated Label in a PanelContainer, no
+        /// texture), beside the postal grade in a ring.
+        /// </summary>
+        private Control StampRow(string stamp, string grade, Color colour)
+        {
+            var row = new HBoxContainer { Name = "StampRow", Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
+            row.AddThemeConstantOverride("separation", 28);
+            var plate = new StyleBoxFlat { BgColor = new Color(colour, 0.08f), BorderColor = colour, AntiAliasing = true };
+            plate.SetBorderWidthAll(4);
+            plate.SetCornerRadiusAll(6);
+            plate.SetContentMarginAll(8f);
+            plate.ContentMarginLeft = plate.ContentMarginRight = 16f;
+            var stampBox = new PanelContainer { Name = "Stamp", MouseFilter = MouseFilterEnum.Ignore };
+            stampBox.AddThemeStyleboxOverride("panel", plate);
+            var word = MakeDisplayLabel("Word", 30, HorizontalAlignment.Center);
+            word.Text = stamp;
+            word.Modulate = colour;
+            stampBox.AddChild(word);
+            // The holder keeps the row's room; the plate turns inside it about its middle.
+            var holder = new Control { Name = "StampHolder", MouseFilter = MouseFilterEnum.Ignore };
+            // Measured from the face, not the plate: out of the tree the theme is not on it yet.
+            var face = UiTheme.DisplayFont ?? GetThemeDefaultFont();
+            var size = face.GetStringSize(stamp, HorizontalAlignment.Left, -1f, 30) + new Vector2(2f * 16f + 8f, 2f * 8f + 8f);
+            // Room for the turn: a plate turned 8° reaches out by its height's share at each end.
+            holder.CustomMinimumSize = size + new Vector2(16f + size.Y * 0.3f, 18f + size.X * 0.14f);
+            stampBox.Position = (holder.CustomMinimumSize - size) * 0.5f;
+            stampBox.Size = size;
+            stampBox.PivotOffset = size * 0.5f;
+            stampBox.Rotation = Mathf.DegToRad(StampDegrees);
+            holder.AddChild(stampBox);
+            row.AddChild(holder);
+            _stamp = stampBox;
+
+            var ring = new StyleBoxFlat { BgColor = new Color(0f, 0f, 0f, 0.25f), BorderColor = colour, AntiAliasing = true };
+            ring.SetBorderWidthAll(3);
+            ring.SetCornerRadiusAll(32);
+            var gradeBox = new PanelContainer { Name = "Grade", MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(64f, 64f), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+            gradeBox.AddThemeStyleboxOverride("panel", ring);
+            var letter = MakeDisplayLabel("Letter", 34, HorizontalAlignment.Center);
+            letter.Text = grade.Substring(grade.LastIndexOf(' ') + 1);
+            gradeBox.AddChild(letter);
+            var gradeCol = new VBoxContainer { Name = "GradeColumn", MouseFilter = MouseFilterEnum.Ignore, Alignment = BoxContainer.AlignmentMode.Center };
+            var caption = MakeLabel("Caption", 12, HorizontalAlignment.Center);
+            caption.Text = "GRADE";
+            caption.Modulate = new Color(1f, 1f, 1f, 0.7f);
+            gradeCol.AddChild(gradeBox);
+            gradeCol.AddChild(caption);
+            row.AddChild(gradeCol);
+            return row;
+        }
+
+        /// <summary>The stamp's turn, degrees (anticlockwise, as a right hand presses it).</summary>
+        public const float StampDegrees = -8f;
+
+        /// <summary>The card's count-up and the stamp's thump, a frame at a time.</summary>
+        private void StepOverlay(float delta)
+        {
+            if (_earnedLabel == null && _xpBar == null && _stamp == null) return;
+            _overlayAge += delta;
+            float t = Mathf.Clamp(_overlayAge / CountUpSeconds, 0f, 1f);
+            float eased = 1f - (1f - t) * (1f - t) * (1f - t);
+            if (_earnedLabel != null)
+            {
+                string text = HudText.Earned(Mathf.RoundToInt(_earnedTarget * eased), _earnedQuota);
+                if (_earnedLabel.Text != text) _earnedLabel.Text = text;
+            }
+            if (_xpBar != null) _xpBar.Value = _xpTarget * eased;
+            if (_stamp != null)
+            {
+                float k = Mathf.Clamp(_overlayAge / StampSeconds, 0f, 1f);
+                float scale = 1f + 0.6f * (1f - k) * (1f - k);
+                _stamp.Scale = new Vector2(scale, scale);
+            }
         }
 
         private bool? _topWithQuota;
 
-        /// <summary>The inventory screen's box while it is up (the Intake, a chest, the bag), else null.</summary>
+        /// <summary>The box of what covers the middle of the screen: the inventory screen (the Intake, a chest, the bag) or the Payday / Results card; else null.</summary>
         private ScreenBox? PanelBox()
         {
-            if (Panel == null || !Panel.Visible || !Panel.IsInsideTree()) return null;
-            var rect = Panel.GetGlobalRect();
+            // The inventory screen, else the Payday / Results card (the 720p Results had a pump's prompt on it).
+            Control? up = Panel != null && Panel.Visible && Panel.IsInsideTree() ? Panel : _overlay.Visible && _overlay.IsInsideTree() ? _overlay : null;
+            if (up == null) return null;
+            var rect = up.GetGlobalRect();
             return new ScreenBox(rect.Position.X, rect.Position.Y, rect.End.X, rect.End.Y);
         }
 
@@ -765,27 +943,20 @@ namespace PerformativeMail.Client.UI
         /// <summary>Whether the trackers stand from the top right this frame, out of an open panel's way.</summary>
         public bool TrackersFromTop { get; private set; }
 
-        private bool _promptOnHeld;
-
-        /// <summary>
-        /// The prompt under the crosshair, or out of the way of an open panel that covers it ("Close Intake [E]").
-        /// True when it stands where the held stack's name is drawn.
-        /// </summary>
-        private bool DodgePrompt(ScreenBox? panel)
+        /// <summary>The prompt under the crosshair, or out of the way of an open panel that covers it ("Close Intake [E]").</summary>
+        private void DodgePrompt(ScreenBox? panel)
         {
-            if (!IsInsideTree()) return false;
+            if (!IsInsideTree()) return;
             var screen = GetViewportRect().Size;
             var card = _card.GetCombinedMinimumSize();
             float mid = screen.Y * 0.5f, tall = Mathf.Max(PromptRowHeight, card.Y);
-            // Under the hint at the top, over the hotbar at the foot.
-            float ceiling = _hint.GetGlobalRect().End.Y + 4f, floor = screen.Y - SafeMargin - GridView.Cell - 4f;
+            // Under the hint at the top, over the held stack's name at the foot.
+            float ceiling = _hint.GetGlobalRect().End.Y + 4f, floor = screen.Y - SafeMargin - GridView.Cell - 34f;
             var row = PanelDodge.Prompt(mid + PromptRowTop, tall, card.X + _mark.CustomMinimumSize.X + 10f, panel, ceiling, floor, screen.X, SafeMargin);
             _promptRow.OffsetLeft = row.X0;
             _promptRow.OffsetRight = row.X1 - screen.X;
             _promptRow.OffsetTop = row.Y0 - mid;
             _promptRow.OffsetBottom = row.Y0 - mid + PromptRowHeight;
-            float heldTop = screen.Y - GridView.Cell - SafeMargin - 30f;
-            return row.Y1 > heldTop && row.Y0 < heldTop + 26f && row.X0 <= SafeMargin;
         }
 
         private const float PromptRowTop = 40f, PromptRowHeight = 34f;

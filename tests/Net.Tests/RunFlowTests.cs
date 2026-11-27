@@ -173,16 +173,19 @@ namespace PerformativeMail.Net.Tests
 
             Assert.True(s.StepUntil(() => world.Global.Phase == RunPhase.Payday, 241));
             var summary = HudText.SummaryLines(world, world.LastSummary!);
-            Assert.Equal("SHIFT 1 — QUOTA MISSED", summary[0]);
-            Assert.Equal($"Earned {HudText.Gold(kind.BaseValue)} of 600 g", summary[1]);
-            Assert.Equal("Delivered 1 Letter", summary[2]);
-            Assert.Equal("Misdelivered 0   ·   Late 0", summary[3]);
+            // UI polish plan item 7: a report card — the title, the stamp, the postal grade, the earned line.
+            Assert.Equal("SHIFT 1 — PAYDAY", summary[0]);
+            Assert.Equal("MISSED", summary[HudText.StampLine]);
+            Assert.Equal("Grade A", summary[HudText.GradeLineIndex]);
+            Assert.Equal($"Earned {HudText.Gold(kind.BaseValue)} of 600 g", summary[HudText.EarnedLine]);
+            Assert.Equal("Delivered 1 Letter", summary[4]);
+            Assert.Equal("Misdelivered 0   ·   Late 0", summary[5]);
             // The Backlog and the Complaint, off the HUD's corner (UI polish plan item 4).
-            Assert.Equal(HudText.Status(world.Global), summary[4]);
-            Assert.StartsWith("Backlog ", summary[4]);
+            Assert.Equal(HudText.Status(world.Global), summary[6]);
+            Assert.StartsWith("Backlog ", summary[6]);
             // 10 % of one letter rounds down to nothing, so there is no bonus line.
-            Assert.Equal("Most deliveries: Ada (1)", summary[5]);
-            Assert.Equal(6, summary.Count);
+            Assert.Equal("Most deliveries: Ada (1)", summary[7]);
+            Assert.Equal(8, summary.Count);
             Assert.Equal($"{HudText.Tally(world.Global)}   ·   {HudText.Status(world.Global)}", HudText.ShiftTally(world.Global));
             Assert.StartsWith("Shift 1 / 5   PAYDAY 00:", HudText.ShiftAndPhase(world));
             Assert.StartsWith("Quota missed — results in 00:", HudText.PhaseHint(world));
@@ -195,10 +198,11 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("", HudText.ShiftTally(world.Global));
             var results = HudText.ResultsLines(world, world.Results!);
             Assert.Equal("RUN OVER — quota missed on shift 1", results[0]);
-            Assert.StartsWith("Shifts completed 0 / 5   ·   Score ", results[1]);
-            Assert.Equal("Delivered 1   ·   Misdelivered 0", results[2]);
-            Assert.StartsWith("Ada:   1 delivered, 0 misdelivered", results[3]);
-            Assert.EndsWith("+5 XP", results[3]);
+            Assert.Equal(("RETURNED", "Grade A"), (results[HudText.StampLine], results[HudText.GradeLineIndex]));
+            Assert.StartsWith("Shifts completed 0 / 5   ·   Score ", results[3]);
+            Assert.Equal("Delivered 1   ·   Misdelivered 0", results[4]);
+            Assert.StartsWith("Ada:   1 delivered, 0 misdelivered", results[5]);
+            Assert.EndsWith("+5 XP", results[5]);
             // Design choice 124: gold on screen, never dollars or cents.
             foreach (string line in summary.Concat(results).Concat(feed.Entries.Select(e => e.Text)))
             {
