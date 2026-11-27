@@ -56,7 +56,8 @@ namespace PerformativeMail.Sim.Tests
                 {
                     int tx = (int)MathF.Floor(d.MailboxX / SimConstants.TileSize), tz = (int)MathF.Floor(d.MailboxZ / SimConstants.TileSize);
                     Assert.False(map.IsSolid(tx, tz));
-                    Assert.Equal(TileType.Lot, map.GetTile(d.Lot.X + 3, d.Lot.Y + (d.Building.Y == d.Lot.Y ? 3 : 0)));
+                    // (The PO Box Bank's boxes stand on the verge before the Post Office, no lot of their own.)
+                    if (!d.IsPoBoxBank) Assert.Equal(TileType.Lot, map.GetTile(d.Lot.X + 3, d.Lot.Y + (d.Building.Y == d.Lot.Y ? 3 : 0)));
                 }
                 // A beach along the south shore, the Post Office on the main street with its counter.
                 Assert.Equal(TileType.Beach, map.GetTile(1, map.LandRows - 1));
@@ -101,7 +102,7 @@ namespace PerformativeMail.Sim.Tests
         public void NumbersRunFromTheWestEnd_OddNorthEvenSouth()
         {
             var map = WorldGenerator.Generate(Db, 7);
-            foreach (var group in map.Destinations.GroupBy(d => d.Street.Name))
+            foreach (var group in map.Destinations.Where(d => !d.IsPoBoxBank).GroupBy(d => d.Street.Name))
             {
                 foreach (var d in group)
                 {

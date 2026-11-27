@@ -49,7 +49,8 @@ namespace PerformativeMail.Client
             if (!world.HasLocal) return;
             foreach (var container in new[] { world.Hotbar, world.Inventory })
                 foreach (var e in container.Entries)
-                    if (e.Stack.Kind == StackKind.Mail) Carried.Add(e.Stack.Address);
+                    // By the destination's own address: an apartment's or a bank's mail is for one of its units.
+                    if (e.Stack.Kind == StackKind.Mail) Carried.Add(world.Map.FindDestination(e.Stack.Address)?.Address ?? e.Stack.Address);
 
             var held = MailInHand(world, heldSlot);
             if (held == null) return;

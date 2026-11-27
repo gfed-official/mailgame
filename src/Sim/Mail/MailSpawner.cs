@@ -398,23 +398,32 @@ namespace PerformativeMail.Sim.Mail
         }
 
         /// <summary>
-        /// One address of the destinations, every address alike (doc 03 §1.3): an Apartment Complex or a PO Box Bank weighs
-        /// its units, and the draw that lands in its share says which unit. With none, the one draw of a plain pick.
+        /// One address of the destinations, every address alike (doc 03 §1.3): an Apartment Complex weighs its units, and
+        /// the draw that lands in its share says which unit. With none, the one draw of a plain pick.
         /// </summary>
         private static (DestinationDef Dest, AddressId Address) Weighted(List<DestinationDef> from, RngStream rng)
         {
             int total = 0;
-            foreach (var d in from) total += Math.Max(1, d.Units);
+            foreach (var d in from) total += Weight(d);
             int r = rng.NextInt(total);
             foreach (var d in from)
             {
-                int w = Math.Max(1, d.Units);
-                if (r < w) return (d, d.Units == 0 ? d.Address : new AddressId(d.Address.Key, (byte)(r + 1)));
+                int w = Weight(d);
+                if (r < w)
+                {
+                    if (d.Units == 0) return (d, d.Address);
+                    // A PO Box Bank weighs one address (design choice 171); its box is a draw of its own.
+                    int unit = d.IsPoBoxBank ? 1 + rng.NextInt(d.Units) : r + 1;
+                    return (d, new AddressId(d.Address.Key, (byte)unit));
+                }
                 r -= w;
             }
             var last = from[from.Count - 1];
             return (last, last.Address);
         }
+
+        /// <summary>How many addresses a destination is in the draw: an Apartment Complex's units, one for a house or a PO Box Bank.</summary>
+        private static int Weight(DestinationDef d) => d.IsPoBoxBank ? 1 : Math.Max(1, d.Units);
 
         /// <summary>A unit of the destination for mail made for it without a draw (the debug world's feed, Bulk Drop): by the mail's id.</summary>
         private static AddressId UnitByTurn(DestinationDef dest, uint id) =>

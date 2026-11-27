@@ -52,10 +52,11 @@ namespace PerformativeMail.Net.Tests
             var houses = sim.Map.Destinations.OrderBy(d => Math.Abs(d.MailboxX - me.Move.X) + Math.Abs(d.MailboxZ - me.Move.Z)).ToList();
             var near = houses[0];
             var far = houses[^1];
-            Assert.True(sim.Give(me.Hotbar, ItemStack.OfMail(Letter(near.Address, 900001))));
-            Assert.True(sim.Give(me.Hotbar, ItemStack.OfMail(Letter(far.Address, 900002))));
+            // A PO Box Bank's or an apartment's letter is for one of its units.
+            Assert.True(sim.Give(me.Hotbar, ItemStack.OfMail(Letter(near.MailAddress, 900001))));
+            Assert.True(sim.Give(me.Hotbar, ItemStack.OfMail(Letter(far.MailAddress, 900002))));
             Run(10);
-            int farSlot = Enumerable.Range(0, world.Hotbar.Cols).First(x => world.Hotbar.EntryAt(x, 0)?.Stack.Address == far.Address);
+            int farSlot = Enumerable.Range(0, world.Hotbar.Cols).First(x => world.Hotbar.EntryAt(x, 0)?.Stack.Address == far.MailAddress);
             guide.Update(world, farSlot);
             Assert.Equal(far.Address, guide.Target!.Address);
             Assert.Contains(near.Address, guide.Carried);
@@ -64,7 +65,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((far.MailboxX, far.MailboxZ), guide.Points[^1]);
             float straight = MathF.Sqrt((far.MailboxX - world.Local.X) * (far.MailboxX - world.Local.X) + (far.MailboxZ - world.Local.Z) * (far.MailboxZ - world.Local.Z));
             Assert.True(guide.Metres >= straight - 0.01f);
-            Assert.Equal($"To {world.Map.FormatAddress(far.Address)} · {guide.Metres:F0} m by the streets · {HudText.Clock(guide.Metres / move.WalkSpeed)} on foot, {HudText.Clock(guide.Metres / move.SprintSpeed)} running",
+            Assert.Equal($"To {world.Map.FormatAddress(far.MailAddress)} · {guide.Metres:F0} m by the streets · {HudText.Clock(guide.Metres / move.WalkSpeed)} on foot, {HudText.Clock(guide.Metres / move.SprintSpeed)} running",
                 guide.Line(world, move));
 
             // The hands held (slot 0): the first mail in the hotbar shows the way.

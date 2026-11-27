@@ -3056,6 +3056,23 @@ top left? It takes up a lot of screen real estate."
       and a house's mail misdelivered; its mail in shift 4 for its units, well over one house's share). Looked at rendered
       (`--lookdev` on Small Island #1's complex: by day and dusk)
 
+### 7c. M4 — the PO Box Bank (doc 02 §3.5; doc 03 §2.1), 2026-11-27
+
+- [x] **PO Box Bank** (`PoBoxes`, design choice 171). Every generated island has one at the street before the Post
+      Office's hall, on the verge row of district 1 ("inside PO district"), 8–16 boxes from the "poboxes" stream, one
+      destination with a box a unit (the `Units` / `Takes` of 7b) numbered past its street's houses ("PO Boxes 1-14 · 23
+      Larch Lane"; a piece reads "PO Box 7, 23 Larch Lane"). It takes postcards and letters (the content's `acceptedBy`),
+      nothing bigger ("does not fit these boxes"); a box it does not have is a misdelivery. In the mail draw the bank is
+      **one address** among the houses, its box a draw of its own (`MailSpawner.Weight`) — a box an address would hand it
+      half of shift 1's letters, a few steps from the Intake. No fence, bushes or house of its own; on screen the bank
+      of steel boxes on a post (`ApartmentBuilder.MailRoomBoxes`), on the map "BOXES" at it; the prompt "PO BOXES · 23
+      Larch Lane". The map's ring round the houses of the mail carried and its route now go by the destination, so a
+      unit's or a box's mail rings its complex or bank (`MapGuide.Carried`)
+- `PoBoxTests` (3: one bank on 30 Small and 8 Large Island seeds — district 1, its boxes, walked to, its verge in the
+      district, labels unique —; letters and postcards for its boxes, nothing bigger, a wrong box misdelivered; its mail
+      letters for its boxes, about one address's share); tests that took every destination for a house now skip the
+      bank (`WorldGeneratorTests`) or address mail by `DestinationDef.MailAddress` (`MapFlowTests`). Looked at rendered
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4708,6 +4725,13 @@ See "Commands" at the bottom (filled in as the tooling lands).
     a hot spot worth a belt or a truck stop — the point of it in the doc's district 4–5. (e) A unit the complex does not
     have is a wrong address, misdelivered like any other. (f) The Mail Room's boxes at the street, not a room inside:
     the sim has no interiors; the door is drawn for the look.
+
+171. **The PO Box Bank's place and weight.** (a) Before the Post Office's hall on the street, not inside it: the sim
+    has no interiors, and the verge row there is the only ground of district 1 the generator leaves free. (b) It is
+    one address in the mail draw although its boxes are numbered: doc 03 §1.3 weighs addresses alike, but 8–16 boxes
+    a few steps from the Intake would take half of shift 1's letters and with them the walk the shift is about; as one
+    address it takes a house's share, the box still to be sorted. (c) Numbered past its street's last house, as a dock
+    is (choice 169's fix), so its label is never a house's.
 
 ## Commands
 

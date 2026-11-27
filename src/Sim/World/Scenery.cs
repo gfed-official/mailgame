@@ -196,10 +196,10 @@ namespace PerformativeMail.Sim.World
             }
             float Unit() => rng.NextInt(1000) / 1000f;
 
-            // Fences first: everything else keeps away from them.
+            // Fences first: everything else keeps away from them. (A dock has its yard, the PO Box Bank the Post Office's.)
             foreach (var d in map.Destinations)
             {
-                if (d.IsDock) continue;
+                if (d.IsDock || d.IsPoBoxBank) continue;
                 Front(d, out int fx, out int fz);
                 float lx0 = d.Lot.X * Tile, lz0 = d.Lot.Y * Tile, lx1 = (d.Lot.X + d.Lot.W) * Tile, lz1 = (d.Lot.Y + d.Lot.H) * Tile;
                 Walkway(d, out float wx0, out float wz0, out _, out _);
@@ -256,7 +256,7 @@ namespace PerformativeMail.Sim.World
             // Bushes at the front corners of every house, flowers in the front yard.
             foreach (var d in map.Destinations)
             {
-                if (d.IsDock) continue;
+                if (d.IsDock || d.IsPoBoxBank) continue;
                 Front(d, out int fx, out int fz);
                 var b = d.Building;
                 float halfW = b.W * Tile * 0.5f, halfD = b.H * Tile * 0.5f;

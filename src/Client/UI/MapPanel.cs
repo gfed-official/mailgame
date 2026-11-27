@@ -524,7 +524,13 @@ namespace PerformativeMail.Client.UI
             {
                 var b = At(d.Building.CenterX, d.Building.CenterZ);
                 if (Guide.Carried.Contains(d.Address)) DrawArc(b, scale * 3.4f, 0f, Mathf.Tau, 24, Colors.White, 2f);
-                if (numbers || d.IsDock) DrawString(font, b + new Vector2(-20f, 4f), d.IsDock ? "DOCK" : d.Address.Number.ToString(), HorizontalAlignment.Center, 40f, 10, d.IsDock ? Colors.White : new Color(0.1f, 0.1f, 0.12f));
+                if (d.IsPoBoxBank)
+                {
+                    // At its boxes, not on the Post Office's hall (where "PO" is written).
+                    DrawString(font, At(d.MailboxX, d.MailboxZ) + new Vector2(-30f, 4f), "BOXES", HorizontalAlignment.Center, 60f, 10, Colors.White);
+                    continue;
+                }
+                if (numbers || d.IsDock || d.IsApartment) DrawString(font, b + new Vector2(-20f, 4f), d.IsDock ? "DOCK" : d.IsApartment ? $"{d.Address.Number} APTS" : d.Address.Number.ToString(), HorizontalAlignment.Center, 40f, 10, d.IsDock || d.IsApartment ? Colors.White : new Color(0.1f, 0.1f, 0.12f));
             }
             // Doc 02 §3.8's ferry lanes: a dashed white line over the inlet, "FERRY" by it.
             foreach (var lane in map.FerryLanes)

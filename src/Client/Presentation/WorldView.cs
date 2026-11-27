@@ -85,6 +85,12 @@ namespace PerformativeMail.Client.Presentation
                     AddDockSign(dest);
                     continue;
                 }
+                if (dest.IsPoBoxBank)
+                {
+                    // Its boxes stand at the street before the Post Office's hall: no house of its own.
+                    AddMailbox(batch, dest);
+                    continue;
+                }
                 if (dest.IsApartment)
                 {
                     AddLight(ApartmentBuilder.Build(batch, dest), HouseBuilder.LanternLight, 9f, 0.6f, 3.0f);

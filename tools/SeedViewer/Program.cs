@@ -115,6 +115,8 @@ namespace PerformativeMail.Tools.SeedViewer
             int docks = map.Destinations.Count(d => d.IsDock);
             string flats = string.Join(" ", map.Destinations.Where(d => d.IsApartment).Select(d => $"{d.Units} units in district {d.Address.District} at {d.MailboxX:F0},{d.MailboxZ:F0}"));
             string apartments = flats.Length == 0 ? "" : $", apartments: {flats}";
+            var bank = map.Destinations.FirstOrDefault(d => d.IsPoBoxBank);
+            if (bank != null) apartments += string.Create(CultureInfo.InvariantCulture, $", {bank.Units} PO boxes at {bank.MailboxX:F0},{bank.MailboxZ:F0}");
             string ferries = map.FerryLanes.Count == 0 ? "" : string.Create(CultureInfo.InvariantCulture, $", ferry lanes {string.Join(" ", map.FerryLanes.Select(l => $"{l.Length:F0} m ({l.AX:F0},{l.AZ:F0} to {l.BX:F0},{l.BZ:F0})"))}");
             return string.Create(CultureInfo.InvariantCulture,
                 $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count - docks} houses, {docks} docks{apartments}, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}), routes {map.Routes.Nodes.Count} nodes {map.Routes.Edges.Count} edges {map.Routes.TotalLength:F0} m{ferries}, raiders from {edges}{island}, worldHash {map.MapHash:x16}");

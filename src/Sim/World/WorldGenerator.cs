@@ -310,8 +310,9 @@ namespace PerformativeMail.Sim.World
                 }
             }
 
-            // Doc 02 §3.5: the medium town's Apartment Complex, in a district of shift 4 or 5.
+            // Doc 02 §3.5: the medium town's Apartment Complex, in a district of shift 4 or 5; the PO Box Bank in front of the Post Office.
             Apartments.Place(content, seed, suffix, cols, tiles, tileDistrict, destinations, 4, 5);
+            PoBoxes.Place(content, seed, suffix, destinations, streets, poRect, mainY, cols, tileDistrict);
 
             // Doc 02 §3.5: "Small Island gets one [Business Dock] from shift 4", on a coastal lot with
             // deep water — the beach's east end, the farthest from the Post Office of the deep quay.
