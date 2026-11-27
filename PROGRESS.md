@@ -2748,6 +2748,14 @@ green; the base smoke passes rendered at 1280×720 (`--shots`).
       are not started in this batch. `StampTests` (content, tiers, each stamp), `CursedMailFlowTests` (the Lobby's
       pointer and lock, the Results line), `CodecTests`
 
+- Rendered check at 1280×720 (`--shots` under xvfb): the Lobby's new stamp plate ("[T] Cursed Mail ×1.15 · [Y]
+      on") fits over the other plates in `boot.png`. The rendered smoke went through the Lobby, the Draft, building,
+      defences and belts with no failure in two tries, but both were cut off by the session ending before it reached
+      Results. Still to look at rendered: a 4-row inventory (Big Pockets twice) and the Extra Labels card text
+
+Batch 6 (item 1, the cap, the 29 perks, the eight stamps): `tools/smoke.sh` SMOKE OK ×3, BOT OK, island OK;
+Sim.Tests 652 and Net.Tests 231 green.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
