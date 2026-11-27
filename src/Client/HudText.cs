@@ -555,8 +555,31 @@ namespace PerformativeMail.Client
         /// <summary>Full description of a stack for tooltips and lists: "3 Letters for 13 Larch Lane".</summary>
         public static string Stack(ClientWorld world, ItemStack stack) =>
             stack.Kind == StackKind.Mail
-                ? $"{(stack.Cursed ? CursedWord + " " : "")}{(stack.Lost ? LostWord + " " : "")}{CountAndKind(world.Content, stack)} for {world.Map.FormatAddress(stack.Address)}"
+                ? $"{PriorityPrefix(world, stack)}{(stack.Cursed ? CursedWord + " " : "")}{(stack.Lost ? LostWord + " " : "")}{CountAndKind(world.Content, stack)} for {world.Map.FormatAddress(stack.Address)}"
                 : CountAndKind(world.Content, stack);
+
+        public const string PriorityWord = "Priority";
+
+        /// <summary>Doc 10 §4.1 Local Knowledge: the marker's tag and words for the mailbox of the mail in hand ("#13  42 m", "Mail for 13 Larch Lane").</summary>
+        public static (string Tag, string Words) MailCompass(ClientWorld world, DestinationDef dest, float metres) =>
+            ($"#{dest.Address.Number.ToString(CultureInfo.InvariantCulture)}  {Mathf0(metres)} m", $"Mail for {world.Map.FormatAddress(dest.Address)}");
+
+        private static string Mathf0(float metres) => ((int)MathF.Round(metres)).ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>Doc 10 §4.3: seconds a Priority stack has left to pay its priority value (its soonest piece); 0 when up or not Priority.</summary>
+        public static double PrioritySecondsLeft(ClientWorld world, ItemStack stack)
+        {
+            uint due = stack.PriorityDue;
+            return due == 0 ? 0 : Math.Max(0.0, (due - world.ServerTick) / SimConstants.TickRate);
+        }
+
+        /// <summary>"Priority 0:42 " before a Priority stack's words, "Priority (late) " once its time is up; else nothing.</summary>
+        public static string PriorityPrefix(ClientWorld world, ItemStack stack)
+        {
+            if (!stack.Priority) return "";
+            double left = PrioritySecondsLeft(world, stack);
+            return left > 0 ? $"{PriorityWord} {Clock(left)} " : $"{PriorityWord} (late) ";
+        }
 
         /// <summary>A line of the Intake manifest: "8 Larch Lane  —  3 Letters", with the stack count when there are several.</summary>
         public static string ManifestRow(ClientWorld world, in ManifestRow row, Func<string, bool>? fits = null)

@@ -212,14 +212,14 @@ namespace PerformativeMail.Sim
             if (Run.Phase != RunPhase.Delivery || mail.Address != dest.Address) return false;
             var kind = Content.MailKinds[mail.Kind];
             if (!DeliveryRules.KindAccepted(kind, dest.Type)) return false;
-            return DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats).Outcome == DeliveryOutcome.Delivered;
+            return DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats, Tick).Outcome == DeliveryOutcome.Delivered;
         }
 
         /// <summary>A delivery by a belt or an inserter: the team's, credited to nobody (design choice 94 g).</summary>
         private void DeliverAutomated(DestinationDef dest, in MailItem mail, DeliveryMachine machine)
         {
             var kind = Content.MailKinds[mail.Kind];
-            var verdict = DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats);
+            var verdict = DeliveryRules.Evaluate(mail, kind, dest, Run.Shift, Economy.Wallet, Content, _teamStats, Tick);
             Economy.Apply(verdict, kind.Index);
             Events.Add(new DeliveredEvent
             {

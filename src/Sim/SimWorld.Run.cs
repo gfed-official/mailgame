@@ -180,6 +180,7 @@ namespace PerformativeMail.Sim
             // The debug world feeds the Intake a piece at a time instead (StepDebugWorld).
             int spawnValue = Map.Debug != null ? 0 : (int)Math.Round(quota * Content.MailMix.SpawnOverhead * TeamStat(Stat.SpawnValue, 1f));
             Spawner.DistrictsEarly = DistrictsEarly;
+            ApplyPriorityPost();
             Spawner.BeginShift(Run.Shift, Tick + 1, SimConstants.SecondsToTicks(seconds), spawnValue);
             EnterPhase(RunPhase.Delivery, seconds);
             ScheduleRaid();

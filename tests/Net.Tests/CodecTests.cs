@@ -718,5 +718,32 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(a, Protocol.Hash(ContentDb.LoadFromDirectoryTree(AppContext.BaseDirectory)));
             Assert.NotEqual(0u, a);
         }
+
+        [Fact]
+        public void PriorityMail_CarriesItsDueTick_OverTheWire()
+        {
+            var content = Shared.Content;
+            var c = new GridContainer(43, content.Container("chest"));
+            var ids = new EntryIdAllocator(100);
+            var letter = content.MailKind("letter");
+            Assert.True(InventoryOps.AutoPlace(content, c, ItemStack.OfMail(new MailItem
+            {
+                Id = 601, Kind = letter.Index, Address = new AddressId(1, 1, 7), Value = 24, SpawnShift = 1, DeadlineShift = 1, Flags = MailFlags.Priority, DueTick = 123456,
+            }), ids));
+            Assert.True(InventoryOps.AutoPlace(content, c, ItemStack.OfMail(new MailItem
+            {
+                Id = 602, Kind = letter.Index, Address = new AddressId(1, 1, 7), Value = 8, SpawnShift = 1, DeadlineShift = 1,
+            }), ids));
+            // Priority mail never stacks with mail that is not.
+            Assert.Equal(2, c.EntryCount);
+            c.Commit();
+            var w = new NetWriter();
+            ContainerCodec.WriteState(w, c.Snapshot());
+            var state = ContainerCodec.ReadState(new NetReader(w.ToArray()));
+            var priority = state.Entries.Single(e => e.Stack.Priority).Stack;
+            Assert.Equal(123456u, priority.Mail.Single().DueTick);
+            Assert.Equal(123456u, priority.PriorityDue);
+            Assert.Equal(0u, state.Entries.Single(e => !e.Stack.Priority).Stack.Mail.Single().DueTick);
+        }
     }
 }

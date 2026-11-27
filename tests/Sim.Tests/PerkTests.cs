@@ -145,13 +145,13 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(new[]
             {
-                "long_legs", "quick_hands", "strong_back", "second_wind", "postal_sprint",
+                "long_legs", "quick_hands", "strong_back", "second_wind", "local_knowledge", "postal_sprint",
                 "express_lane", "greased_inserters", "presort",
-                "union_rep", "stamp_collector", "fragile_handling", "grace_period", "second_district",
+                "union_rep", "stamp_collector", "fragile_handling", "grace_period", "priority_post", "second_district",
                 "early_warning", "union_muscle", "reinforced", "hot_barrels", "insured",
             }, Db.Perks.Select(p => p.Id));
             for (int i = 0; i < Db.Perks.Count; i++) Assert.Equal(i, Db.Perks[i].Index);
-            Assert.Equal(5, Db.Perks.Count(p => !p.Team));
+            Assert.Equal(6, Db.Perks.Count(p => !p.Team));
             Assert.All(Db.Perks, p => Assert.True(p.Modifiers.Count + p.Rules.Count > 0, p.Id));
             // Doc 12 M4: the rule-flag perks are data over the closed RuleFlag set.
             Assert.Equal(new[] { RuleFlag.InsuredRebuild }, Db.Perk("insured").Rules);
@@ -632,6 +632,41 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(1, world.DistrictsEarly);
             ReadyUp(world);
             Assert.Equal(1, world.Spawner.DistrictsEarly);
+        }
+
+        [Fact]
+        public void PriorityPost_SpawnsSomeMailPriority_WorthThreeTimes_ForSixtySeconds()
+        {
+            var world = NewWorld(raids: false);
+            var p = InDelivery(world, "priority_post");
+            Assert.True(world.TeamHas(RuleFlag.PriorityPost));
+            uint start = world.Tick;
+            RunUntil(world, () => world.Run.Phase != RunPhase.Delivery, 400);
+            var all = world.Intake.Entries.Where(e => e.Stack.Kind == StackKind.Mail).SelectMany(e => e.Stack.Mail).ToList();
+            Assert.True(all.Count >= 30, $"{all.Count} pieces");
+            var priority = all.Where(m => m.IsPriority).ToList();
+            Assert.InRange(priority.Count * 100 / all.Count, 3, 20);
+            Assert.All(priority, m => Assert.InRange(m.DueTick, start + 60u * Tps, world.Tick + 60u * Tps));
+            Assert.DoesNotContain(all, m => m.IsPriority && (m.Flags & MailFlags.Cursed) != 0);
+
+            // Without the perk no mail is Priority, and the stream is not drawn from.
+            var plain = NewWorld(raids: false);
+            InDelivery(plain);
+            RunUntil(plain, () => plain.Run.Phase != RunPhase.Delivery, 400);
+            Assert.DoesNotContain(plain.Intake.Entries.Where(e => e.Stack.Kind == StackKind.Mail).SelectMany(e => e.Stack.Mail), m => m.IsPriority);
+        }
+
+        [Fact]
+        public void APriorityPiece_PaysItsValueInTime_AndAThirdOfItOnceLate()
+        {
+            var dest = NewWorld(raids: false).Map.Destinations[0];
+            var letter = Db.MailKind("letter");
+            var item = TestContent.Mail("letter", dest.Address, 1, 1);
+            item.Value = 300;
+            item.Flags = MailFlags.Priority;
+            item.DueTick = 1000;
+            Assert.Equal(300, DeliveryRules.Evaluate(item, letter, dest, 1, 0, Db, null, 1000).Amount);
+            Assert.Equal(100, DeliveryRules.Evaluate(item, letter, dest, 1, 0, Db, null, 1001).Amount);
         }
     }
 }

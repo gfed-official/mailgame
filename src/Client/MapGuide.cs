@@ -26,6 +26,20 @@ namespace PerformativeMail.Client
         /// <summary>The addresses of all the mail in the hotbar and the inventory: their houses are ringed.</summary>
         public HashSet<AddressId> Carried { get; } = new HashSet<AddressId>();
 
+        /// <summary>The mail whose house the way-finding points to: the held slot's, else the first in the hotbar; null for none.</summary>
+        public static GridEntry? MailInHand(ClientWorld world, int heldSlot)
+        {
+            var hotbar = world.Hotbar;
+            var held = heldSlot >= 0 && heldSlot < hotbar.Cols ? hotbar.EntryAt(heldSlot, 0) : null;
+            if (held != null && held.Stack.Kind == StackKind.Mail) return held;
+            for (int slot = 0; slot < hotbar.Cols; slot++)
+            {
+                var e = hotbar.EntryAt(slot, 0);
+                if (e != null && e.Stack.Kind == StackKind.Mail) return e;
+            }
+            return null;
+        }
+
         public void Update(ClientWorld world, int heldSlot)
         {
             Target = null;
@@ -37,17 +51,7 @@ namespace PerformativeMail.Client
                 foreach (var e in container.Entries)
                     if (e.Stack.Kind == StackKind.Mail) Carried.Add(e.Stack.Address);
 
-            var hotbar = world.Hotbar;
-            var held = heldSlot >= 0 && heldSlot < hotbar.Cols ? hotbar.EntryAt(heldSlot, 0) : null;
-            if (held == null || held.Stack.Kind != StackKind.Mail)
-            {
-                held = null;
-                for (int slot = 0; slot < hotbar.Cols && held == null; slot++)
-                {
-                    var e = hotbar.EntryAt(slot, 0);
-                    if (e != null && e.Stack.Kind == StackKind.Mail) held = e;
-                }
-            }
+            var held = MailInHand(world, heldSlot);
             if (held == null) return;
             Target = world.Map.FindDestination(held.Stack.Address);
             if (Target == null) return;

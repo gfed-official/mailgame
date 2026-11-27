@@ -439,6 +439,9 @@ namespace PerformativeMail.Client
         /// <summary>Shifts before the map's that its districts open (doc 10 §4.3 Zoning Board), as the server reckons it.</summary>
         public int DistrictsEarly => Math.Max(0, (int)MathF.Round(_teamStats.Resolve(Stat.DistrictsEarly, 0f)));
 
+        /// <summary>A perk of the team's or of the local player's own holds the rule flag.</summary>
+        public bool LocalHas(RuleFlag flag) => _teamStats.Has(flag) || _localStats.Has(flag);
+
         /// <summary>A team perk of the run holds the rule flag.</summary>
         public bool TeamHas(RuleFlag flag) => _teamStats.Has(flag);
 

@@ -54,12 +54,19 @@ namespace PerformativeMail.Sim.Mail
             return 0;
         }
 
+        /// <summary>What a Priority piece pays once its time is up: its value without the priority's multiplier.</summary>
+        public static int PriorityLapsed(int value, ContentDb content)
+        {
+            float mult = content.Balance.GetFloat("priorityValueMult");
+            return mult > 0f ? (int)System.Math.Round(value / (double)mult) : value;
+        }
+
         /// <summary>
         /// The verdict on one piece of mail at one mailbox. <paramref name="team"/> is what the
         /// team's perks do to the numbers (doc 01 §2.5); without it the content's own apply.
         /// </summary>
         public static DeliveryResult Evaluate(in MailItem item, MailKindDef kind, DestinationDef dest,
-            int currentShift, int wallet, ContentDb content, StatSheet? team = null)
+            int currentShift, int wallet, ContentDb content, StatSheet? team = null, uint tick = 0)
         {
             if (!KindAccepted(kind, dest.Type)) return new DeliveryResult(DeliveryOutcome.WontFitHere);
 
@@ -70,7 +77,10 @@ namespace PerformativeMail.Sim.Mail
                 int permille = TimelinessPermille(currentShift, item.DeadlineShift, lateRatio);
                 // Late is late whatever it pays: the complaint is for the day, not for the money.
                 bool late = currentShift > item.DeadlineShift;
-                int paid = item.Value * permille / 1000;
+                int value = item.Value;
+                // Doc 10 §4.3 Priority Post: past its time it pays what it would have without the priority.
+                if (item.IsPriority && tick > item.DueTick) value = PriorityLapsed(item.Value, content);
+                int paid = value * permille / 1000;
                 if (team != null && kind.MaxStack > 1) paid = Whole(team.Resolve(Stat.PaperMailValue, paid));
                 return new DeliveryResult(DeliveryOutcome.Delivered, paid,
                     late ? content.Balance.GetInt("complaintLateDelivery") : 0, late);

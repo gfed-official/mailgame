@@ -2668,6 +2668,20 @@ green; the base smoke passes rendered at 1280×720 (`--shots`).
       Reinforced), `PerkTests` (Zoning Board, the pool). The smoke's wall checks go by `MaxHp` (its Draft took
       Reinforced once and the Fortify check read 1120 of 800 HP)
 
+- [x] **Priority Post and Local Knowledge** (doc 10 §4.3, §4.1; design choice 157). Two more rule flags:
+      - Priority Post (`priority_post`, team): with it a tenth of the mail spawns Priority (its own RNG stream, drawn
+        only while the flag is on; never cursed too), worth ×3, for 60 s (`priorityMailChance`, `priorityValueMult`,
+        `priorityMailSeconds` in the balance). `MailFlags.Priority` and `MailItem.DueTick` (on the wire only for
+        Priority mail); Priority stacks only with Priority. Delivered after its time it pays a third, as if it had
+        not been Priority (`DeliveryRules.PriorityLapsed`). The slot shows a red rim and "PRI 0:42" (then "LATE"),
+        the words "Priority 0:42 3 Letters for …"
+      - Local Knowledge (`local_knowledge`, personal; the only personal flag): a second edge marker of the under-attack
+        marker's kind, in teal, over the mailbox of the mail in hand (the map's way-finding target), on the screen's
+        edge where it is out of view: "#8  54 m" over "Mail for 8 Larch Lane". No new HUD widget kind (ADR-0018);
+        client only, the server only holds the flag. The smoke grants it with mail in the hotbar and checks the words
+      `PerkTests` (spawn share and time, payment in time and late), `CodecTests.PriorityMail_…`, the smoke's
+      "local knowledge" line
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4190,6 +4204,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     Depot limit to be rebuilt by hand; Reinforced scales what a construct has with its most (a wall at 700 of 800
     has 980 of 1120); Zoning Board moves the districts (and with them their mail, signs and choices) but not the
     raiders' spawn edges, which doc 05 ties to the shift, not the district.
+
+157. **Priority Post's 60 s, and a personal rule flag.** Doc 10 says "×3 value, must be delivered within 60 s" and
+    not what happens after. The choice: late Priority mail is still mail and pays what it would have paid without the
+    priority (a third), with no complaint; a misdelivered one costs the usual share of its (×3) value, as Cursed mail's
+    raised value does. The 60 s run from the spawn, through Prep's standing still as well. Local Knowledge is the one
+    rule flag a personal perk may hold (`RuleFlags.IsTeam`); doc 10's "compass arrow" is read as the existing edge
+    marker pointing to the mailbox of the mail in hand, not an arrow for every item in the inventory (several arrows
+    at once would be a new widget and noise).
 
 ## Commands
 

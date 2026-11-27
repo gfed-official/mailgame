@@ -79,6 +79,8 @@ grep -q "^\[smoke\] world: Test Street, then Small Island" "$work/log" || { echo
 # The map (doc 09 §2.6): up with mail in the hotbar, the route to its house drawn.
 grep -q "^\[smoke\] map: up with mail" "$work/log" || { echo "smoke: the map was not shown with a route" >&2; exit 1; }
 # The shop's first blueprint (doc 10 §3 bp_defense): bought in shift 2 and built with.
+# Doc 10 §4.1 Local Knowledge: the teal marker names the mailbox of the mail in hand.
+grep -q "^\[smoke\] local knowledge: the teal marker points to the mail's mailbox" "$work/log" || { echo "smoke: the Local Knowledge marker was not seen" >&2; exit 1; }
 grep -q "^\[smoke\] fortify: Blueprint: Fortify bought" "$work/log" || { echo "smoke: the Fortify blueprint was not bought and built with" >&2; exit 1; }
 grep -q "^\[smoke\] fortify: .*, a Stone Wall (800 HP" "$work/log" || { echo "smoke: no Stone Wall was built with the Fortify blueprint" >&2; exit 1; }
 # Healing (doc 05 §1.1): a Bandage at once, Berries over their seconds, the health bar following.

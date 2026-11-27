@@ -110,6 +110,16 @@ namespace PerformativeMail.Sim
         /// <summary>Shifts before the map's that its districts open (doc 10 §4.3 Zoning Board); the raiders' ways in keep theirs.</summary>
         public int DistrictsEarly => Math.Max(0, (int)MathF.Round(TeamStat(Stat.DistrictsEarly, 0f)));
 
+        /// <summary>Doc 10 §4.3 Priority Post: the spawner's part of Priority mail, its worth and its time, from the balance.</summary>
+        private void ApplyPriorityPost()
+        {
+            var b = Content.Balance;
+            bool on = TeamHas(RuleFlag.PriorityPost);
+            Spawner.PriorityPermille = on ? (int)MathF.Round(b.GetFloat("priorityMailChance") * 1000f) : 0;
+            Spawner.PriorityValueMult = b.GetFloat("priorityValueMult");
+            Spawner.PriorityTicks = SimConstants.SecondsToTicks(b.GetDouble("priorityMailSeconds"));
+        }
+
         /// <summary>A team perk of the run holds the rule flag (ADR-0010 RuleFlag).</summary>
         public bool TeamHas(RuleFlag flag) => _teamStats.Has(flag);
 
@@ -119,6 +129,7 @@ namespace PerformativeMail.Sim
         /// </summary>
         private void ApplyTeamStats()
         {
+            ApplyPriorityPost();
             float scale = TeamStat(Stat.ConstructHp, 1f);
             if (Math.Abs(scale - Constructs.HpScale) < 1e-6f) return;
             foreach (var (c, hp) in Constructs.Rescale(scale))

@@ -218,6 +218,14 @@ namespace PerformativeMail.Client.UI
                     canvas.DrawRect(new Rect2(rect.Position.X + 2f, rect.End.Y - 13f, rect.Size.X - 4f, 11f), new Color(Palette.Cursed, 0.85f * alpha));
                     DrawTag(canvas, font, rect, "CURSED", new Color(1f, 1f, 1f, alpha));
                 }
+                // Doc 10 §4.3: Priority mail — a red rim and its seconds left ("PRI 0:42"), "LATE" once they are up.
+                if (stack.Priority)
+                {
+                    double left = HudText.PrioritySecondsLeft(world, stack);
+                    canvas.DrawRect(rect.Grow(-1f), new Color(Palette.PostalRed, alpha), filled: false, width: 3f);
+                    canvas.DrawRect(new Rect2(rect.Position.X + 2f, rect.End.Y - 13f, rect.Size.X - 4f, 11f), new Color(Palette.PostalRed, 0.85f * alpha));
+                    DrawTag(canvas, font, rect, left > 0 ? $"PRI {HudText.Clock(left)}" : "LATE", new Color(1f, 1f, 1f, alpha));
+                }
                 // Doc 05 §2.1: a Lost Parcel, from a felled Mega — an amber rim and its word.
                 if (stack.Lost)
                 {

@@ -24,6 +24,8 @@ namespace PerformativeMail.App
         public VehiclesView Vehicles { get; private set; } = null!;
         public ConstructHealthView ConstructHealth { get; private set; } = null!;
         public AttackMarker AttackMarker { get; private set; } = null!;
+        /// <summary>Doc 10 §4.1 Local Knowledge: the marker to the mailbox of the mail in hand.</summary>
+        public AttackMarker MailCompass { get; private set; } = null!;
         public EnemiesView Enemies { get; private set; } = null!;
         public CombatEffects Effects { get; private set; } = null!;
         /// <summary>The raid brings the night (as in the concept video); look-dev sets the hour itself.</summary>
@@ -149,6 +151,13 @@ namespace PerformativeMail.App
             // Off the shift's plate and the banner (playtest f32ea2e).
             AttackMarker.KeepClear = Hud.KeepClear;
             layer.AddChild(AttackMarker);
+            // Doc 10 §4.1 Local Knowledge: the same marker in teal, to the mailbox of the mail in hand.
+            MailCompass = new AttackMarker(MailCompassView.Teal, "MailCompass");
+            MailCompass.KeepClear = Hud.KeepClear;
+            layer.AddChild(MailCompass);
+            var compass = new MailCompassView { Name = "MailCompassView" };
+            AddChild(compass);
+            compass.Setup(client, Camera, MailCompass);
             ConstructHealth = new ConstructHealthView { Name = "ConstructHealth" };
             AddChild(ConstructHealth);
             ConstructHealth.Setup(client, Camera, AttackMarker);

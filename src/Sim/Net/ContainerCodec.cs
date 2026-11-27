@@ -71,6 +71,7 @@ namespace PerformativeMail.Sim.Net
                     w.U8(m.SpawnShift);
                     w.U8(m.DeadlineShift);
                     w.U8(m.Flags);
+                    if ((m.Flags & MailFlags.Priority) != 0) w.U32(m.DueTick);
                 }
             }
             else w.I32(s.ItemCount);
@@ -92,11 +93,13 @@ namespace PerformativeMail.Sim.Net
                 stack.Mail = new System.Collections.Generic.List<MailItem>(n);
                 for (int i = 0; i < n; i++)
                 {
-                    stack.Mail.Add(new MailItem
+                    var m = new MailItem
                     {
                         Id = r.U32(), Value = r.U16(), SpawnShift = r.U8(), DeadlineShift = r.U8(), Flags = r.U8(),
                         Kind = stack.DefIndex, Address = stack.Address,
-                    });
+                    };
+                    if ((m.Flags & MailFlags.Priority) != 0) m.DueTick = r.U32();
+                    stack.Mail.Add(m);
                 }
             }
             else stack.ItemCount = r.I32();

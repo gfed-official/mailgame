@@ -11,6 +11,7 @@ namespace PerformativeMail.Client.UI
     public partial class AttackMarker : Control
     {
         private static readonly Color Red = new Color("ff3b30");
+        private readonly Color _colour;
         private readonly Label _label, _tag;
         private readonly VBoxContainer _words;
         private float _angle, _beat;
@@ -36,18 +37,20 @@ namespace PerformativeMail.Client.UI
             }
         }
 
-        public AttackMarker()
+        /// <summary>The marker in red for what is under attack; another colour and name for another use of it (Local Knowledge's mailbox).</summary>
+        public AttackMarker(Color? colour = null, string name = "AttackMarker")
         {
-            Name = "AttackMarker";
+            _colour = colour ?? Red;
+            Name = name;
             MouseFilter = MouseFilterEnum.Ignore;
             Visible = false;
             _words = new VBoxContainer { Name = "Words", MouseFilter = MouseFilterEnum.Ignore };
             _words.AddThemeConstantOverride("separation", -2);
             _tag = new Label { Name = "Tag", MouseFilter = MouseFilterEnum.Ignore, ThemeTypeVariation = UiTheme.Display };
-            _tag.AddThemeColorOverride("font_color", Red);
+            _tag.AddThemeColorOverride("font_color", _colour);
             _tag.AddThemeFontSizeOverride("font_size", 20);
             _label = new Label { Name = "Line", MouseFilter = MouseFilterEnum.Ignore, ThemeTypeVariation = UiTheme.Hud };
-            _label.AddThemeColorOverride("font_color", Red);
+            _label.AddThemeColorOverride("font_color", _colour);
             _label.AddThemeFontSizeOverride("font_size", 14);
             _words.AddChild(_tag);
             _words.AddChild(_label);
@@ -108,9 +111,9 @@ namespace PerformativeMail.Client.UI
                 float grow = 1f + 0.45f * _beat;
                 var halo = new Vector2[points.Length];
                 for (int i = 0; i < points.Length; i++) halo[i] = mid + (points[i] - mid) * grow;
-                DrawColoredPolygon(halo, new Color(Red, 0.55f * (1f - _beat)));
+                DrawColoredPolygon(halo, new Color(_colour, 0.55f * (1f - _beat)));
             }
-            DrawColoredPolygon(points, Red);
+            DrawColoredPolygon(points, _colour);
             DrawPolyline(new[] { points[0], points[1], points[2], points[3], points[0] }, new Color(0f, 0f, 0f, 0.8f), 2f);
         }
     }

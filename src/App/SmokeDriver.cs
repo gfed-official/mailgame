@@ -10,6 +10,7 @@ using PerformativeMail.Client.Presentation;
 using PerformativeMail.Client.UI;
 using PerformativeMail.Sim;
 using PerformativeMail.Sim.Core;
+using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Net;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
@@ -747,6 +748,7 @@ namespace PerformativeMail.App
                 Check(!tracker.StartsWith("Delivered", StringComparison.Ordinal) && !tracker.StartsWith("Backlog", StringComparison.Ordinal),
                     $"the HUD's corner still shows \"{tracker}\"");
             if (world.Hotbar.EntryCount + world.Inventory.EntryCount > 0) _sawCarriedMail = true;
+            StepCompass(world, server);
             TrackCamera();
             StepMap();
             foreach (char c in FontCheck.MissingGlyphs(_screen.Hud) + FontCheck.MissingGlyphs(_screen.Inventory))
@@ -923,6 +925,38 @@ namespace PerformativeMail.App
             GD.Print($"[smoke] profile: +{xp} XP, {HudText.Rank(profile, perRank)}, {profile.Runs} runs, {profile.Deliveries} deliveries");
         }
 
+        private int _compassFrames = -1;
+        private string _compassSeen = "";
+
+        /// <summary>
+        /// Doc 10 §4.1 Local Knowledge: with mail in the hotbar the host is given the perk; the teal marker then names
+        /// the house of the mail in hand. Once seen, the perk stays for the rest of the run (a personal perk).
+        /// </summary>
+        private void StepCompass(ClientWorld world, SimWorld server)
+        {
+            if (_compassSeen.Length > 0) return;
+            var held = MapGuide.MailInHand(world, _session.Client.Input.HeldSlot);
+            if (_compassFrames < 0)
+            {
+                Check(!_screen.MailCompass.Visible, "the mail compass is up without Local Knowledge");
+                if (held == null || world.Local.Dead) return;
+                var truth = server.GetPlayer(world.LocalId)!;
+                Check(server.GrantPerk(truth, server.Content.Perk("local_knowledge")) == OpResult.Ok, "Local Knowledge was not granted");
+                _compassFrames = 0;
+                return;
+            }
+            if (held == null || ++_compassFrames < 6) return;
+            var dest = world.Map.FindDestination(held.Stack.Address);
+            if (dest == null) return;
+            string want = $"Mail for {world.Map.FormatAddress(dest.Address)}";
+            if (_screen.MailCompass.Visible && _screen.MailCompass.Text == want && _screen.MailCompass.Tag.StartsWith($"#{dest.Address.Number}  ", StringComparison.Ordinal))
+            {
+                _compassSeen = $"{_screen.MailCompass.Tag} / {_screen.MailCompass.Text}";
+                GD.Print($"[smoke] local knowledge: the teal marker points to the mail's mailbox, \"{_compassSeen}\"");
+            }
+            else if (_compassFrames > 120) Fail($"with Local Knowledge the mail compass reads \"{_screen.MailCompass.Tag} / {_screen.MailCompass.Text}\" (up: {_screen.MailCompass.Visible}), not for {want}");
+        }
+
         /// <summary>PROGRESS §5h: the Payday / Results card is dodged from its first frame on.</summary>
         private void CheckCardDodge()
         {
@@ -1012,6 +1046,7 @@ namespace PerformativeMail.App
             Check(_sawIntakePrompt, "the Intake prompt never showed");
             Check(_sawManifest, "the Intake manifest never listed mail");
             Check(_sawCarriedMail, "no mail was ever carried");
+            Check(_compassSeen.Length > 0, "the Local Knowledge marker was never seen");
             Check(_sawMailboxPrompt, "the mailbox prompt never showed");
             Check(_deliveredEvents > 0 && _paid > 0, "no paid delivery event reached the client");
             Check(_misdeliveredEvents > 0 && _penalties > 0, "no misdelivery penalty event reached the client");

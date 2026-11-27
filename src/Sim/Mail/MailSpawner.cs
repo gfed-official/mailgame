@@ -53,6 +53,26 @@ namespace PerformativeMail.Sim.Mail
         public float CursedValueMult { get; set; } = 1f;
         private RngStream _curseRng;
 
+        /// <summary>
+        /// Doc 10 §4.3 Priority Post (rule flag PriorityPost): the part of the mail spawned Priority, permille (0:
+        /// none, and nothing is drawn from its stream), what its value is multiplied by, and the ticks it has.
+        /// Cursed mail is never Priority too.
+        /// </summary>
+        public int PriorityPermille { get; set; }
+        public float PriorityValueMult { get; set; } = 1f;
+        public uint PriorityTicks { get; set; }
+        private RngStream _priorityRng;
+        private uint _now;
+
+        /// <summary>A new item Priority or not, its value raised and its time set if it is.</summary>
+        private void Prioritize(ref MailItem item)
+        {
+            if (PriorityPermille <= 0 || (item.Flags & MailFlags.Cursed) != 0 || !_priorityRng.Chance(PriorityPermille)) return;
+            item.Flags |= MailFlags.Priority;
+            item.DueTick = _now + PriorityTicks;
+            item.Value = (ushort)Math.Min(ushort.MaxValue, Math.Round(item.Value * (double)PriorityValueMult));
+        }
+
         /// <summary>A new item cursed or not, its value raised if it is.</summary>
         private void Curse(ref MailItem item)
         {
@@ -71,6 +91,7 @@ namespace PerformativeMail.Sim.Mail
             _spawnRng = new RngStream(seed, "mail.spawn");
             _addressRng = new RngStream(seed, "mail.address");
             _curseRng = new RngStream(seed, "mail.curse");
+            _priorityRng = new RngStream(seed, "mail.priority");
             _accrued = new long[content.MailKinds.Count];
         }
 
@@ -83,6 +104,7 @@ namespace PerformativeMail.Sim.Mail
             _spawnRng = new RngStream(_seed, "mail.spawn");
             _addressRng = new RngStream(_seed, "mail.address");
             _curseRng = new RngStream(_seed, "mail.curse");
+            _priorityRng = new RngStream(_seed, "mail.priority");
             Array.Clear(_accrued, 0, _accrued.Length);
             _backlog.Clear();
             _active = false;
@@ -113,6 +135,7 @@ namespace PerformativeMail.Sim.Mail
         /// </summary>
         public int Step(uint tick, ref int backlogComplaint)
         {
+            _now = tick;
             int spawned = 0;
             if (_active && _nextBatch < _batchCount && tick >= _nextBatchTick)
             {
@@ -154,6 +177,7 @@ namespace PerformativeMail.Sim.Mail
                 DeadlineShift = (byte)(shift + kind.DeadlineOffsetShifts),
             };
             Curse(ref item);
+            Prioritize(ref item);
             ReturnToIntake(item);
             return item;
         }
@@ -250,6 +274,7 @@ namespace PerformativeMail.Sim.Mail
                         DeadlineShift = (byte)(_shift + kind.DeadlineOffsetShifts),
                     };
                     Curse(ref item);
+                    Prioritize(ref item);
                     ReturnToIntake(item);
                     spawned++;
                 }

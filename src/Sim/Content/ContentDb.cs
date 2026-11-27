@@ -1446,7 +1446,7 @@ namespace PerformativeMail.Sim.Content
             "enemyWindupSeconds", "enemyFleeSeconds", "enemyFleeSpeedMult", "lootDespawnSeconds", "lootPickupRange",
             "deathBagDespawnSeconds", "respawnProtectionSeconds", "respawnYardMetres", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
-            "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank", "personalPerkCap",
+            "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank", "personalPerkCap", "priorityMailChance", "priorityValueMult", "priorityMailSeconds",
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
             "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
             "beltPushMultiplier", "beltPushSeconds", "pipeSpeed", "pipeSpacing", "pipeOutletRate", "pipeOutletCapacity",

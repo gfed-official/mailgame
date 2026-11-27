@@ -19,6 +19,10 @@
       { "stat": "KeepHotbarOnDeath", "op": "add", "value": 1 }
     ],
     "maxStacks": 1, "tags": ["death"] },
+  { "id": "local_knowledge", "name": "Local Knowledge", "description": "Mail in your hand shows a compass arrow to its mailbox.",
+    "category": "carrier", "scope": "personal", "rarity": "uncommon",
+    "rules": ["local_knowledge"],
+    "maxStacks": 1, "tags": ["delivery"] },
   { "id": "postal_sprint", "name": "Postal Sprint", "description": "Each correct delivery grants +30% speed for 4 s.",
     "category": "carrier", "scope": "personal", "rarity": "rare",
     "modifiers": [
@@ -63,6 +67,10 @@
     ],
     "maxStacks": 1, "tags": ["deadline"] },
 
+  { "id": "priority_post", "name": "Priority Post", "description": "10% of the mail spawns as Priority: x3 value if delivered within 60 s.",
+    "category": "postal", "scope": "team", "rarity": "rare",
+    "rules": ["priority_post"],
+    "maxStacks": 1, "tags": ["value", "deadline"] },
   { "id": "second_district", "name": "Zoning Board", "description": "The next district opens a shift early; mail spawned +15% in value.",
     "category": "postal", "scope": "team", "rarity": "rare",
     "modifiers": [

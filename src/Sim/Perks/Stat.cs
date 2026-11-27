@@ -69,6 +69,10 @@ namespace PerformativeMail.Sim.Perks
         InsuredRebuild,
         /// <summary>Doc 10 §4.2 Presort: the Intake's outfeed puts the mail on the belt a street at a time.</summary>
         Presort,
+        /// <summary>Doc 10 §4.3 Priority Post: some mail spawns Priority, worth more if delivered in time.</summary>
+        PriorityPost,
+        /// <summary>Doc 10 §4.1 Local Knowledge (personal): the HUD points to the mailbox of the mail in hand.</summary>
+        LocalKnowledge,
     }
 
     public static class RuleFlags
@@ -79,6 +83,8 @@ namespace PerformativeMail.Sim.Perks
         {
             ["insured_rebuild"] = RuleFlag.InsuredRebuild,
             ["presort"] = RuleFlag.Presort,
+            ["priority_post"] = RuleFlag.PriorityPost,
+            ["local_knowledge"] = RuleFlag.LocalKnowledge,
         };
 
         /// <summary>The flag a content file names.</summary>
@@ -88,7 +94,7 @@ namespace PerformativeMail.Sim.Perks
         public static string Known => string.Join(", ", ByName.Keys);
 
         /// <summary>A team flag is the whole team's; a personal perk cannot hold it.</summary>
-        public static bool IsTeam(RuleFlag flag) => true;
+        public static bool IsTeam(RuleFlag flag) => flag != RuleFlag.LocalKnowledge;
     }
 
     public static class Stats
