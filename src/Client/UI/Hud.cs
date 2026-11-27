@@ -178,7 +178,22 @@ namespace PerformativeMail.Client.UI
         }
 
         /// <summary>Where the prompt's words are drawn on screen, for the smoke's "on the screen" check.</summary>
-        public Rect2 PromptTextRect => IsInsideTree() && _card.Text.Length > 0 ? _card.GetGlobalRect() : new Rect2();
+        /// Worked out from the card's size for its text rather than read from its laid-out rect, which lags a frame
+        /// behind a change of text: the row centres the mark, a gap and the card as one, from the row's top.
+        public Rect2 PromptTextRect
+        {
+            get
+            {
+                if (!IsInsideTree() || _card.Text.Length == 0) return new Rect2();
+                var size = _card.GetCombinedMinimumSize();
+                float lead = _mark.CustomMinimumSize.X + 10f;
+                float x = GetViewportRect().Size.X * 0.5f - (lead + size.X) * 0.5f + lead;
+                return new Rect2(x, _card.GetParent<Control>().GetGlobalRect().Position.Y, size);
+            }
+        }
+
+        /// <summary>Where the hold bar stands (shown or not), under the crosshair.</summary>
+        public Rect2 HoldBarRect => _hold.GetGlobalRect();
 
         /// <summary>The prompt card's keycaps, top row first ("E", "HOLD E", "F").</summary>
         public IEnumerable<string> PromptKeycaps => _card.Keycaps;
@@ -285,7 +300,6 @@ namespace PerformativeMail.Client.UI
 
             // What the run waits for and what the "go" key does, under the plate.
             _hint = AddLabel("Hint", 18, 0.5f, 0f, -520f, 0f, 520f, 0f, HorizontalAlignment.Center);
-            LayoutTop(quota: true);
             _hint.Modulate = Palette.Amber;
 
             // The raid warning and the countdown while down: across the view, above the crosshair.
@@ -322,6 +336,9 @@ namespace PerformativeMail.Client.UI
             _draft = new DraftPanel();
             _draft.Setup(client);
             AddChild(_draft);
+            // The panels hang from under the hint, which the top plate's gold and quota pushed down (UI polish plan item 3).
+            _topWithQuota = null;
+            LayoutTop(quota: true);
             _generating = new GeneratingPanel();
             AddChild(_generating);
 
@@ -340,8 +357,10 @@ namespace PerformativeMail.Client.UI
                 Name = "PromptRow",
                 Alignment = BoxContainer.AlignmentMode.Center,
                 MouseFilter = MouseFilterEnum.Ignore,
-                AnchorLeft = 0f, AnchorRight = 1f, AnchorTop = 0.62f, AnchorBottom = 0.62f,
-                OffsetLeft = m, OffsetRight = -m, OffsetTop = -2f, OffsetBottom = 32f,
+                // Under the hold bar, which stands right under the crosshair: a card of three rows ends clear of the
+                // loot cards over the hotbar at 1280×720 (UI polish plan item 5).
+                AnchorLeft = 0f, AnchorRight = 1f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
+                OffsetLeft = m, OffsetRight = -m, OffsetTop = 40f, OffsetBottom = 74f,
             };
             promptRow.AddThemeConstantOverride("separation", 10);
             AddChild(promptRow);
@@ -360,18 +379,18 @@ namespace PerformativeMail.Client.UI
                 MouseFilter = MouseFilterEnum.Ignore,
                 AnchorLeft = 0.5f,
                 AnchorRight = 0.5f,
-                AnchorTop = 0.62f,
-                AnchorBottom = 0.62f,
+                AnchorTop = 0.5f,
+                AnchorBottom = 0.5f,
                 OffsetLeft = -130f,
                 OffsetRight = 130f,
-                OffsetTop = 40f,
-                OffsetBottom = 52f,
+                OffsetTop = 22f,
+                OffsetBottom = 34f,
             };
             AddChild(_hold);
             // Doc 09 §3 "Repair hammer shows a target health bar": under the crosshair, where the hold
             // bar stands (no hold goes with the hammer). The bar over the construct itself stands above
             // a first-person view this close (the 0e940bc playtest saw it in no shot).
-            _repairBar = AddBar("RepairTarget", 0.5f, 0.62f, -130f, 40f, 130f, 50f, HealthColour);
+            _repairBar = AddBar("RepairTarget", 0.5f, 0.5f, -130f, 22f, 130f, 32f, HealthColour);
             _repairBar.Visible = false;
 
             // Bottom left: health in red with its number, stamina in five blocks; the feed above them.
@@ -716,6 +735,17 @@ namespace PerformativeMail.Client.UI
             Place(_timeBar, 0.5f, 0f, -BarWidth * 0.5f, y + 31f, BarWidth * 0.5f, y + 37f);
             Place(_topPlate, 0.5f, 0f, -BarWidth * 0.5f - 14f, m - 10f, BarWidth * 0.5f + 14f, y + 45f);
             Place(_hint, 0.5f, 0f, -520f, y + 51f, 520f, y + 79f);
+            // Payday's and Results' panel and the Draft's cards stand under the hint, not at a fifth of the screen
+            // (at 1280×720 the hint, under the taller plate, reached 173 px and the cards stood at 144).
+            float panelTop = y + 87f;
+            // The banner too: at a quarter of 720 px its words ran into the lowered hint.
+            Place(_banner, 0.5f, 0f, -520f, y + 83f, 520f, y + 123f);
+            foreach (var panel in new Control?[] { _overlay, _draft })
+            {
+                if (panel == null) continue;
+                panel.AnchorTop = panel.AnchorBottom = 0f;
+                panel.OffsetTop = panel.OffsetBottom = panelTop;
+            }
         }
 
         private const float EarnPopSeconds = 1.1f, EarnPopRise = 16f;

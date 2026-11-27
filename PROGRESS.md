@@ -2521,6 +2521,16 @@ Item 1: `tools/smoke.sh`
       keycaps. Still screen-fixed under the crosshair (ADR-0018 H11). The Repair Hammer's line is a card too
       ("WOODEN WALL  ·  100 / 300 HP" over "[hold LMB] Mend  ·  Log x0.75 a full bar"). Tests and smokes now
       hold the card text; the harvest smoke checks the keycap drawn is HOLD E
+- [x] **The polish at 1280×720, seen in rendered runs** (`--shots` under xvfb). The headless smoke's view is
+      taller, so it missed three overlaps the new top plate and the prompt card made at 720 px: the hint, now
+      at 145–173 px, ran into the Draft's cards and Payday's panel (anchored at a fifth of the screen, 144 px)
+      and into the raid / PROTECTED banner (a quarter, 160–200 px); and a card of three rows ran down onto the
+      loot cards over the hotbar, its second row under the hold bar. The Draft, the Payday / Results panel
+      and the banner now hang from under the hint (`Hud.LayoutTop`); the hold and mend bars stand right under
+      the crosshair and the card under them (`PromptCard` from 400 px). The raid playtest's smoke checks the
+      banner is under the hint and the cursed card is under the hold bar and above 72 % of the view
+      (`Hud.PromptTextRect` is now worked out from the card's size, not its rect a frame late); both rendered
+      smokes pass at 720p
 
 ## How to build and check
 

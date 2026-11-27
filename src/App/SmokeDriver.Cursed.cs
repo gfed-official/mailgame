@@ -111,6 +111,9 @@ namespace PerformativeMail.App
                     // The 0e940bc playtest: at 1280×720 the cursed wrong-box prompt ran off the right edge,
                     // and CURSED read "CURSE" on a 1×1 stack.
                     var words = hud.PromptTextRect;
+                    // A card of three rows: under the hold bar, and ended well over the hotbar (UI polish plan item 5).
+                    Check(words.Position.Y >= hud.HoldBarRect.End.Y && words.End.Y <= GetViewport().GetVisibleRect().End.Y * 0.72f,
+                        $"the prompt card {words} runs into the hold bar {hud.HoldBarRect} or down to the hotbar");
                     var view = GetViewport().GetVisibleRect();
                     Check(words.Position.X >= 0f && words.End.X <= view.End.X, $"the prompt's words {words} run off the {view.Size.X:0} px screen: \"{hud.PromptText}\"");
                     var font = ThemeDB.FallbackFont;

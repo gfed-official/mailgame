@@ -52,6 +52,9 @@ namespace PerformativeMail.App
                 var at = _screen.AttackMarker.WordsRect;
                 var words = new ScreenBox(at.Position.X, at.Position.Y, at.End.X, at.End.Y);
                 var tip = _screen.AttackMarker.Tip;
+                // UI polish plan item 3's taller plate: the banner stands under the hint, not on it.
+                if (hud.BannerText.Length > 0)
+                    Check(hud.BannerTextRect.Position.Y >= hud.TopStack[^1].GetGlobalRect().End.Y, $"the banner \"{hud.BannerText}\" at {hud.BannerTextRect} is on the hint at {hud.TopStack[^1].GetGlobalRect()}");
                 var c = _screen.AttackMarker.ChevronRect;
                 var chevron = new ScreenBox(c.Position.X, c.Position.Y, c.End.X, c.End.Y);
                 foreach (var box in hud.KeepClear())
