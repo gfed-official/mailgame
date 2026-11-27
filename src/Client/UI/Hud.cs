@@ -12,10 +12,10 @@ using PerformativeMail.Sim.Run;
 namespace PerformativeMail.Client.UI
 {
     /// <summary>
-    /// The HUD (doc 09 §2.4) in the layout of the concept video: the quota and the clock as two thin
-    /// bars at the top with the shift between them, health and stamina at the bottom left, the
-    /// hotbar in the middle with the loot cards over it, the trackers (wallet, quota, backlog, the
-    /// raid) at the bottom right, a ring for a crosshair. Every string comes from <see cref="HudText"/>.
+    /// The HUD (doc 09 §2.4) in the layout of the concept video: the shift, the clock, the gold and the
+    /// quota small in the top left corner (design choice 168), the hint centred on the top row, health and
+    /// stamina at the bottom left, the hotbar in the middle with the loot cards over it, the trackers
+    /// (the raid, the Post Office, perks, the Lobby's plates) at the bottom right, a ring for a crosshair. Every string comes from <see cref="HudText"/>.
     /// </summary>
     public partial class Hud : Control
     {
@@ -116,8 +116,10 @@ namespace PerformativeMail.Client.UI
 
         /// <summary>The lines along the edges, for the smoke's "nothing is clipped" check.</summary>
         public Control[] TopRow => new Control[] { _phase, _quota, _wallet, _rank };
-        /// <summary>The top group from the top down, as far as it is shown: gold, quota line and bar, the shift's line, clock bar, hint. No two of them may touch (nit 14).</summary>
-        public Control[] TopStack => new Control[] { _wallet, _quota, _quotaBar, _phase, _timeBar, _hint }.Where(c => c.Visible).ToArray();
+        /// <summary>The top left group from the top down, as far as it is shown: the shift's line, clock bar, gold, quota line and bar. No two of them may touch (nit 14).</summary>
+        public Control[] TopStack => new Control[] { _phase, _timeBar, _wallet, _quota, _quotaBar }.Where(c => c.Visible).ToArray();
+        /// <summary>The hint's line on the top row (or under the plate).</summary>
+        public Control HintLine => _hint;
         /// <summary>The shift's line on the top plate.</summary>
         public Control PhaseLine => _phase;
         public Control TopPlate => _topPlate;
@@ -265,12 +267,12 @@ namespace PerformativeMail.Client.UI
         public bool CrosshairShown => _crosshair.Visible;
         /// <summary>The prompt's row is drawn: false while no spot clear of the open panel is left for it.</summary>
         public bool PromptShown => _promptRow.Visible;
-        /// <summary>The foot of the hint under the top plate while it says something, else of the plate: what the map hangs under.</summary>
-        /// <summary>The foot of the hint's line whether or not it waits under a panel, else of the plate: what the inventory screen keeps under.</summary>
-        public float HintLineBottom => _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : _topPlate.GetGlobalRect().End.Y;
+        /// <summary>The lowest of the corner's plate and the hint's line, whether or not the hint waits under a panel: what the inventory screen keeps under.</summary>
+        public float HintLineBottom => Mathf.Max(_topPlate.GetGlobalRect().End.Y, _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : 0f);
         /// <summary>The top of the hotbar at the screen's foot.</summary>
         public float HotbarTop => _hotbar.GetGlobalRect().Position.Y;
-        public float HintBottom => _hint.Visible && _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : _topPlate.GetGlobalRect().End.Y;
+        /// <summary>The lowest of the corner's plate and the hint while it says something: what the map, the banner and the prompt keep under.</summary>
+        public float HintBottom => Mathf.Max(_topPlate.GetGlobalRect().End.Y, _hint.Visible && _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : 0f);
         private HBoxContainer _promptRow = null!;
         private Label _playtestTag = null!;
         private Label _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
@@ -315,27 +317,28 @@ namespace PerformativeMail.Client.UI
             _hurt.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
             AddChild(_hurt);
 
-            // Top centre (UI polish plan item 3; ref R.E.P.O.): the team's gold as a big number, what the
-            // shift has earned of its quota under it with its bar, then the shift and its phase and the time
-            // left, on a plate of their own so that the world behind cannot be read into them (nit 14).
+            // Top left (Evan, 2026-11-27; design choice 168): the shift and its phase and the time left, the clock's
+            // thin bar, the team's gold, what the shift has earned of its quota with its bar, small, on a plate of their
+            // own so that the world behind cannot be read into them (nit 14).
             _topPlate = new Panel { Name = "TopPlate", MouseFilter = MouseFilterEnum.Ignore };
             var plate = new StyleBoxFlat { BgColor = new Color(0.06f, 0.1f, 0.16f, 0.6f), AntiAliasing = true };
-            plate.SetCornerRadiusAll(10);
+            plate.SetCornerRadiusAll(8);
             _topPlate.AddThemeStyleboxOverride("panel", plate);
             AddChild(_topPlate);
-            _wallet = AddLabel("Wallet", 30, 0.5f, 0f, -BarWidth * 0.5f, m - 8f, BarWidth * 0.5f, m + 30f, HorizontalAlignment.Center, display: true);
+            _phase = AddCornerLabel("Phase", TopCorner.PhaseSize, TopCorner.Phase, display: true);
+            _timeBar = AddBar("TimeBar", 0f, 0f, m, m + TopCorner.Clock.Top, m + TopCorner.Width, m + TopCorner.Clock.Bottom, Colors.White);
+            _wallet = AddCornerLabel("Wallet", TopCorner.WalletSize, TopCorner.Wallet, display: true);
             // "+17 g" beside the number for a moment after it changes.
-            _earnPop = AddLabel("EarnPop", 18, 0.5f, 0f, 0f, m, 140f, m + 26f, HorizontalAlignment.Left, display: true);
+            _earnPop = AddLabel("EarnPop", TopCorner.EarnPopSize, 0f, 0f, m, m, m + 140f, m + 22f, HorizontalAlignment.Left, display: true);
             _earnPop.Visible = false;
-            _quota = AddLabel("Quota", 15, 0.5f, 0f, -BarWidth * 0.5f, m + 33f, BarWidth * 0.5f, m + 54f, HorizontalAlignment.Center);
-            _quotaBar = AddBar("QuotaBar", 0.5f, 0f, -BarWidth * 0.5f, m + 57f, BarWidth * 0.5f, m + 62f, QuotaColour);
-            _phase = AddLabel("Phase", 20, 0.5f, 0f, -350f, 0f, 350f, 0f, HorizontalAlignment.Center, display: true);
-            _timeBar = AddBar("TimeBar", 0.5f, 0f, -BarWidth * 0.5f, 0f, BarWidth * 0.5f, 0f, Colors.White);
+            _quota = AddCornerLabel("Quota", TopCorner.QuotaSize, TopCorner.Quota);
+            _quotaBar = AddBar("QuotaBar", 0f, 0f, m, m + TopCorner.QuotaBar.Top, m + TopCorner.Width, m + TopCorner.QuotaBar.Bottom, QuotaColour);
 
-            // What the run waits for and what the "go" key does, under the plate.
-            _hint = AddLabel("Hint", 18, 0.5f, 0f, -520f, 0f, 520f, 0f, HorizontalAlignment.Center);
+            // What the run waits for and what the "go" key does, centred on the top row beside the plate.
+            _hint = AddLabel("Hint", TopCorner.HintSize, 0.5f, 0f, -520f, 0f, 520f, 0f, HorizontalAlignment.Center);
             _hint.Modulate = Palette.Amber;
-            _playtestTag = AddLabel("PlaytestTag", 13, 0f, 0f, m, m - 8f, m + 420f, m + 12f, HorizontalAlignment.Left);
+            // Under the corner's plate.
+            _playtestTag = AddLabel("PlaytestTag", 13, 0f, 0f, m, 0f, m + 420f, 0f, HorizontalAlignment.Left);
             _playtestTag.Modulate = Palette.Amber;
             _playtestTag.Visible = false;
 
@@ -373,9 +376,9 @@ namespace PerformativeMail.Client.UI
             _draft = new DraftPanel();
             _draft.Setup(client);
             AddChild(_draft);
-            // The panels hang from under the hint, which the top plate's gold and quota pushed down (UI polish plan item 3).
-            _topWithQuota = null;
-            LayoutTop(quota: true);
+            // The panels hang from under the corner's plate and the hint.
+            _topLayout = -1;
+            LayoutTop(quota: true, hintLow: false);
             _generating = new GeneratingPanel();
             AddChild(_generating);
 
@@ -556,7 +559,6 @@ namespace PerformativeMail.Client.UI
             _timeBar.Visible = world.PhaseHasClock;
             _timeBar.Value = _clockTotal > 0.0 ? (float)(left / _clockTotal) : 0f;
             _timeBar.Fill = urgency;
-            LayoutTop(quota: !between);
             _quota.Visible = !between;
             _quotaBar.Visible = !between;
             _quotaBar.Value = global.Quota > 0 ? global.ShiftEarnings / (float)global.Quota : 0f;
@@ -611,6 +613,8 @@ namespace PerformativeMail.Client.UI
             _hint.Text = playtest ? "" : hint;
             // The e5be644 playtest's N11: the shop's head stands where the hint does; under it, the hint waits.
             _hint.Visible = !(panel is { } covering && _hint.Text.Length > 0 && TextBox(_hint).Overlaps(covering));
+            FitHint();
+            LayoutTop(quota: !between, hintLow: _hintLow);
             _playtestTag.Text = playtest ? hint : "";
             _playtestTag.Visible = playtest;
             _paused.Visible = world.Paused || lost;
@@ -951,8 +955,6 @@ namespace PerformativeMail.Client.UI
             }
         }
 
-        private bool? _topWithQuota;
-
         /// <summary>The box of what covers the middle of the screen: the inventory screen (the Intake, a chest, the bag) or the Payday / Results card; else null.</summary>
         private ScreenBox? PanelBox()
         {
@@ -1002,6 +1004,7 @@ namespace PerformativeMail.Client.UI
             const float m = SafeMargin, step = TrackerRow.RowHeight + 6f;
             bool fromTop = PanelDodge.TrackersFromTop(shown, screen.X - m - TrackerWidth, screen.X - m, screen.Y, m, TrackerRow.RowHeight, 6f, panel);
             TrackersFromTop = fromTop;
+            _trackersShown = shown;
             int k = 0;
             foreach (var row in _trackerRows)
             {
@@ -1025,6 +1028,7 @@ namespace PerformativeMail.Client.UI
 
         /// <summary>Whether the trackers stand from the top right this frame, out of an open panel's way.</summary>
         public bool TrackersFromTop { get; private set; }
+        private int _trackersShown;
 
         /// <summary>The prompt under the crosshair, or out of the way of an open panel that covers it ("Close Intake [E]").</summary>
         private void DodgePrompt(ScreenBox? panel)
@@ -1033,7 +1037,7 @@ namespace PerformativeMail.Client.UI
             var screen = GetViewportRect().Size;
             float mid = screen.Y * 0.5f;
             // Under the hint at the top, over the held stack's name at the foot.
-            float ceiling = _hint.GetGlobalRect().End.Y + 4f, floor = screen.Y - SafeMargin - GridView.Cell - 34f;
+            float ceiling = HintBottom + 4f, floor = screen.Y - SafeMargin - GridView.Cell - 34f;
             _card.Compact = false;
             var row = PromptRow(panel, mid, ceiling, floor, screen);
             // The e5be644 playtest's N11: no room left by the open shop, the card was pressed up onto its foot. Then the card
@@ -1105,25 +1109,26 @@ namespace PerformativeMail.Client.UI
         private const float PromptRowTop = 40f, PromptRowHeight = 34f;
 
         /// <summary>
-        /// The top plate from the top down: the gold, the quota's line and bar (in a run), the shift's line, the
-        /// clock bar; the hint under the plate. Between runs there is no quota and the rest closes up under the gold.
+        /// The corner's plate with its quota rows (in a run) or without (between runs), the hint on the top row or, when
+        /// its words fit there at no size, under the plate; the playtest's tag under the plate; the banner, the Payday /
+        /// Results card and the Draft's cards under all of them.
         /// </summary>
-        private void LayoutTop(bool quota)
+        private void LayoutTop(bool quota, bool hintLow)
         {
-            if (_topWithQuota == quota) return;
-            _topWithQuota = quota;
+            int layout = (quota ? 1 : 0) | (hintLow ? 2 : 0);
+            if (_topLayout == layout) return;
+            _topLayout = layout;
             const float m = SafeMargin;
-            float y = quota ? m + 66f : m + 34f;
-            Place(_phase, 0.5f, 0f, -350f, y, 350f, y + 28f);
-            Place(_timeBar, 0.5f, 0f, -BarWidth * 0.5f, y + 31f, BarWidth * 0.5f, y + 37f);
-            Place(_topPlate, 0.5f, 0f, -BarWidth * 0.5f - 14f, m - 10f, BarWidth * 0.5f + 14f, y + 45f);
-            Place(_hint, 0.5f, 0f, -520f, y + 51f, 520f, y + 79f);
-            // Payday's and Results' panel and the Draft's cards stand under the hint, not at a fifth of the screen
-            // (at 1280×720 the hint, under the taller plate, reached 173 px and the cards stood at 144).
-            float panelTop = y + 87f;
-            // The banner too: at a quarter of 720 px its words ran into the lowered hint.
-            _bannerTop = y + 83f;
-            Place(_banner, 0.5f, 0f, -520f, y + 83f, 520f, y + 123f);
+            var (plateTop, plateBottom) = TopCorner.Plate(quota);
+            Place(_topPlate, 0f, 0f, m - TopCorner.PlatePad, m + plateTop, TopCorner.PlateRight(m), m + plateBottom);
+            float hintTop = hintLow ? m + plateBottom + 6f : m + TopCorner.Hint.Top;
+            Place(_hint, 0.5f, 0f, -520f, hintTop, 520f, hintTop + TopCorner.Hint.Bottom - TopCorner.Hint.Top);
+            Place(_playtestTag, 0f, 0f, m, m + plateBottom + 4f, m + 420f, m + plateBottom + 22f);
+            // Under the plate and the hint, whichever reaches lower (the cards of the Draft are wide enough to reach the plate's column at 720p).
+            float under = Mathf.Max(m + plateBottom, hintTop + TopCorner.Hint.Bottom - TopCorner.Hint.Top);
+            _bannerTop = under + 8f;
+            Place(_banner, 0.5f, 0f, -520f, _bannerTop, 520f, _bannerTop + 40f);
+            float panelTop = under + 10f;
             foreach (var panel in new Control?[] { _overlay, _draft })
             {
                 if (panel == null) continue;
@@ -1132,7 +1137,38 @@ namespace PerformativeMail.Client.UI
             }
         }
 
-        private const float EarnPopSeconds = 1.1f, EarnPopRise = 16f;
+        private int _topLayout = -1;
+        private string _hintFitText = "";
+        private float _hintFitRoom = -1f;
+        private bool _hintLow;
+
+        /// <summary>
+        /// The hint's words shrink from 18 px to 13 until they fit the top row between the plate and the right edge (or
+        /// the trackers while they stand from the top right); if not even then, the hint goes under the plate.
+        /// </summary>
+        private void FitHint()
+        {
+            if (!IsInsideTree()) return;
+            float width = GetViewportRect().Size.X;
+            float right = TrackersFromTop && _trackersShown > 0 ? width - SafeMargin - TrackerWidth : width - SafeMargin;
+            float room = TopCorner.HintRoom(width, SafeMargin, right);
+            if (_hint.Text == _hintFitText && room == _hintFitRoom) return;
+            _hintFitText = _hint.Text;
+            _hintFitRoom = room;
+            var font = _hint.GetThemeFont("font");
+            string text = _hint.Text;
+            int size = TopCorner.HintFit(s => font.GetStringSize(text, HorizontalAlignment.Left, -1, s).X, room);
+            _hintLow = size < 0 && text.Length > 0;
+            _hint.AddThemeFontSizeOverride("font_size", size < 0 ? TopCorner.HintSize : size);
+        }
+
+        /// <summary>The hint's font size this frame, px.</summary>
+        public int HintFontSize => _hint.GetThemeFontSize("font_size");
+
+        /// <summary>The hint stands under the corner's plate this frame: its words fit the top row at no size.</summary>
+        public bool HintLow => _hintLow;
+
+        private const float EarnPopSeconds = 1.1f, EarnPopRise = 10f;
         private int _shownWallet;
         private bool _walletSeen;
         private int _popAmount;
@@ -1165,11 +1201,11 @@ namespace PerformativeMail.Client.UI
             float t = _popAge / EarnPopSeconds;
             _earnPop.Visible = t < 1f && _wallet.Visible && _popAmount != 0;
             if (!_earnPop.Visible) return;
-            float half = TextWidth(_wallet) * 0.5f;
-            const float m = SafeMargin;
+            float x = SafeMargin + TextWidth(_wallet) + 10f;
+            float y = SafeMargin + TopCorner.Wallet.Top + 2f;
             float rise = EarnPopRise * t;
-            // Rising inside the plate, not out over its top edge (the e5be644 playtest's N11).
-            Place(_earnPop, 0.5f, 0f, half + 10f, m + 6f - rise, half + 150f, m + 32f - rise);
+            // Rising beside the gold, within the plate's rows above it, not out over its top edge (the e5be644 playtest's N11).
+            Place(_earnPop, 0f, 0f, x, y - rise, x + 140f, y + 22f - rise);
             _earnPop.Modulate = new Color(_earnPop.Modulate, 1f - t * t);
         }
 
@@ -1181,6 +1217,10 @@ namespace PerformativeMail.Client.UI
             AddChild(label);
             return label;
         }
+
+        /// <summary>A line of the top left corner, its row <paramref name="row"/> px down from the safe margin.</summary>
+        private Label AddCornerLabel(string name, int fontSize, (float Top, float Bottom) row, bool display = false) =>
+            AddLabel(name, fontSize, 0f, 0f, SafeMargin, SafeMargin + row.Top, SafeMargin + TopCorner.Width, SafeMargin + row.Bottom, HorizontalAlignment.Left, display);
 
         private MeterBar AddBar(string name, float anchorX, float anchorY, float left, float top, float right, float bottom, Color fill)
         {

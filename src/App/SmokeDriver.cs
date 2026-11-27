@@ -703,8 +703,8 @@ namespace PerformativeMail.App
             }
         }
 
-        /// <summary>How far before the host the guest stands for the name tag's check: close enough for the name to stand where the HUD's top lines are.</summary>
-        private const float NameTagMetres = 1.0f;
+        /// <summary>How far before the host the guest stands for the name tag's check: close enough for the name to stand on the hint centred on the top row (design choice 168).</summary>
+        private const float NameTagMetres = 0.9f;
 
         /// <summary>A name that would stand on the HUD is drawn under it, in full (playtest issue (a) of the a5d987e report).</summary>
         private void CheckNameTag()
@@ -785,11 +785,23 @@ namespace PerformativeMail.App
                 float top = _screen.Hud.HintLineBottom, foot = _screen.Hud.HotbarTop;
                 if (panel.Size.Y <= foot - top - 12f && _framesSinceInventoryShown > 1)
                     Check(panel.Position.Y >= top, $"the open inventory screen {panel} ({world.Inventory.Def.Rows + world.Inventory.ExtraRows} rows) starts on the hint's line (to {top:0})");
-                if (world.Inventory.ExtraRows == 2 && panel.Position.Y >= top) _sawFourRows = true;
+                if (world.Inventory.ExtraRows == 2 && panel.Position.Y >= top && !_sawFourRows)
+                {
+                    _sawFourRows = true;
+                    Shot("inventory-four-rows");
+                }
             }
             // The d0c338e playtest's N15: "under attack" ran past the Post Office's plate.
             foreach (string tracker in _screen.Hud.TrackerOverflows)
                 Check(false, $"the tracker line \"{tracker}\" runs past its plate");
+            // Design choice 168: the hint on the top row keeps off the corner's plate and the trackers standing from the top right.
+            if (_screen.Hud.HintTextBox is { } hintWords)
+            {
+                var corner = _screen.Hud.TopPlate.GetGlobalRect();
+                Check(!hintWords.Overlaps(new ScreenBox(corner.Position.X, corner.Position.Y, corner.End.X, corner.End.Y)), $"the hint \"{_screen.Hud.HintText}\" at {hintWords.X0:0}-{hintWords.X1:0} is on the corner's plate {corner}");
+                foreach (var row in _screen.Hud.TrackerRects)
+                    Check(!hintWords.Overlaps(new ScreenBox(row.Position.X, row.Position.Y, row.End.X, row.End.Y)), $"the hint \"{_screen.Hud.HintText}\" is on a tracker row at {row}");
+            }
             foreach (string tracker in _screen.Hud.TrackerTexts)
                 Check(!tracker.StartsWith("Delivered", StringComparison.Ordinal) && !tracker.StartsWith("Backlog", StringComparison.Ordinal),
                     $"the HUD's corner still shows \"{tracker}\"");
@@ -1181,7 +1193,8 @@ namespace PerformativeMail.App
                 Check(rect.Size.Y >= min.Y && rect.Size.X >= min.X, $"HUD {control.Name} is {rect.Size}, its text needs {min}");
             }
 
-            // The top group (nit 14): quota bar, the shift's line, clock bar and hint, each clear of the next, on their plate.
+            // The top left group (nit 14; design choice 168): the shift's line, clock bar, gold, quota line and bar, each
+            // clear of the next, on their small plate in the corner, the hint beside it on the top row.
             var stack = _screen.Hud.TopStack;
             for (int i = 0; i + 1 < stack.Length; i++)
             {
@@ -1189,14 +1202,17 @@ namespace PerformativeMail.App
                 Check(upper.End.Y + 2f <= lower.Position.Y, $"HUD {stack[i].Name} (down to {upper.End.Y:0}) touches {stack[i + 1].Name} (from {lower.Position.Y:0})");
             }
             var plate = _screen.Hud.TopPlate.GetGlobalRect();
-            // All but the hint under it are on the plate (UI polish plan item 3: the gold and the quota too), each as high as its text.
-            for (int i = 0; i + 1 < stack.Length; i++)
+            for (int i = 0; i < stack.Length; i++)
             {
                 var rect = stack[i].GetGlobalRect();
-                Check(plate.Position.Y <= rect.Position.Y && rect.End.Y <= plate.End.Y, $"HUD {stack[i].Name} at {rect} is not on the top plate {plate}");
+                Check(plate.Encloses(rect), $"HUD {stack[i].Name} at {rect} is not on the top plate {plate}");
                 Check(rect.Size.Y >= stack[i].GetCombinedMinimumSize().Y, $"HUD {stack[i].Name} is {rect.Size.Y:0} high, its text needs {stack[i].GetCombinedMinimumSize().Y:0}");
             }
-            Check(stack.Length == 6 && stack[0].Name == "Wallet" && stack[1].Name == "Quota", $"in Delivery the top plate holds {string.Join(", ", stack.Select(c => c.Name.ToString()))}");
+            Check(stack.Length == 5 && stack[0].Name == "Phase" && stack[2].Name == "Wallet" && stack[3].Name == "Quota", $"in Delivery the top plate holds {string.Join(", ", stack.Select(c => c.Name.ToString()))}");
+            // Evan's "smaller elements in the top left": the corner, inside the safe area, far smaller than the old top-centre plate (448 × 160).
+            Check(plate.Position.X >= Hud.SafeMargin - TopCorner.PlatePad - 0.5f && plate.Position.X + plate.Size.X * 0.5f < GetViewport().GetVisibleRect().Size.X * 0.3f
+                    && plate.Size.X <= 280f && plate.End.Y <= Hud.SafeMargin + 90f,
+                $"the top plate {plate} is not a small group in the top left corner");
             Check(_sawEarnPop, "no \"+… g\" rose beside the gold for a paid delivery");
             Check(_maxPhaseWidth > 0f && _maxPhaseWidth <= plate.Size.X - 16f, $"the shift's line grew to {_maxPhaseWidth:0} wide, the top plate is {plate.Size.X:0}");
 

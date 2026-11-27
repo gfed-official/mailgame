@@ -2947,6 +2947,38 @@ the misdeliveries' mailboxes): `tools/smoke.sh`'s three Godot smokes SMOKE OK, B
 and Net.Tests 240 green. Not yet looked at rendered at 1280×720: the mode plate and the four-row inventory under the
 hint (both checked headless).
 
+### 7. Evan's ask: the top plate becomes small elements in the top left (2026-11-27; design choice 168)
+
+Evan, 2026-11-27 7:16 AM PT: "Instead of the overlay in the top middle of the screen, can it be smaller elements in the
+top left? It takes up a lot of screen real estate."
+
+- [x] **The run's state small in the top left corner** (`TopCorner`, `Hud.LayoutTop`). The 448 × 139 px plate across the
+      top centre (gold at 30 px, quota, the shift's line at 20 px, the clock bar) and the hint under it down to 173 px are
+      gone. In their place, inside the safe area, one plate of 270 × 86 px: the shift's line ("Shift 2 / 5   Delivery
+      3:12", display face 14 px; white, amber under a minute, red under 15 s), the clock's 3 px bar in the same colour, the
+      gold ("4700 g", display 18 px; red below zero) with its "+17 g" pop beside it (15 px, rising 10 px inside the
+      plate), "quota 1240 / 4237 g" (12 px, green once met) over its 4 px bar (green once met). Between runs the quota
+      rows go and the plate closes up under the gold (56 px high). The hint ("Press [G] to start the run …", amber) stands
+      centred on the top row beside the plate and shrinks from 18 px to 13 until it fits between the plate and the
+      right edge, or the tracker column while it stands from the top right (`TopCorner.HintRoom`, `HintFit`); if it fits
+      at no size it goes under the plate. The playtest's amber tag moved under the plate. Everything that hung under the
+      old plate now hangs under the lower of the plate and the hint (`Hud.HintBottom`, `HintLineBottom`): the banner,
+      the Payday / Results card and its title line, the Draft's cards (all from 120 px instead of 181), the prompt's
+      ceiling, the map's top (`MapPanel.TopClear`), the inventory screen's `KeepBetween`; the world labels' and bars'
+      keep-clear boxes (`Hud.KeepClear`, `WorldBarClear`, `PanelDodge`) take the plate where it now is. The debug world's
+      amber lines moved under the plate
+- [x] `TopCornerTests` (the rows in order and on the plate, the plate far smaller than the old one, the hint's room and
+      size at 1280 px with and without the trackers on top); the smoke checks the five rows in order on the plate, the
+      plate small in the top left inside the safe area, the hint's words never on the plate nor on a tracker row every
+      frame, the banner and the Draft under the hint and the plate; the name tag's check stands the guest 0.9 m away so
+      that the name falls on the hint's row (at 1 m it no longer meets any HUD line)
+- Checked rendered at 1280×720 (`--shots` under xvfb, the full run and the raid playtest, SMOKE OK both): the corner
+      plate in Prep, Delivery, Payday (with the "+72 g" pop), the Draft and the Lobby (practice / daily / stamps plates);
+      the hint on the top row clear of it; the Draft's cards, the Payday card and the raid's banner under it; the smoke
+      now also saves a shot of the Intake's screen with four inventory rows (`inventory-four-rows`)
+- For Mail Lead to file: **an ADR-0018 placement amendment** — the wallet moves from the top right to the top left
+      with the timer (Evan's call here; ADR-0018 already had the timer top-left)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -3266,7 +3298,7 @@ See "Commands" at the bottom (filled in as the tooling lands).
     ground and are tried again every second until the despawn. The card value of an item is its
     sell price; the most valuable card is the gold one; cards stay 4 s after the last pickup and
     kills within that time add to the cards on show.
-55. **The HUD follows the video, not doc 09's first sketch.** Top centre: quota bar (orange,
+55. **The HUD follows the video, not doc 09's first sketch.** (Its top centre is superseded by choice 168: the top left.) Top centre: quota bar (orange,
     green once met), the phase line, the clock bar (its full length is the longest time left seen
     in the phase). Bottom left: feed, weapons line (only while there is something to fight),
     health, stamina. Bottom right: plates for wallet, quota (rank in the Lobby), backlog and
@@ -4564,6 +4596,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     "unlocks" block is written as a record for whoever reads the file; the game never reads it back to decide anything
     (the rank does), so an edited file opens nothing. The Large Island (rank 3) and cosmetics (15+) are not built, so
     they are neither listed nor revealed; a rank-3 rise reveals nothing yet.
+
+168. **The top plate in the top left (Evan, 2026-11-27), superseding choice 55's top centre.** One small plate in the
+    corner rather than four loose elements, so the world behind cannot be read into the numbers (nit 14 still holds);
+    the order is the shift's line first (what Evan looks at most), then the gold, then the quota and its bar. The sizes
+    were cut to the least that reads at 720p (14 / 18 / 12 px); the colour states are as before. The hint stays centred
+    on the top row, since it is what to do next and was never part of the plate; at 1280 px it has 680 px at 18 px,
+    540 px beside the top-right trackers, and shrinks rather than wrapping. The panels still hang from under the plate
+    even where they would clear it sideways (the Draft's three cards reach x 260 at 720p), one rule for all of them.
+    ADR-0018 placed the timer top left; the wallet's move from the top right is Evan's call, noted for an amendment.
 
 ## Commands
 

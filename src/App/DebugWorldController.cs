@@ -44,11 +44,12 @@ namespace PerformativeMail.App
             _line.AddThemeColorOverride("font_color", new Color(1f, 0.85f, 0.35f));
             _line.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f));
             _line.AddThemeConstantOverride("outline_size", 4);
-            // The top left, clear of the clock in the middle and the health and feed at the bottom.
-            _line.OffsetLeft = 28f;
+            // The top left under the corner's plate and the playtest's tag (design choice 168), clear of the health and feed at the bottom.
+            float top = Client.UI.Hud.SafeMargin + Client.TopCorner.Plate(quota: true).Bottom + 26f;
+            _line.OffsetLeft = Client.UI.Hud.SafeMargin;
             _line.OffsetRight = 400f;
-            _line.OffsetTop = 28f;
-            _line.OffsetBottom = 90f;
+            _line.OffsetTop = top;
+            _line.OffsetBottom = top + 62f;
             layer.AddChild(_line);
             Refresh();
         }
