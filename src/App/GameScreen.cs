@@ -236,6 +236,7 @@ namespace PerformativeMail.App
             bool open = InventoryOpen(world);
             // The route editor (doc 09 §2.6): the map over the console takes the clicks, the console's cards wait.
             Inventory.Visible = open && !Map.Editing;
+            if (Inventory.Visible) Inventory.KeepBetween(Hud.HintLineBottom + 6f, Hud.HotbarTop - 6f);
             // The Draft's cards take a click until the local player has chosen; then the mouse is the view's again.
             if (!world.ChoosingCard) _draftAside = false;
             Mouse.SetPanelOpen(open || (world.ChoosingCard && !_draftAside));

@@ -265,6 +265,10 @@ namespace PerformativeMail.Client.UI
         /// <summary>The prompt's row is drawn: false while no spot clear of the open panel is left for it.</summary>
         public bool PromptShown => _promptRow.Visible;
         /// <summary>The foot of the hint under the top plate while it says something, else of the plate: what the map hangs under.</summary>
+        /// <summary>The foot of the hint's line whether or not it waits under a panel, else of the plate: what the inventory screen keeps under.</summary>
+        public float HintLineBottom => _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : _topPlate.GetGlobalRect().End.Y;
+        /// <summary>The top of the hotbar at the screen's foot.</summary>
+        public float HotbarTop => _hotbar.GetGlobalRect().Position.Y;
         public float HintBottom => _hint.Visible && _hint.Text.Length > 0 ? _hint.GetGlobalRect().End.Y : _topPlate.GetGlobalRect().End.Y;
         private HBoxContainer _promptRow = null!;
         private Label _playtestTag = null!;
@@ -1001,11 +1005,19 @@ namespace PerformativeMail.Client.UI
                 if (!(row.Visible && row is TrackerRow t && t.Line.Visible && t.Line.Text.Length > 0)) continue;
                 if (fromTop) Place(row, 1f, 0f, -m - TrackerWidth, m + k * step, -m, m + k * step + TrackerRow.RowHeight);
                 else Place(row, 1f, 1f, -m - TrackerWidth, -m - k * step - TrackerRow.RowHeight, -m, -m - k * step);
+                t.FitText();
                 k++;
             }
         }
 
+        /// <summary>The shown tracker lines whose words run past their plate.</summary>
+        public IEnumerable<string> TrackerOverflows => _trackerRows.OfType<TrackerRow>().Where(r => r.Visible && r.Line.Visible && r.Line.Text.Length > 0 && !r.TextFits).Select(r => r.Line.Text);
+
+        /// <summary>These words would fit a tracker plate (at its smallest size).</summary>
+        public bool TrackerFits(string text) => ((TrackerRow)_stamps.GetParent()).Fits(text);
+
         /// <summary>Where the tracker rows that say something stand on screen.</summary>
+
         public IEnumerable<Rect2> TrackerRects => _trackerRows.OfType<TrackerRow>().Where(r => r.Visible && r.Line.Visible && r.Line.Text.Length > 0).Select(r => r.GetGlobalRect());
 
         /// <summary>Whether the trackers stand from the top right this frame, out of an open panel's way.</summary>
@@ -1178,7 +1190,7 @@ namespace PerformativeMail.Client.UI
         /// <summary>A tracker plate at the bottom right, <paramref name="slot"/> rows up; returns its line.</summary>
         private Label AddTracker(string name, int slot, Color mark)
         {
-            var row = new TrackerRow(MakeLabel(name, 15, HorizontalAlignment.Left)) { Name = name + "Row", Mark = mark };
+            var row = new TrackerRow(MakeLabel(name, TrackerRow.FontSize, HorizontalAlignment.Left)) { Name = name + "Row", Mark = mark };
             float bottom = -SafeMargin - slot * (TrackerRow.RowHeight + 6f);
             Place(row, 1f, 1f, -SafeMargin - TrackerWidth, bottom - TrackerRow.RowHeight, -SafeMargin, bottom);
             AddChild(row);

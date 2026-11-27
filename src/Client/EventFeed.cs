@@ -113,7 +113,7 @@ namespace PerformativeMail.Client
                 case EnemyDiedEvent e when !e.Killer.IsNone: AddKill(world, e); break;
                 case RaidChangedEvent e: OnRaid(world, e.Raid); break;
                 case PlayerDiedEvent e:
-                    Add($"{Who(world, e.Player)} went down to a {HudText.EnemyName(world.Content, e.Killer, false)}", bad: true);
+                    Add($"{Who(world, e.Player)} went down to {HudText.WithArticle(HudText.EnemyName(world.Content, e.Killer, false))}", bad: true);
                     break;
                 case PlayerRespawnedEvent e:
                     Add(e.Player == world.LocalId ? "You are back on your feet" : $"{Who(world, e.Player)} is back on their feet");

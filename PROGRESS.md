@@ -2855,7 +2855,29 @@ Batch 6a–6c (the e5be644 bugs, run events, the callouts / results / seed copy)
 SMOKE OK, BOT OK, the seeds valid; Sim.Tests 667 and Net.Tests 234 green. The rendered 1280×720 smoke passed after 6a
 (the shop's hint and prompt, the Payday card without the crosshair and the map under the hint checked in its shots).
 
-### 6d. Postal Rank unlock tracks and seeds (doc 12 M4; doc 01 §5.2–§5.3; doc 09 §2.2, §2.11, §6), 2026-11-27
+### 6d. Playtest bugs of the d0c338e report (`mailgame-harness/results/20261127-041832-d0c338e/report.md`, 2026-11-27)
+
+The report played d0c338e, before 5a22419: its N3 and N6–N12 rows are the e5be644 bugs fixed there (6a) and were not
+touched again. N4 and the bag's hotbar return passed.
+
+- [x] **(N13) The Lobby's stamps line past its plate** ("Stamps: Rush Hour, Heavy Load, Double Raids"). A tracker row
+      now shrinks its words from 15 px down to 11 px until they fit the plate (`TrackerRow.FitText`, `TextFits`), and
+      the stamps line names at most two stamps of up to 26 letters together, else counts them: "Stamps: 3 on   ·
+      score ×1.51" (the [T] line above it still names each and whether it is on). The smoke checks in the Lobby that
+      every stamp's [T] line, locked and open, and the line of all eight fit (`Hud.TrackerFits`)
+- [x] **(N15) "under attack" past the Post Office's plate** ("2640 / 3000 HP · under attack"): the same fit; the smoke
+      checks every shown tracker line every frame of the run (`Hud.TrackerOverflows`) and the struck Post Office's line
+- [x] **(N14) Four inventory rows (Big Pockets twice) over the Prep hint.** The inventory screen stays centred unless its
+      head would lie on the hint's line; then it stands just under that line, as long as it still ends over the hotbar
+      (`InventoryPanel.KeepBetween`, `Hud.HintLineBottom`, `Hud.HotbarTop`). The smoke gives the host Big Pockets twice
+      with Local Knowledge and checks the Intake's screen with four rows starts under the hint
+- [x] Minor: "You went down to a Archer" → "an Archer" (`HudText.WithArticle`); the Results' score line has one pair of
+      brackets: "Score 61 g = 44 g × 1.38 (Heavy Load 1.1 × Double Raids 1.25)"
+- Not changed: under `--no-quota` the quota is still shown (the flag only keeps a missed quota from ending the run; the
+      quota is still what the shift is measured by, and the Payday card says "playtest: the run goes on")
+- `CursedMailFlowTests` (the stamps line, the article); smoke checks above
+
+### 6e. Postal Rank unlock tracks and seeds (doc 12 M4; doc 01 §5.2–§5.3; doc 09 §2.2, §2.11, §6), 2026-11-27
 
 - [x] **Perk pool expansions by rank** (doc 01 §5.2; design choice 164). The facility perks (Express Lane, Greased
       Inserters, Bulk Depot, Extra Labels, Presort, Shared Build, Postmaster's Eye) ask Postal Rank 5 and the defense

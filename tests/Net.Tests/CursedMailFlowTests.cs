@@ -90,5 +90,27 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(RaidState.None, a.Raid);
             Assert.Equal(0, ada.ContainerDesyncs + ada.BadPackets + bob.ContainerDesyncs + bob.BadPackets);
         }
+
+        [Fact]
+        public void TheLobbysStampsLine_NamesUpToTwoShortOnes_ThenCountsThem()
+        {
+            // The d0c338e playtest's N13: "Stamps: Rush Hour, Heavy Load, Double Raids" ran past its plate.
+            var content = Shared.Content;
+            int Bit(string id) => 1 << content.Stamps.Single(s => s.Id == id).Index;
+            Assert.Equal("Stamps: none", HudText.StampsTracker(content, 0));
+            Assert.Equal("Stamps: Rush Hour, Heavy Load   ·   score ×1.21", HudText.StampsTracker(content, Bit("rush_hour") | Bit("heavy_load")));
+            Assert.Equal("Stamps: 3 on   ·   score ×1.51", HudText.StampsTracker(content, Bit("rush_hour") | Bit("heavy_load") | Bit("double_raids")));
+            // Two long names count as well.
+            Assert.Equal("Stamps: 2 on   ·   score ×1.56", HudText.StampsTracker(content, Bit("skeleton_crew") | Bit("postal_audit")));
+            Assert.StartsWith("Stamps: 8 on   ·   score ×", HudText.StampsTracker(content, (1 << content.Stamps.Count) - 1));
+        }
+
+        [Fact]
+        public void AnEnemysNameTakesItsArticle()
+        {
+            // The d0c338e playtest: "You went down to a Archer".
+            Assert.Equal("an Archer", HudText.WithArticle("Archer"));
+            Assert.Equal("a Raider", HudText.WithArticle("Raider"));
+        }
     }
 }

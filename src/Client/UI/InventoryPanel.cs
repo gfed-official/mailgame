@@ -77,6 +77,18 @@ namespace PerformativeMail.Client.UI
         /// <summary>The newest request a click, a drop or a sort button sent; 0 if the last gesture sent none.</summary>
         public uint LastRequestId { get; private set; }
 
+        /// <summary>
+        /// Centred on the screen, unless that puts its head on the hint's line under the top plate: then down to just under
+        /// it, where it still ends over <paramref name="bottom"/> (the d0c338e playtest's N14: four rows of Big Pockets
+        /// covered "Mailboxes open when the shift starts").
+        /// </summary>
+        public void KeepBetween(float top, float bottom)
+        {
+            float height = Size.Y, y = (GetViewportRect().Size.Y - height) * 0.5f;
+            if (y < top && top + height <= bottom) y = top;
+            if (!Mathf.IsEqualApprox(Position.Y, y)) Position = new Vector2(Position.X, y);
+        }
+
         public void Setup(ClientRuntime client)
         {
             _client = client;

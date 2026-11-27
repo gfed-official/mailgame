@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 using PerformativeMail.Client;
 using PerformativeMail.Sim.Run;
@@ -44,6 +45,8 @@ namespace PerformativeMail.App
             int max = world.PostOfficeMaxHp;
             string want = $"Post Office   {max - PostOfficeBlow} / {max} HP   ·   under attack";
             // UI polish plan item 4: its row has a real HP bar.
+            // The d0c338e playtest's N15: the longest Post Office line, four digits and struck, inside its plate.
+            if (hud.PostOfficeText == want) Check(hud.TrackerFits(want) && !hud.TrackerOverflows.Contains(want), $"\"{want}\" runs past its plate");
             if (hud.PostOfficeText == want && Mathf.Abs(hud.PostOfficeBar - (max - PostOfficeBlow) / (float)max) < 0.01f) _poTracker = true;
             if (_screen.AttackMarker.Text == "Post Office under attack")
             {

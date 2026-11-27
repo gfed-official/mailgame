@@ -182,13 +182,22 @@ namespace PerformativeMail.Client
         public const string CursedWarning = "Cursed: raiders come!";
 
         /// <summary>The run's stamps (doc 01 §6) and its score multiplier: "Stamps: Cursed Mail   ·   score ×1.15", "Stamps: none".</summary>
-        public static string StampsTracker(ClientWorld world)
+        /// <summary>The longest list of stamp names the Lobby's stamps line holds.</summary>
+        public const int StampNamesMax = 26;
+
+        public static string StampsTracker(ClientWorld world) => StampsTracker(world.Content, world.Global.Stamps);
+
+        /// <summary>The Lobby's stamps line for these stamps (a bit per stamp).</summary>
+        public static string StampsTracker(ContentDb content, int stamps)
         {
             var names = new List<string>();
             double mult = 1.0;
-            foreach (var s in world.Content.Stamps)
-                if ((world.Global.Stamps & (1 << s.Index)) != 0) { names.Add(s.Name); mult *= s.ScoreMult; }
-            return names.Count == 0 ? "Stamps: none" : $"Stamps: {string.Join(", ", names)}   ·   score ×{mult.ToString("0.##", CultureInfo.InvariantCulture)}";
+            foreach (var s in content.Stamps)
+                if ((stamps & (1 << s.Index)) != 0) { names.Add(s.Name); mult *= s.ScoreMult; }
+            if (names.Count == 0) return "Stamps: none";
+            // Past two names, or long ones, the count: the [T] line says which are on (the d0c338e playtest's N13).
+            string which = names.Count <= 2 && string.Join(", ", names).Length <= StampNamesMax ? string.Join(", ", names) : $"{names.Count.ToString(CultureInfo.InvariantCulture)} on";
+            return $"Stamps: {which}   ·   score ×{mult.ToString("0.##", CultureInfo.InvariantCulture)}";
         }
 
         /// <summary>Doc 05 §6: the feed's line when cursed mail went to the wrong mailbox.</summary>
@@ -606,7 +615,8 @@ namespace PerformativeMail.Client
 
         /// <summary>
         /// Doc 01 §6 / doc 09 §2.11: the stamps' multipliers, multiplied, on the Results' score line — "× 1.15 Cursed
-        /// Mail", or with several "× 1.27 (Cursed Mail 1.15 × Rush Hour 1.1)".
+        /// Mail", or with several "× 1.27 (Cursed Mail 1.15 × Rush Hour 1.1)", after "Score 1270 g = 1000 g" (one pair
+        /// of brackets, the d0c338e playtest).
         /// </summary>
         public static string StampsMultLine(ClientWorld world)
         {
@@ -629,7 +639,7 @@ namespace PerformativeMail.Client
                 ResultsHeadline(world.Content, r),
                 ResultsStamp(r, out _),
                 GradeLine(r.Deliveries, r.Deliveries + r.Misdeliveries),
-                $"{ShiftsLine(world.Content, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" ({Gold(r.TotalEarned)} {StampsMultLine(world)})" : "")}",
+                $"{ShiftsLine(world.Content, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" = {Gold(r.TotalEarned)} {StampsMultLine(world)}" : "")}",
                 $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}{(r.ConstructsLost > 0 ? $"   ·   Constructs lost {r.ConstructsLost}" : "")}",
             };
             // Doc 09 §2.11 "run stats": what each carrier fought and built besides the mail, where they did.

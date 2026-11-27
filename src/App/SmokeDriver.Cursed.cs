@@ -45,6 +45,15 @@ namespace PerformativeMail.App
                 string want = "Stamps: Cursed Mail   ·   score ×1.15";
                 Check(hud.StampsText == want, $"in the Lobby the stamps plate reads \"{hud.StampsText}\", expected \"{want}\"");
                 Check(hud.WorldKeysText.EndsWith("[T] stamps", StringComparison.Ordinal), $"the host's keys read \"{hud.WorldKeysText}\"");
+                // The d0c338e playtest's N13: every stamp's [T] line, locked or not, and the line of all eight fit their plates.
+                for (int i = 0; i < world.Content.Stamps.Count; i++)
+                    foreach (int tier in new[] { 1, 3 })
+                    {
+                        string pick = HudText.StampPick(world, i, tier);
+                        Check(hud.TrackerFits(pick), $"the Lobby's stamp line \"{pick}\" runs past its plate");
+                    }
+                string all = HudText.StampsTracker(world.Content, (1 << world.Content.Stamps.Count) - 1);
+                Check(hud.TrackerFits(all), $"the Lobby's stamps line \"{all}\" runs past its plate");
                 Shot("lobby-stamps");
                 GD.Print($"[smoke] stamps: Cursed Mail set in the Lobby with the host's key, \"{hud.StampsText}\"");
                 _curseDest = -2;

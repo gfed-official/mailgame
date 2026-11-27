@@ -65,6 +65,8 @@ namespace PerformativeMail.App
         private readonly List<string> _failures = new List<string>();
         private readonly HashSet<string> _shots = new HashSet<string>();
         private int _startWallet, _paid, _penalties, _deliveredEvents, _misdeliveredEvents, _mailArrived;
+        private int _framesSinceInventoryShown;
+        private bool _sawFourRows;
         private bool _sawIntakePrompt, _sawMailboxPrompt, _sawManifest, _sawCarriedMail, _sawMatchMark, _sawMismatchMark;
         private int _overlayFrames, _overlayChecks;
         private string? _overlaySeen;
@@ -766,6 +768,7 @@ namespace PerformativeMail.App
             if (shown && prompt.Kind == InteractKind.Deliver) _sawMailboxPrompt = true;
             if (_screen.Hud.PromptMark == PromptTone.Match && prompt.Kind == InteractKind.Deliver && prompt.AddressMatches) _sawMatchMark = true;
             if (_screen.Hud.PromptMark == PromptTone.Mismatch && prompt.Kind == InteractKind.Deliver && !prompt.AddressMatches) _sawMismatchMark = true;
+            _framesSinceInventoryShown = _screen.Inventory.Visible ? _framesSinceInventoryShown + 1 : 0;
             if (_screen.Inventory.Visible && _screen.Inventory.ManifestRows > 0)
             {
                 _sawManifest = true;
@@ -778,7 +781,15 @@ namespace PerformativeMail.App
                 if (_screen.Hud.PromptText.Length > 0) Check(!panel.Intersects(promptAt), $"the prompt \"{_screen.Hud.PromptText}\" at {promptAt} is under the open inventory screen {panel}");
                 foreach (var row in _screen.Hud.TrackerRects)
                     Check(!panel.Intersects(row), $"a tracker row at {row} is under the open inventory screen {panel}");
+                // The d0c338e playtest's N14: the screen keeps under the hint's line while it fits over the hotbar.
+                float top = _screen.Hud.HintLineBottom, foot = _screen.Hud.HotbarTop;
+                if (panel.Size.Y <= foot - top - 12f && _framesSinceInventoryShown > 1)
+                    Check(panel.Position.Y >= top, $"the open inventory screen {panel} ({world.Inventory.Def.Rows + world.Inventory.ExtraRows} rows) starts on the hint's line (to {top:0})");
+                if (world.Inventory.ExtraRows == 2 && panel.Position.Y >= top) _sawFourRows = true;
             }
+            // The d0c338e playtest's N15: "under attack" ran past the Post Office's plate.
+            foreach (string tracker in _screen.Hud.TrackerOverflows)
+                Check(false, $"the tracker line \"{tracker}\" runs past its plate");
             foreach (string tracker in _screen.Hud.TrackerTexts)
                 Check(!tracker.StartsWith("Delivered", StringComparison.Ordinal) && !tracker.StartsWith("Backlog", StringComparison.Ordinal),
                     $"the HUD's corner still shows \"{tracker}\"");
@@ -981,6 +992,9 @@ namespace PerformativeMail.App
                 if (held == null || world.Local.Dead) return;
                 var truth = server.GetPlayer(world.LocalId)!;
                 Check(server.GrantPerk(truth, server.Content.Perk("local_knowledge")) == OpResult.Ok, "Local Knowledge was not granted");
+                // The d0c338e playtest's N14: Big Pockets twice, so the Intake's screen below has four inventory rows to keep under the hint.
+                for (int i = 0; i < 2; i++)
+                    Check(server.GrantPerk(truth, server.Content.Perk("big_pockets")) == OpResult.Ok, "Big Pockets was not granted");
                 _compassFrames = 0;
                 return;
             }
@@ -1094,6 +1108,7 @@ namespace PerformativeMail.App
             Check(_mailArrived > 0, "no mail arrived at the Intake");
             Check(_sawIntakePrompt, "the Intake prompt never showed");
             Check(_sawManifest, "the Intake manifest never listed mail");
+            Check(_sawFourRows, "the Intake's screen was never seen with four inventory rows (Big Pockets twice) under the hint");
             Check(_sawCarriedMail, "no mail was ever carried");
             Check(_compassSeen.Length > 0, "the Local Knowledge marker was never seen");
             Check(_sawMailboxPrompt, "the mailbox prompt never showed");

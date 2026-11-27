@@ -113,6 +113,32 @@ namespace PerformativeMail.Client.UI
         private readonly StyleBoxFlat _barFill = new StyleBoxFlat { BgColor = new Color("e5383b"), AntiAliasing = true };
         private bool _shown;
         private float _bar = -1f, _beat;
+        private string _fitText = "";
+        private float _fitWidth = -1f;
+
+        /// <summary>The words' size, and the size they may shrink to so a long line stays inside the plate (the d0c338e playtest's N13, N15).</summary>
+        public const int FontSize = 15, MinFontSize = 11;
+
+        /// <summary>The line's words at their size end inside the plate.</summary>
+        public bool TextFits => TextWidth(Line.Text, Line.GetThemeFontSize("font_size")) <= LineWidth + 0.5f;
+
+        /// <summary>These words would fit the plate at the smallest size.</summary>
+        public bool Fits(string text) => TextWidth(text, MinFontSize) <= LineWidth + 0.5f;
+
+        private float LineWidth => Size.X - Line.OffsetLeft + Line.OffsetRight;
+
+        private float TextWidth(string text, int size) => Line.GetThemeFont("font").GetStringSize(text, HorizontalAlignment.Left, -1, size).X;
+
+        /// <summary>The line at the largest size from <see cref="FontSize"/> down to <see cref="MinFontSize"/> at which it fits.</summary>
+        public void FitText()
+        {
+            if (Line.Text == _fitText && Mathf.IsEqualApprox(Size.X, _fitWidth)) return;
+            _fitText = Line.Text;
+            _fitWidth = Size.X;
+            int size = FontSize;
+            while (size > MinFontSize && TextWidth(Line.Text, size) > LineWidth) size--;
+            Line.AddThemeFontSizeOverride("font_size", size);
+        }
 
         public TrackerRow(Label line)
         {
@@ -132,6 +158,7 @@ namespace PerformativeMail.Client.UI
         public override void _Process(double delta)
         {
             bool shown = Line.Visible && Line.Text.Length > 0;
+            if (shown) FitText();
             if (Pulse && shown)
             {
                 _beat = (_beat + (float)delta * 2.2f) % 1f;
