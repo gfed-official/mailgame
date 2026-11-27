@@ -246,5 +246,26 @@ namespace PerformativeMail.Sim.Tests
             // Nothing ever rode the belt on the outfeed's tile.
             Assert.DoesNotContain(world.Belts.Segments, s => s.Head == oz * world.Map.Cols + ox && s.Items.Count > 0);
         }
+
+        [Fact]
+        public void GreasedInserters_SwingTwiceAsOften()
+        {
+            int Moved(bool greased)
+            {
+                var (world, host) = InPrep(BuildRules.TileCentre(9), BuildRules.TileCentre(11));
+                var dest = world.Map.Destinations[0];
+                Assert.Equal(OpResult.Ok, Place(world, host, Chest, 10, 12, 0));
+                Assert.Equal(OpResult.Ok, Place(world, host, Inserter, 11, 12, 0));
+                if (greased) Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("greased_inserters")));
+                var chest = world.GetContainer(world.Constructs.At(10, 12)!.ContainerId)!;
+                for (int i = 0; i < 12; i++) Assert.True(world.Give(chest, ItemStack.OfMail(Letter(world, dest.Address))));
+                Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+                SimDriver.StepTicks(world, 4 * Tps);
+                return 12 - MailIn(chest);
+            }
+            // 1.25 a second for four seconds, then 2.5.
+            Assert.InRange(Moved(false), 4, 6);
+            Assert.InRange(Moved(true), 9, 11);
+        }
     }
 }

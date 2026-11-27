@@ -163,7 +163,7 @@ namespace PerformativeMail.Sim
             {
                 int at = _debugMailNext++ % Map.Destinations.Count;
                 var dest = Map.Destinations[at];
-                if (Map.OpensAt(dest) > Run.Shift) continue;
+                if (Map.OpensAt(dest, DistrictsEarly) > Run.Shift) continue;
                 var kinds = Content.MailKinds;
                 for (int k = 0; k < kinds.Count; k++)
                 {

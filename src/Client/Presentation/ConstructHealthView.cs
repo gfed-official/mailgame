@@ -109,7 +109,7 @@ namespace PerformativeMail.Client.Presentation
             RepairBarShown = false;
             foreach (var c in world.Constructs.All)
             {
-                bool show = c.Hp < c.Def.Hp && (world.HitWithin(c, ClientWorld.HitShownSeconds) || c == mending);
+                bool show = c.Hp < c.MaxHp && (world.HitWithin(c, ClientWorld.HitShownSeconds) || c == mending);
                 if (show && c == mending) RepairBarShown = true;
                 _bars.TryGetValue(c, out var bar);
                 if (!show)
@@ -131,7 +131,7 @@ namespace PerformativeMail.Client.Presentation
                     AddChild(bar.Node);
                     _bars[c] = bar;
                 }
-                bar.Material.SetShaderParameter("hp", c.Hp / (float)c.Def.Hp);
+                bar.Material.SetShaderParameter("hp", c.Hp / (float)c.MaxHp);
             }
             _gone.Clear();
             foreach (var c in _bars.Keys)

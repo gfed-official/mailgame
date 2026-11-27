@@ -1560,8 +1560,8 @@ namespace PerformativeMail.Client
                 {
                     var built = g.Target!;
                     string name = built.Def.Name;
-                    string hp = built.Hp < built.Def.Hp ? $"   ·   {built.Hp.ToString(CultureInfo.InvariantCulture)}/{built.Def.Hp.ToString(CultureInfo.InvariantCulture)} HP" : "";
-                    string back = Inputs(built.Def.Recipe.Inputs, world.RefundRatio, built.Hp, built.Def.Hp);
+                    string hp = built.Hp < built.MaxHp ? $"   ·   {built.Hp.ToString(CultureInfo.InvariantCulture)}/{built.MaxHp.ToString(CultureInfo.InvariantCulture)} HP" : "";
+                    string back = Inputs(built.Def.Recipe.Inputs, world.RefundRatio, built.Hp, built.MaxHp);
                     switch (g.State)
                     {
                         case OpResult.Ok: return $"Take down {name}   ·   {back} back{hp}   [hold RMB]{FiltersNote(built)}";
@@ -1646,9 +1646,9 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>The shift a house's district opens in (doc 01 §1.2): its mail comes from then on.</summary>
-        public static int DistrictOpensAt(WorldMap map, DestinationDef dest)
+        public static int DistrictOpensAt(WorldMap map, DestinationDef dest, int early = 0)
         {
-            int at = map.OpensAt(dest);
+            int at = map.OpensAt(dest, early);
             return at == int.MaxValue ? 1 : at;
         }
 
@@ -1658,12 +1658,12 @@ namespace PerformativeMail.Client
         /// The feed's line as a shift's Prep begins on a map of several districts: the district that
         /// opens with it, how many houses it adds and on which streets; empty when none does.
         /// </summary>
-        public static string DistrictOpened(WorldMap map, int shift)
+        public static string DistrictOpened(WorldMap map, int shift, int early = 0)
         {
             if (map.Districts.Count < 2) return "";
             foreach (var district in map.Districts)
             {
-                if (district.UnlockShift != shift) continue;
+                if (WorldMap.DistrictOpensAt(district, early) != shift) continue;
                 var streets = new List<string>();
                 int houses = 0;
                 foreach (var d in map.Destinations)
@@ -1674,7 +1674,7 @@ namespace PerformativeMail.Client
                 }
                 string on = streets.Count == 0 ? "" : $" on {JoinAnd(streets)}";
                 int open = 0;
-                foreach (var d in map.Destinations) if (DistrictOpensAt(map, d) <= shift) open++;
+                foreach (var d in map.Destinations) if (DistrictOpensAt(map, d, early) <= shift) open++;
                 return shift == 1
                     ? $"{district.Name}: {houses} houses{on} take mail   ·   another district opens every shift"
                     : $"{district.Name} opens: {houses} more houses{on}   ·   {open} in all";
@@ -1740,6 +1740,9 @@ namespace PerformativeMail.Client
 
         private static string AsItWas(BuildingDef def) =>
             def.HasConsole ? ", with its route" : def.FilterOutputs > 0 ? ", with its filters" : "";
+
+        /// <summary>The event feed's line for a ruin the team's insurance stood up again (doc 10 §4.4 Insured).</summary>
+        public static string InsuredRebuilt(BuildingDef def) => $"Insured: the {def.Name} stands again{AsItWas(def)}";
 
         /// <summary>The event feed's line for a ruin rebuilt or cleared away.</summary>
         public static string RuinGone(ClientWorld world, RuinEvent e, BuildingDef def)
@@ -1849,7 +1852,7 @@ namespace PerformativeMail.Client
         {
             var c = RepairTarget(world, heldSlot, out bool po, out var hammer);
             if (hammer == null || (c == null && !po)) return -1f;
-            return c == null ? world.PostOfficeHp / (float)world.PostOfficeMaxHp : c.Hp / (float)c.Def.Hp;
+            return c == null ? world.PostOfficeHp / (float)world.PostOfficeMaxHp : c.Hp / (float)c.MaxHp;
         }
 
         /// <summary>
@@ -1863,7 +1866,7 @@ namespace PerformativeMail.Client
             var c = RepairTarget(world, heldSlot, out bool po, out var hammer);
             if (hammer == null || (c == null && !po)) return "";
             string name = c == null ? "Post Office" : c.Def.Name;
-            int hp = c == null ? world.PostOfficeHp : c.Hp, max = c == null ? world.PostOfficeMaxHp : c.Def.Hp;
+            int hp = c == null ? world.PostOfficeHp : c.Hp, max = c == null ? world.PostOfficeMaxHp : c.MaxHp;
             string health = $"{hp.ToString(CultureInfo.InvariantCulture)} / {max.ToString(CultureInfo.InvariantCulture)} HP";
             var missing = RepairRules.Missing(world.Content, c, po, hammer, world.Hotbar, world.Inventory);
             if (missing != null)

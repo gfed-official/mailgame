@@ -141,16 +141,21 @@ namespace PerformativeMail.Sim.Tests
         // --- content ----------------------------------------------------------------------------
 
         [Fact]
-        public void TheContentHasElevenPerks_TeamAndPersonal()
+        public void TheContentHasThePerksOfDoc10_TeamAndPersonal()
         {
             Assert.Equal(new[]
             {
                 "long_legs", "quick_hands", "strong_back", "second_wind", "postal_sprint",
-                "union_rep", "stamp_collector", "fragile_handling", "grace_period", "early_warning", "union_muscle",
+                "express_lane", "greased_inserters", "presort",
+                "union_rep", "stamp_collector", "fragile_handling", "grace_period", "second_district",
+                "early_warning", "union_muscle", "reinforced", "hot_barrels", "insured",
             }, Db.Perks.Select(p => p.Id));
             for (int i = 0; i < Db.Perks.Count; i++) Assert.Equal(i, Db.Perks[i].Index);
             Assert.Equal(5, Db.Perks.Count(p => !p.Team));
-            Assert.All(Db.Perks, p => Assert.NotEmpty(p.Modifiers));
+            Assert.All(Db.Perks, p => Assert.True(p.Modifiers.Count + p.Rules.Count > 0, p.Id));
+            // Doc 12 M4: the rule-flag perks are data over the closed RuleFlag set.
+            Assert.Equal(new[] { RuleFlag.InsuredRebuild }, Db.Perk("insured").Rules);
+            Assert.Equal(new[] { "bp_turret" }, Db.Perk("hot_barrels").BlueprintAny);
             Assert.All(Db.Perks, p => Assert.False(string.IsNullOrWhiteSpace(p.Name) || string.IsNullOrWhiteSpace(p.Description)));
             Assert.All(Db.Perks.Where(p => p.Team), p => Assert.Equal(1, p.MaxStacks));
             // A personal perk never touches a number that is the whole team's.
@@ -206,7 +211,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("'no_op': modifier op must be 'mul' or 'add', not 'pow'", all);
             Assert.Contains("'team_stat': a personal perk cannot change the team stat Quota", all);
             Assert.Contains("'negative': the multiplier on PlayerSpeed must not be negative", all);
-            Assert.Contains("'nothing': a perk without a modifier does nothing", all);
+            Assert.Contains("'nothing': a perk without a modifier or a rule flag does nothing", all);
             Assert.Contains("'no_scope': unknown scope 'squad'", all);
             Assert.Contains("'flag': unknown rule flag 'BeltsIgnoreJams'", all);
             Assert.Contains("'recipe': unlocks references unknown recipe 'express_belt'", all);
@@ -605,6 +610,28 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(400f - 37.5f, strongHp);
             // Both giants took the same step of their own in that tick; what differs is the shove.
             Assert.Equal(Db.Balance.GetFloat("hammerKnockback"), strong - plain, 3);
+        }
+
+        [Fact]
+        public void ZoningBoard_OpensEachDistrictAShiftEarly_NeverBeforeTheFirst_AndSpawnsMoreValue()
+        {
+            var map = PerformativeMail.Sim.World.WorldGenerator.Generate(Db, 3);
+            Assert.True(map.Districts.Count >= 3);
+            foreach (var d in map.Districts)
+                Assert.Equal(Math.Max(1, d.UnlockShift - 1), PerformativeMail.Sim.World.WorldMap.DistrictOpensAt(d, 1));
+            var second = map.Destinations.First(d => !d.IsDock && map.OpensAt(d) == 2);
+            Assert.Equal(1, map.OpensAt(second, 1));
+            // A dock keeps its own later shift.
+            foreach (var dock in map.Destinations.Where(d => d.IsDock)) Assert.True(map.OpensAt(dock, 1) >= dock.UnlockShift);
+
+            var world = NewWorld(raids: false);
+            var host = world.AddPlayer("host")!;
+            StartRun(world, host);
+            Assert.Equal(0, world.DistrictsEarly);
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("second_district")));
+            Assert.Equal(1, world.DistrictsEarly);
+            ReadyUp(world);
+            Assert.Equal(1, world.Spawner.DistrictsEarly);
         }
     }
 }

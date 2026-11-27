@@ -158,14 +158,14 @@ namespace PerformativeMail.App
                     if (wall == null || built == null || client.PendingRequestCount > 0) break;
                     Check(wall.Def.Id == "wall_stone" && built.Def.Id == "wall_stone" && world.Constructs.Blocks(_buildTx, _buildTz),
                         $"built a {wall.Def.Id} at ({_buildTx}, {_buildTz}) that blocks the way: {world.Constructs.Blocks(_buildTx, _buildTz)}");
-                    Check(built.Hp == built.Def.Hp && built.Def.Hp == 800, $"the Stone Wall stands with {built.Hp} of {built.Def.Hp} HP");
+                    Check(built.Hp == built.MaxHp && built.Def.Hp == 800, $"the Stone Wall stands with {built.Hp} of {built.MaxHp} HP");
                     int stone = Carried(server, player, "stone");
                     Check(stone == _stoneBefore - StoneWallStone, $"the Stone Wall took {_stoneBefore - stone} Stone, not {StoneWallStone}");
                     build.Leave();
                     _screen.Constructs.Refresh();
                     Check(_screen.Constructs.Drawn >= 2, $"{_screen.Constructs.Drawn} constructs drawn with a Spike Strip and a Stone Wall built");
                     Shot("fortify-stone-wall");
-                    GD.Print($"[smoke] fortify: Blueprint: Fortify bought with its key for {HudText.Gold(_fortifyWallet - world.Global.Wallet)}, a Spike Strip built at ({_stripTx}, {_stripTz}) and walked over, a Stone Wall ({built.Hp} HP, {StoneWallStone} Stone) at ({_buildTx}, {_buildTz})");
+                    GD.Print($"[smoke] fortify: Blueprint: Fortify bought with its key for {HudText.Gold(_fortifyWallet - world.Global.Wallet)}, a Spike Strip built at ({_stripTx}, {_stripTz}) and walked over, a Stone Wall ({built.Def.Hp} HP{(built.MaxHp != built.Def.Hp ? $", {built.MaxHp} Reinforced" : "")}, {StoneWallStone} Stone) at ({_buildTx}, {_buildTz})");
                     _fortifyVisits++;
                     _fortifyStep = 0;
                     _session.FixedTicksPerFrame = RunOutTicksPerFrame;

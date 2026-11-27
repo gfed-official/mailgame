@@ -71,7 +71,7 @@ namespace PerformativeMail.Client
         public static string Title(ClientWorld world)
         {
             int open = 0;
-            foreach (var d in world.Map.Districts) if (d.UnlockShift <= Math.Max(1, (int)world.Global.Shift)) open++;
+            foreach (var d in world.Map.Districts) if (WorldMap.DistrictOpensAt(d, world.DistrictsEarly) <= Math.Max(1, (int)world.Global.Shift)) open++;
             string districts = world.Map.Districts.Count <= 1 ? "" : $" · {open} of {world.Map.Districts.Count} districts open";
             return $"MAP · {world.Map.Name}{districts}   [M] close";
         }

@@ -27,6 +27,19 @@
     ],
     "maxStacks": 1, "tags": ["movement", "delivery"] },
 
+  { "id": "express_lane", "name": "Express Lane", "description": "Belt speed +50%.",
+    "category": "facility", "scope": "team", "rarity": "uncommon",
+    "modifiers": [ { "stat": "BeltSpeed", "op": "mul", "value": 1.5 } ],
+    "maxStacks": 1, "tags": ["belt"] },
+  { "id": "greased_inserters", "name": "Greased Inserters", "description": "Inserter rate x2.",
+    "category": "facility", "scope": "team", "rarity": "common",
+    "modifiers": [ { "stat": "InserterRate", "op": "mul", "value": 2 } ],
+    "maxStacks": 1, "tags": ["inserter"] },
+  { "id": "presort", "name": "Presort", "description": "The Intake's outfeed puts the mail on the belt a street at a time.",
+    "category": "facility", "scope": "team", "rarity": "uncommon",
+    "rules": ["presort"],
+    "maxStacks": 1, "tags": ["belt", "sorting"] },
+
   { "id": "union_rep", "name": "Union Rep", "description": "Quota -10%.",
     "category": "postal", "scope": "team", "rarity": "uncommon",
     "modifiers": [ { "stat": "Quota", "op": "mul", "value": 0.9 } ],
@@ -50,6 +63,14 @@
     ],
     "maxStacks": 1, "tags": ["deadline"] },
 
+  { "id": "second_district", "name": "Zoning Board", "description": "The next district opens a shift early; mail spawned +15% in value.",
+    "category": "postal", "scope": "team", "rarity": "rare",
+    "modifiers": [
+      { "stat": "DistrictsEarly", "op": "add", "value": 1 },
+      { "stat": "SpawnValue", "op": "mul", "value": 1.15 }
+    ],
+    "maxStacks": 1, "tags": ["district"] },
+
   { "id": "early_warning", "name": "Early Warning", "description": "Raid warning +20 s.",
     "category": "defense", "scope": "team", "rarity": "common",
     "modifiers": [ { "stat": "RaidWarningSeconds", "op": "add", "value": 20 } ],
@@ -60,5 +81,18 @@
       { "stat": "MeleeDamage", "op": "mul", "value": 1.5 },
       { "stat": "MeleeKnockback", "op": "mul", "value": 2 }
     ],
-    "maxStacks": 1, "tags": ["combat"] }
+    "maxStacks": 1, "tags": ["combat"] },
+  { "id": "reinforced", "name": "Reinforced", "description": "All construct HP +40%.",
+    "category": "defense", "scope": "team", "rarity": "common",
+    "modifiers": [ { "stat": "ConstructHp", "op": "mul", "value": 1.4 } ],
+    "maxStacks": 1, "tags": ["construct"] },
+  { "id": "hot_barrels", "name": "Hot Barrels", "description": "Turret damage +50%.",
+    "category": "defense", "scope": "team", "rarity": "uncommon",
+    "modifiers": [ { "stat": "TurretDamage", "op": "mul", "value": 1.5 } ],
+    "prerequisites": { "blueprintAny": ["bp_turret"] },
+    "maxStacks": 1, "tags": ["turret"] },
+  { "id": "insured", "name": "Insured", "description": "Destroyed constructs rebuild free at the next Prep.",
+    "category": "defense", "scope": "team", "rarity": "rare",
+    "rules": ["insured_rebuild"],
+    "maxStacks": 1, "tags": ["construct"] }
 ]

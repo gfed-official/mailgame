@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 
@@ -156,6 +157,7 @@ namespace PerformativeMail.Sim
         {
             var b = Content.Balance;
             ClearCombat();
+            RaiseInsuredRuins();
             Economy.BeginShift();
             // A preview for the HUD; the binding quota is sampled when Delivery starts.
             Run.Quota = TeamQuota(QuotaFormula.Quota(b, Run.Shift, Math.Max(1, PresentCount)));
@@ -176,7 +178,8 @@ namespace PerformativeMail.Sim
             double seconds = b.GetForShift("deliverySeconds", Run.Shift);
             // As much mail as the quota of the formula asks for: a perk that lowers the quota does not thin the mail.
             // The debug world feeds the Intake a piece at a time instead (StepDebugWorld).
-            int spawnValue = Map.Debug != null ? 0 : (int)Math.Round(quota * Content.MailMix.SpawnOverhead);
+            int spawnValue = Map.Debug != null ? 0 : (int)Math.Round(quota * Content.MailMix.SpawnOverhead * TeamStat(Stat.SpawnValue, 1f));
+            Spawner.DistrictsEarly = DistrictsEarly;
             Spawner.BeginShift(Run.Shift, Tick + 1, SimConstants.SecondsToTicks(seconds), spawnValue);
             EnterPhase(RunPhase.Delivery, seconds);
             ScheduleRaid();

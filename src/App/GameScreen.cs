@@ -216,7 +216,7 @@ namespace PerformativeMail.App
             _framesDrawn++;
             Camera.Target = Players.LocalView;
             if (DriveAtmosphere) World.Atmosphere.TargetNight = NightFor(world.Raid);
-            World.ShowDistricts(world.Global.Shift);
+            World.ShowDistricts(world.Global.Shift, world.DistrictsEarly);
             World.ShowSeeps(world.Constructs);
             bool open = InventoryOpen(world);
             // The route editor (doc 09 §2.6): the map over the console takes the clicks, the console's cards wait.

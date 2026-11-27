@@ -150,7 +150,10 @@ namespace PerformativeMail.Sim.Tests
         [Fact]
         public void TheRarityOfACardIsRolledByTheWeights_AndRareGainsWeightWithEveryShift()
         {
-            var rareOnly = Content(balance: b => b.Replace("\"draftRarityWeights\": [60, 30, 10]", "\"draftRarityWeights\": [0, 0, 1]"));
+            // Five common perks and one rare.
+            string pool = Perks(Perk("c0", "personal"), Perk("c1", "personal"), Perk("c2", "personal"), Perk("c3", "personal"), Perk("c4", "personal"),
+                Perk("postal_sprint", "personal", rarity: "rare"));
+            var rareOnly = Content(pool, b => b.Replace("\"draftRarityWeights\": [60, 30, 10]", "\"draftRarityWeights\": [0, 0, 1]"));
             var rare = rareOnly.Perks.Where(p => p.Rarity == PerkRarity.Rare).Select(p => p.Id).ToArray();
             Assert.Equal(new[] { "postal_sprint" }, rare);
             for (uint seed = 1; seed <= 4; seed++)
@@ -162,7 +165,7 @@ namespace PerformativeMail.Sim.Tests
                 Assert.Equal("postal_sprint", world.DraftOffer[0].Id);
             }
 
-            var late = Content(balance: b => b
+            var late = Content(pool, b => b
                 .Replace("\"draftRarityWeights\": [60, 30, 10]", "\"draftRarityWeights\": [1, 0, 0]")
                 .Replace("\"draftRareWeightPerShift\": 5", "\"draftRareWeightPerShift\": 100000"));
             var w = NewWorld(7, late);

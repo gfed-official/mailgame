@@ -432,7 +432,7 @@ namespace PerformativeMail.Client.Presentation
                 if (c.Def.Carries)
                 {
                     bool belt = c.Def.Behaviour == BuildingBehaviour.Belt;
-                    bool worn = c.Hp * 2 < c.Def.Hp;
+                    bool worn = c.Hp * 2 < c.MaxHp;
                     if (c.Def.Ramp) RampTile(batch, at, c.Facing, BeltNetwork.RampUp(c), null, worn);
                     else if (c.Def.Level > 0) ElevatedTile(batch, at, BeltEntry(world, c), c.Facing, null, worn, c.Def.Speed);
                     else BeltTile(batch, at, belt ? BeltEntry(world, c) : c.Facing, c.Facing, null, worn, c.Def.Speed);
@@ -441,30 +441,30 @@ namespace PerformativeMail.Client.Presentation
                 }
                 // A sorter stands over the middle of its four tiles.
                 if (c.Def.Width > 1) at = new Vector3(c.CentreX, world.Map.HeightAt(c.CentreX, c.CentreZ), c.CentreZ);
-                Draw(batch, c.Def, at, field.Arms(c), c.Rotation, null, c.Hp * 2 < c.Def.Hp);
+                Draw(batch, c.Def, at, field.Arms(c), c.Rotation, null, c.Hp * 2 < c.MaxHp);
                 if (c.Def.Behaviour == BuildingBehaviour.Gate)
                 {
                     var g = new GateLeaves { Built = c, Open = previous.TryGetValue(c, out float was) ? was : 0f };
                     var frame = new Node3D { Name = $"Gate{c.Tx}_{c.Tz}", Position = at, Rotation = new Vector3(0f, c.AlongZ ? Mathf.Pi * 0.5f : 0f, 0f) };
-                    var plank = Mat(c.Hp * 2 < c.Def.Hp ? LogDark : PlankColour);
+                    var plank = Mat(c.Hp * 2 < c.MaxHp ? LogDark : PlankColour);
                     var iron = MeshKit.Mat(IronColour, 0.5f, 0.3f);
                     g.Left = Leaf(frame, -1, plank, iron);
                     g.Right = Leaf(frame, 1, plank, iron);
                     _built.AddChild(frame);
                     _gates.Add(g);
                 }
-                else if (c.Def.Behaviour == BuildingBehaviour.Inserter) InserterArm(c, at, c.Hp * 2 < c.Def.Hp);
+                else if (c.Def.Behaviour == BuildingBehaviour.Inserter) InserterArm(c, at, c.Hp * 2 < c.MaxHp);
                 else if (c.Def.IsPump)
                 {
                     // The beam nods about its pivot on a node turned the way the pump faces.
                     var holder = new Node3D { Name = $"Pump{c.Tx}_{c.Tz}", Position = at, Rotation = new Vector3(0f, PumpYaw(c.Rotation & 3), 0f) };
                     var beam = new Node3D { Name = "Beam", Position = new Vector3(0f, PumpPivotHeight, 0f) };
                     holder.AddChild(beam);
-                    PumpBeam(beam, null, c.Hp * 2 < c.Def.Hp);
+                    PumpBeam(beam, null, c.Hp * 2 < c.MaxHp);
                     _built.AddChild(holder);
                     _beams.Add((c, beam));
                 }
-                else if (c.Def.IsTurret) TurretHead(c, at, yaws.TryGetValue(c, out float yaw) ? yaw : PumpYaw(c.Rotation & 3), c.Hp * 2 < c.Def.Hp);
+                else if (c.Def.IsTurret) TurretHead(c, at, yaws.TryGetValue(c, out float yaw) ? yaw : PumpYaw(c.Rotation & 3), c.Hp * 2 < c.MaxHp);
                 else if (c.Def.Behaviour == BuildingBehaviour.Alarm)
                 {
                     var lamp = MeshKit.Instance(MeshKit.Sphere(0.11f, 12), MeshKit.Glow(new Color("ff2a1a"), 4f), at + new Vector3(0f, AlarmLampHeight, 0f), default, $"AlarmLamp{c.Tx}_{c.Tz}");

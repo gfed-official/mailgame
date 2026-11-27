@@ -127,7 +127,7 @@ namespace PerformativeMail.Sim
                 if (def.Width > 1) info.Reach = def.Radius;
                 containerId = info.Container.Id;
             }
-            var built = Constructs.Add(def, tx, tz, rotation, def.Hp, containerId);
+            var built = Constructs.Add(def, tx, tz, rotation, Constructs.MaxHpOf(def), containerId);
             Events.Add(new ConstructPlacedEvent
             {
                 Player = by, Building = def.Index, X = (byte)tx, Y = (byte)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,

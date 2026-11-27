@@ -1,5 +1,6 @@
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
@@ -43,9 +44,26 @@ namespace PerformativeMail.Sim
             if (verdict != OpResult.Ok) return verdict;
             if (def.IsVehicleDepot && VehicleDepotCount() >= VehicleDepotLimit) return OpResult.DepotLimit;
             if (!Unlimited && !BuildRules.HasRuinMaterials(def, player.Hotbar, player.Inventory)) return OpResult.MissingMaterials;
+            verdict = Raise(ruin, player.Id, () =>
+            {
+                if (Unlimited) return;
+                foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, BuildRules.RuinCost(input.Count, def.RuinRebuildRatio));
+                CommitContainer(player.Inventory.Id);
+                CommitContainer(player.Hotbar.Id);
+            });
+            return verdict;
+        }
+
+        /// <summary>
+        /// Stands the ruin up again as it was, if its ground allows; <paramref name="pay"/> runs just before. By a
+        /// carrier's hand, or by nobody's (<see cref="EntityId.None"/>) when the team's insurance pays.
+        /// </summary>
+        private OpResult Raise(Construct ruin, EntityId by, System.Action? pay)
+        {
+            var def = ruin.Def;
             // The ruin holds its own ground: it is judged as if it were not there.
             Constructs.RemoveRuin(ruin.Tx, ruin.Tz);
-            verdict = BuildRules.CheckPlacement(Map, Constructs, def, ruin.Tx, ruin.Tz, ruin.Rotation);
+            var verdict = BuildRules.CheckPlacement(Map, Constructs, def, ruin.Tx, ruin.Tz, ruin.Rotation);
             if (verdict == OpResult.Ok && def.Solid)
                 for (int i = 0; i < def.TileCount && verdict == OpResult.Ok; i++)
                 {
@@ -57,22 +75,38 @@ namespace PerformativeMail.Sim
                 Constructs.AddRuin(ruin);
                 return verdict;
             }
-            if (!Unlimited)
-            {
-                foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, BuildRules.RuinCost(input.Count, def.RuinRebuildRatio));
-                CommitContainer(player.Inventory.Id);
-                CommitContainer(player.Hotbar.Id);
-            }
-            Events.Add(new RuinEvent { X = (byte)ruin.Tx, Y = (byte)ruin.Tz, Building = def.Index, Rotation = ruin.Rotation, Gone = true, Rebuilt = true, Player = player.Id });
-            var built = Erect(def, ruin.Tx, ruin.Tz, ruin.Rotation, player.Id);
+            pay?.Invoke();
+            Events.Add(new RuinEvent { X = (byte)ruin.Tx, Y = (byte)ruin.Tz, Building = def.Index, Rotation = ruin.Rotation, Gone = true, Rebuilt = true, Player = by });
+            var built = Erect(def, ruin.Tx, ruin.Tz, ruin.Rotation, by);
             // As it was set: a sorter's filters, a console's route.
             if (ruin.Filters.Length > 0)
             {
                 Constructs.SetFilters(built, ruin.Filters);
-                Events.Add(Configured(built, player.Id));
+                Events.Add(Configured(built, by));
             }
             return OpResult.Ok;
         }
+
+        /// <summary>
+        /// Doc 10 §4.4 Insured (rule flag InsuredRebuild): as Prep begins, every ruin stands again, free, where its
+        /// ground allows (one under a carrier or a vehicle stays a ruin, to be rebuilt by hand). A Vehicle Depot over
+        /// the limit stays a ruin too. Returns how many stood up.
+        /// </summary>
+        private int RaiseInsuredRuins()
+        {
+            if (!TeamHas(RuleFlag.InsuredRebuild)) return 0;
+            int raised = 0;
+            foreach (var ruin in new System.Collections.Generic.List<Construct>(Constructs.Ruins))
+            {
+                if (ruin.Def.IsVehicleDepot && VehicleDepotCount() >= VehicleDepotLimit) continue;
+                if (Raise(ruin, EntityId.None, null) == OpResult.Ok) raised++;
+            }
+            if (raised > 0) InsuredRaised += raised;
+            return raised;
+        }
+
+        /// <summary>Ruins the team's insurance has stood up again since the world began.</summary>
+        public int InsuredRaised { get; private set; }
 
         private OpResult ClearRuin(Player player, int tx, int tz)
         {

@@ -436,6 +436,15 @@ namespace PerformativeMail.Client
         /// <summary>A stat as the local player has it: the team's perks and their own over the base, as the server reckons it.</summary>
         public float LocalStat(Stat stat, float baseValue) => _teamStats.Resolve(stat, baseValue, _localStats);
 
+        /// <summary>Shifts before the map's that its districts open (doc 10 §4.3 Zoning Board), as the server reckons it.</summary>
+        public int DistrictsEarly => Math.Max(0, (int)MathF.Round(_teamStats.Resolve(Stat.DistrictsEarly, 0f)));
+
+        /// <summary>A team perk of the run holds the rule flag.</summary>
+        public bool TeamHas(RuleFlag flag) => _teamStats.Has(flag);
+
+        /// <summary>What the team's stats set that the world keeps: the constructs' most HP (their HP is the server's word).</summary>
+        private void TeamStatsChanged() => Constructs.Rescale(_teamStats.Resolve(Stat.ConstructHp, 1f), scaleHp: false);
+
         /// <summary>Whether a player may take the perk, by the rules of the server's SimWorld.CanTake.</summary>
         public OpResult CanTake(ClientPlayer player, PerkDef perk)
         {
@@ -495,6 +504,7 @@ namespace PerformativeMail.Client
             LocalMaxHp = Content.Balance.GetFloat("playerHp");
             _teamStats.Clear();
             foreach (var perk in TeamPerks) _teamStats.Apply(perk);
+            TeamStatsChanged();
             _localStats.Clear();
             foreach (var perk in LocalPerks) _localStats.Apply(perk);
         }
@@ -506,6 +516,7 @@ namespace PerformativeMail.Client
                 if (TeamPerks.Contains(perk)) return;
                 TeamPerks.Add(perk);
                 _teamStats.Apply(perk);
+                TeamStatsChanged();
                 return;
             }
             if (!Players.TryGetValue(holder, out var player)) return;
@@ -535,6 +546,7 @@ namespace PerformativeMail.Client
         {
             TeamPerks.Clear();
             _teamStats.Clear();
+            TeamStatsChanged();
             _localStats.Clear();
             foreach (var p in Players.Values) p.Perks.Clear();
             ClearDraft();
@@ -769,7 +781,7 @@ namespace PerformativeMail.Client
                 int now = Math.Max(1, (int)Global.Shift);
                 float reach = Content.Balance.GetFloat("dockZoneReach");
                 foreach (var d in Map.Destinations)
-                    if (Map.OpensAt(d) <= now && WaterNav.Berth(Map, Constructs, d, reach, out _, out _)) choices.Add(new MailFilter(FilterKind.Address, d.Id));
+                    if (Map.OpensAt(d, DistrictsEarly) <= now && WaterNav.Berth(Map, Constructs, d, reach, out _, out _)) choices.Add(new MailFilter(FilterKind.Address, d.Id));
                 return choices;
             }
             if (built.Def.HasConsole)
@@ -781,7 +793,7 @@ namespace PerformativeMail.Client
                 foreach (var street in Map.Streets)
                     if (DistrictOpen(street.District, open)) choices.Add(new MailFilter(FilterKind.Street, street.Id));
                 foreach (var d in Map.Districts)
-                    if (d.UnlockShift <= open) choices.Add(new MailFilter(FilterKind.District, d.Id));
+                    if (WorldMap.DistrictOpensAt(d, DistrictsEarly) <= open) choices.Add(new MailFilter(FilterKind.District, d.Id));
                 return choices;
             }
             if (built.Def.FiltersAddresses)
@@ -799,7 +811,7 @@ namespace PerformativeMail.Client
         private bool DistrictOpen(int district, int shift)
         {
             foreach (var d in Map.Districts)
-                if (d.Id == district) return d.UnlockShift <= shift;
+                if (d.Id == district) return WorldMap.DistrictOpensAt(d, DistrictsEarly) <= shift;
             // A map without districts has every street open.
             return true;
         }

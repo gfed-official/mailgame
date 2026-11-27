@@ -56,17 +56,17 @@ namespace PerformativeMail.App
             if (_repairStep == RepairStep.Hurt)
             {
                 var held = world.Hotbar.Entries.FirstOrDefault(e => e.Stack.Kind == StackKind.Item && e.Stack.DefIndex == hammer.Index);
-                if (held == null || wall.Hp != wall.Def.Hp - 150) return true;
+                if (held == null || wall.Hp != wall.MaxHp - 150) return true;
                 client.Input.HeldSlot = (byte)held.X;
                 if (_repairFrames < 8) return true;
                 _session.Interaction.Update(1.0 / 30.0, false, false);
                 hud.Refresh();
-                string want = $"WOODEN WALL  ·  {wall.Hp} / {wall.Def.Hp} HP\n[hold LMB] Mend  ·  Log x0.75 a full bar";
+                string want = $"WOODEN WALL  ·  {wall.Hp} / {wall.MaxHp} HP\n[hold LMB] Mend  ·  Log x0.75 a full bar";
                 Check(hud.PromptText == want, $"with the Repair Hammer at the hurt wall the line reads \"{hud.PromptText}\", expected \"{want}\"");
                 Check(hud.WeaponsText.StartsWith("[LMB] mend, 50 HP a second", StringComparison.Ordinal), $"with the Repair Hammer in the hand the weapons line reads \"{hud.WeaponsText}\"");
                 Check(_screen.ConstructHealth.RepairBarShown, "no health bar over the wall the Repair Hammer is held at");
                 // The 0e940bc playtest saw the bar over the wall in no shot: the HUD's own target bar, under the crosshair.
-                Check(Mathf.IsEqualApprox(hud.RepairBarValue, wall.Hp / (float)wall.Def.Hp), $"the HUD's target bar shows {hud.RepairBarValue}, the wall has {wall.Hp} / {wall.Def.Hp}");
+                Check(Mathf.IsEqualApprox(hud.RepairBarValue, wall.Hp / (float)wall.MaxHp), $"the HUD's target bar shows {hud.RepairBarValue}, the wall has {wall.Hp} / {wall.MaxHp}");
                 Check(_screen.Camera.ToolInHand == hammer.Name, $"the hand holds \"{_screen.Camera.ToolInHand}\", not the Repair Hammer");
                 Shot("repair");
                 _repairLogs = BuildRules.Have(player.Hotbar, player.Inventory, log);
@@ -75,16 +75,16 @@ namespace PerformativeMail.App
                 return true;
             }
             // RepairStep.Mending
-            if (wall.Hp < wall.Def.Hp || !_session.Feed.Entries.Any(e => e.Text == "You mended the Wooden Wall")) return true;
+            if (wall.Hp < wall.MaxHp || !_session.Feed.Entries.Any(e => e.Text == "You mended the Wooden Wall")) return true;
             client.Input.Buttons = InputButtons.None;
             int logs = BuildRules.Have(player.Hotbar, player.Inventory, log);
-            Check(server.Constructs.At(_ruinTx, _ruinTz)?.Hp == wall.Def.Hp, "the server's wall is not whole");
+            Check(server.Constructs.At(_ruinTx, _ruinTz)?.Hp == wall.MaxHp, "the server's wall is not whole");
             Check(logs == _repairLogs - 1, $"mending 150 of 300 HP took {_repairLogs - logs} Logs, not 1 (a quarter of its 3 a full bar, rounded up)");
             _session.Interaction.Update(1.0 / 30.0, false, false);
             hud.Refresh();
             Check(hud.PromptText.Length == 0, $"whole, the wall still has the line \"{hud.PromptText}\"");
             Shot("repaired");
-            GD.Print($"[smoke] repair: the Wooden Wall mended from 150 to {wall.Def.Hp} HP with the Repair Hammer held at it, for 1 Log, \"You mended the Wooden Wall\" in the feed");
+            GD.Print($"[smoke] repair: the Wooden Wall mended from 150 to {wall.MaxHp} HP with the Repair Hammer held at it, for 1 Log, \"You mended the Wooden Wall\" in the feed");
             client.Input.HeldSlot = 0;
             _repairStep = RepairStep.Done;
             return false;

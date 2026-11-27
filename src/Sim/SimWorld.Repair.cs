@@ -52,20 +52,20 @@ namespace PerformativeMail.Sim
 
         private void MendConstruct(Player p, ItemDef hammer, Construct c)
         {
-            int amount = Math.Min(RepairRules.Chunk, c.Def.Hp - c.Hp);
+            int amount = Math.Min(RepairRules.Chunk, c.MaxHp - c.Hp);
             if (amount <= 0) return;
             if (!Unlimited && c.Def.Recipe != null && hammer.RepairCostRatio > 0f)
             {
                 var inputs = c.Def.Recipe.Inputs;
                 foreach (var input in inputs)
-                    if (!CanPay(p, input.Item, RepairRules.PerFullBar(input, hammer) * amount / c.Def.Hp)) return;
-                foreach (var input in inputs) Pay(p, input.Item, RepairRules.PerFullBar(input, hammer) * amount / c.Def.Hp);
+                    if (!CanPay(p, input.Item, RepairRules.PerFullBar(input, hammer) * amount / c.MaxHp)) return;
+                foreach (var input in inputs) Pay(p, input.Item, RepairRules.PerFullBar(input, hammer) * amount / c.MaxHp);
             }
             int hp = c.Hp + amount;
             Constructs.SetHp(c, hp);
             HpRepaired += amount;
             Events.Add(new ConstructDamagedEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Hp = (ushort)hp });
-            if (hp >= c.Def.Hp) Events.Add(new RepairedEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Player = p.Id });
+            if (hp >= c.MaxHp) Events.Add(new RepairedEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Player = p.Id });
         }
 
         private void MendPostOffice(Player p, ItemDef hammer)

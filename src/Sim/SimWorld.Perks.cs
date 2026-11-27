@@ -70,8 +70,60 @@ namespace PerformativeMail.Sim
             return false;
         }
 
-        /// <summary>The perk may be dealt for this shift: its shift and rank are reached.</summary>
-        private bool InPool(PerkDef perk, int shift) => perk.ShiftMin <= shift && perk.RankMin <= 1;
+        /// <summary>The perk may be dealt for this shift: its shift and rank are reached, and what it builds on is there.</summary>
+        private bool InPool(PerkDef perk, int shift) => perk.ShiftMin <= shift && perk.RankMin <= 1 && PrerequisitesMet(perk);
+
+        /// <summary>
+        /// Doc 01 §2.5 "filtered by prerequisites": one of the buildings standing, one of the blueprints owned, one of
+        /// the vehicles in the world, for each list the perk names.
+        /// </summary>
+        public bool PrerequisitesMet(PerkDef perk)
+        {
+            if (perk.BlueprintAny.Count > 0)
+            {
+                bool any = false;
+                foreach (string id in perk.BlueprintAny) any |= OwnsBlueprint(id);
+                if (!any) return false;
+            }
+            if (perk.VehicleAny.Count > 0)
+            {
+                bool any = false;
+                foreach (var v in _vehicles) any |= Contains(perk.VehicleAny, v.Def.Id);
+                if (!any) return false;
+            }
+            if (perk.BuiltAny.Count > 0)
+            {
+                bool any = false;
+                foreach (var c in Constructs.All) any |= Contains(perk.BuiltAny, c.Def.Id);
+                if (!any) return false;
+            }
+            return true;
+        }
+
+        private static bool Contains(IReadOnlyList<string> ids, string id)
+        {
+            for (int i = 0; i < ids.Count; i++)
+                if (ids[i] == id) return true;
+            return false;
+        }
+
+        /// <summary>Shifts before the map's that its districts open (doc 10 §4.3 Zoning Board); the raiders' ways in keep theirs.</summary>
+        public int DistrictsEarly => Math.Max(0, (int)MathF.Round(TeamStat(Stat.DistrictsEarly, 0f)));
+
+        /// <summary>A team perk of the run holds the rule flag (ADR-0010 RuleFlag).</summary>
+        public bool TeamHas(RuleFlag flag) => _teamStats.Has(flag);
+
+        /// <summary>
+        /// What the team's stats set that is kept rather than read at its use: every construct's most HP. Called when a
+        /// team perk is taken and when the run's perks are cleared.
+        /// </summary>
+        private void ApplyTeamStats()
+        {
+            float scale = TeamStat(Stat.ConstructHp, 1f);
+            if (Math.Abs(scale - Constructs.HpScale) < 1e-6f) return;
+            foreach (var (c, hp) in Constructs.Rescale(scale))
+                Events.Add(new ConstructDamagedEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Hp = (ushort)hp });
+        }
 
         /// <summary>
         /// Gives the perk if <see cref="CanTake"/> allows it: a team perk to everybody, a personal
@@ -88,6 +140,7 @@ namespace PerformativeMail.Sim
             {
                 _teamPerks.Add(perk);
                 _teamStats.Apply(perk);
+                ApplyTeamStats();
                 foreach (var other in _players) RecomputeWeight(other);
             }
             else
@@ -105,6 +158,7 @@ namespace PerformativeMail.Sim
         {
             _teamPerks.Clear();
             _teamStats.Clear();
+            ApplyTeamStats();
             foreach (var p in _players)
             {
                 p.Perks.Clear();

@@ -31,6 +31,14 @@ namespace PerformativeMail.Sim.Perks
         public bool Team { get; init; }
         public PerkRarity Rarity { get; init; }
         public IReadOnlyList<StatModifier> Modifiers { get; init; } = Array.Empty<StatModifier>();
+        /// <summary>What it switches on (doc 08 §2.9 "rules").</summary>
+        public IReadOnlyList<RuleFlag> Rules { get; init; } = Array.Empty<RuleFlag>();
+        /// <summary>Doc 01 §2.5: offered only once the team owns one of these blueprints (shop ids); empty: no such need.</summary>
+        public IReadOnlyList<string> BlueprintAny { get; init; } = Array.Empty<string>();
+        /// <summary>Offered only while one of these vehicles (vehicle def ids) is in the world ("Prereq: bike exists").</summary>
+        public IReadOnlyList<string> VehicleAny { get; init; } = Array.Empty<string>();
+        /// <summary>Offered only while one of these buildings (building def ids) stands (doc 08 §2.9 "builtAny").</summary>
+        public IReadOnlyList<string> BuiltAny { get; init; } = Array.Empty<string>();
         /// <summary>Offered only for a shift of at least this number.</summary>
         public int ShiftMin { get; init; } = 1;
         /// <summary>Offered only from this Postal Rank.</summary>

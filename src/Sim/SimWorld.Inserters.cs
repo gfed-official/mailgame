@@ -5,6 +5,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
 
@@ -46,7 +47,7 @@ namespace PerformativeMail.Sim
                 if (c.Def.Behaviour != BuildingBehaviour.Inserter) continue;
                 if (_inserterNext.TryGetValue(c, out uint next) && Tick < next) continue;
                 if (!MoveOne(c, out ushort kind)) continue;
-                _inserterNext[c] = Tick + Math.Max(1u, SimConstants.SecondsToTicks(1.0 / c.Def.Rate));
+                _inserterNext[c] = Tick + Math.Max(1u, SimConstants.SecondsToTicks(1.0 / (c.Def.Rate * TeamStat(Stat.InserterRate, 1f))));
                 Events.Add(new InserterSwungEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Kind = kind });
             }
         }

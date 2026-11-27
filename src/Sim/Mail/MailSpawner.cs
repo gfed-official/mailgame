@@ -271,7 +271,10 @@ namespace PerformativeMail.Sim.Mail
                 if (IsUnlocked(d) && DeliveryRules.KindAccepted(kind, d.Type)) _eligible.Add(d);
         }
 
-        private bool IsUnlocked(DestinationDef d) => _map.OpensAt(d) <= _shift;
+        private bool IsUnlocked(DestinationDef d) => _map.OpensAt(d, DistrictsEarly) <= _shift;
+
+        /// <summary>Shifts before the map's that a district takes mail (doc 10 §4.3 Zoning Board); set by the world.</summary>
+        public int DistrictsEarly { get; set; }
 
         /// <summary>Uniform over unlocked addresses, except that streetStreakRatio of picks reuse a street already in the batch.</summary>
         private DestinationDef PickDestination()

@@ -42,7 +42,7 @@ namespace PerformativeMail.Sim.Run
             float bestDist = float.MaxValue;
             foreach (var c in constructs.All)
             {
-                if (c.Hp >= c.Def.Hp) continue;
+                if (c.Hp >= c.MaxHp) continue;
                 float dx = c.CentreX - x, dz = c.CentreZ - z, dist = MathF.Sqrt(dx * dx + dz * dz);
                 float near = MathF.Max(0f, dist - c.Def.Radius);
                 if (near > Reach || near >= bestDist) continue;

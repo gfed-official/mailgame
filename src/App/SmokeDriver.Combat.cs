@@ -417,8 +417,8 @@ namespace PerformativeMail.App
                     float off = new Vector2(at.X - _hogWall.CentreX, at.Z - _hogWall.CentreZ).Length();
                     int structure = (int)(_giant.Def.StructureDamage * (1f - _hogWall.Def.WallBreakerResist));
                     Check(off < 1.5f, $"the wall breaker's fireball is drawn {off:0.0} m from the wall");
-                    Check(_hogWall.Hp == _hogWall.Def.Hp - structure && world.Constructs.At(_hogWall.Tx, _hogWall.Tz)?.Hp == _hogWall.Hp,
-                        $"the wall has {_hogWall.Hp} of {_hogWall.Def.Hp} HP after the blast (the client's {world.Constructs.At(_hogWall.Tx, _hogWall.Tz)?.Hp}), not {_hogWall.Def.Hp - structure}");
+                    Check(_hogWall.Hp == _hogWall.MaxHp - structure && world.Constructs.At(_hogWall.Tx, _hogWall.Tz)?.Hp == _hogWall.Hp,
+                        $"the wall has {_hogWall.Hp} of {_hogWall.MaxHp} HP after the blast (the client's {world.Constructs.At(_hogWall.Tx, _hogWall.Tz)?.Hp}), not {_hogWall.MaxHp - structure}");
                     Check(player.Hp == player.MaxHp, $"the blast at the wall 5 m off took {player.MaxHp - player.Hp:0} of the host's health");
                     Check(!server.Enemies.Contains(_giant), "the wall breaker is still about after going off at the wall");
                     Shot("wallbreaker-wall");
@@ -456,7 +456,7 @@ namespace PerformativeMail.App
                     if (seen != null) AimAt(seen.X, seen.Z, InputButtons.None);
                     if (world.LocalHp >= world.LocalMaxHp) break;
                     Check(_sawHogDrawn, "the hog rider was never drawn as one");
-                    Check(_hogWall.Hp == _hogWall.Def.Hp && server.Constructs.At(_hogWall.Tx, _hogWall.Tz) == _hogWall, "the hog rider struck the wall rather than jumping it");
+                    Check(_hogWall.Hp == _hogWall.MaxHp && server.Constructs.At(_hogWall.Tx, _hogWall.Tz) == _hogWall, "the hog rider struck the wall rather than jumping it");
                     Check(world.LocalMaxHp - world.LocalHp == _giant.Damage, $"the hog rider's blow took {world.LocalMaxHp - world.LocalHp:0} health, not {_giant.Damage:0}");
                     Check(_hogLift > 1f, $"the hog rider was drawn no higher than {_hogLift:0.00} m going over the wall");
                     Shot("hogrider");
@@ -523,9 +523,9 @@ namespace PerformativeMail.App
                     Check(_sawHogDrawn, "the balloon was never drawn as one");
                     Check(_hogLift >= _giant.Def.Altitude - 0.5f, $"the balloon was drawn no higher than {_hogLift:0.0} m");
                     Check(off < 2f, $"the balloon's bomb fell {off:0.0} m from the depot");
-                    int bombs = (_hogWall.Def.Hp - _hogWall.Hp) / (int)_giant.Damage;
-                    Check(bombs >= 1 && _hogWall.Hp == _hogWall.Def.Hp - bombs * (int)_giant.Damage && seenDepot != null && seenDepot.Hp <= _hogWall.Def.Hp - (int)_giant.Damage,
-                        $"the depot has {_hogWall.Hp} of {_hogWall.Def.Hp} HP (the client's {seenDepot?.Hp}) after the bomb, not {_hogWall.Def.Hp - (int)_giant.Damage} less a multiple of 30");
+                    int bombs = (_hogWall.MaxHp - _hogWall.Hp) / (int)_giant.Damage;
+                    Check(bombs >= 1 && _hogWall.Hp == _hogWall.MaxHp - bombs * (int)_giant.Damage && seenDepot != null && seenDepot.Hp <= _hogWall.MaxHp - (int)_giant.Damage,
+                        $"the depot has {_hogWall.Hp} of {_hogWall.MaxHp} HP (the client's {seenDepot?.Hp}) after the bomb, not {_hogWall.MaxHp - (int)_giant.Damage} less a multiple of 30");
                     Check(_screen.Effects.BombsFalling > 0, "the bomb is not drawn falling");
                     Check(player.Hp == player.MaxHp, $"the bomb on the depot 8 m off took {player.MaxHp - player.Hp:0} of the host's health");
                     Shot("balloon");

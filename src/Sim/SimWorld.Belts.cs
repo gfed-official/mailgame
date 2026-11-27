@@ -4,6 +4,7 @@ using PerformativeMail.Sim.Automation;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
@@ -50,7 +51,7 @@ namespace PerformativeMail.Sim
             CompileBelts();
             if (belts.Segments.Count == 0) return;
             StepOutfeed();
-            belts.Step(SimConstants.TickDt, this, Tick);
+            belts.Step(SimConstants.TickDt, this, Tick, TeamStat(Stat.BeltSpeed, 1f));
             for (int i = 0; i < belts.Segments.Count; i++)
             {
                 if ((Tick + (uint)i) % BeltChecksumTicks != 0) continue;
@@ -133,31 +134,47 @@ namespace PerformativeMail.Sim
         /// <summary>
         /// The Intake's outfeed (doc 04 §2.6): in Prep and in Delivery, the oldest mail in the
         /// Intake (spawn order, FIFO — mail ids rise as it spawns) onto the head of the belt at the
-        /// outfeed, one piece a tick while it has room.
+        /// outfeed, one piece a tick while it has room. With Presort (doc 10 §4.2, rule flag Presort) the oldest of
+        /// the street the last piece was for goes first, so the mail comes out a street at a time.
         /// </summary>
         private void StepOutfeed()
         {
             if (!BuildRules.IsOpen(Run.Phase)) return;
             var seg = Belts.Outfeed;
             if (seg == null) return;
-            GridEntry? oldest = null;
-            int index = -1;
+            GridEntry? oldest = null, sameStreet = null;
+            int index = -1, sameIndex = -1;
+            bool presort = TeamHas(RuleFlag.Presort);
             foreach (var e in Intake.Entries)
             {
                 if (e.Stack.Kind != StackKind.Mail) continue;
                 var mail = e.Stack.Mail;
                 for (int i = 0; i < mail.Count; i++)
+                {
                     if (oldest == null || mail[i].Id < oldest.Stack.Mail[index].Id) { oldest = e; index = i; }
+                    if (presort && StreetKey(mail[i].Address) == _outfeedStreet && (sameStreet == null || mail[i].Id < sameStreet.Stack.Mail[sameIndex].Id))
+                    {
+                        sameStreet = e;
+                        sameIndex = i;
+                    }
+                }
             }
+            if (sameStreet != null) { oldest = sameStreet; index = sameIndex; }
             if (oldest == null) return;
             var item = oldest.Stack.Mail[index];
             if (!BeltNetwork.PickLane(seg, Content.MailKinds[item.Kind], out _)) return;
             if (!PutOnBelt(seg, item)) return;
+            _outfeedStreet = StreetKey(item.Address);
             oldest.Stack.Mail.RemoveAt(index);
             if (oldest.Stack.Mail.Count == 0) Intake.Remove(oldest.EntryId);
             else Intake.MarkDirty(oldest.EntryId);
             CommitContainer(Intake.Id);
         }
+
+        /// <summary>The street the outfeed's last piece was for (Presort); -1 before any.</summary>
+        private int _outfeedStreet = -1;
+
+        private static int StreetKey(AddressId a) => a.District << 8 | a.Street;
 
         /// <summary>A run ends or begins: the mail on the belts goes back to the Intake with them.</summary>
         private void ClearBelts()

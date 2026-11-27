@@ -63,6 +63,7 @@ namespace PerformativeMail.Sim.Content
         private readonly Dictionary<string, EnemyDef> _enemiesById = new Dictionary<string, EnemyDef>();
         private readonly Dictionary<string, StampDef> _stampsById = new Dictionary<string, StampDef>();
         private readonly Dictionary<string, PerkDef> _perksById = new Dictionary<string, PerkDef>();
+        private IReadOnlyList<string> _perkFiles = Array.Empty<string>();
         private readonly Dictionary<string, VehicleDef> _vehiclesById = new Dictionary<string, VehicleDef>();
         private readonly Dictionary<string, KitDef> _kitsById = new Dictionary<string, KitDef>();
         private readonly Dictionary<string, ShopItemDef> _shopById = new Dictionary<string, ShopItemDef>();
@@ -767,12 +768,19 @@ namespace PerformativeMail.Sim.Content
                                 modifiers.Add(new StatModifier(stat, op == "mul" ? ModifierOp.Mul : ModifierOp.Add, (float)value));
                             }
                         }
-                        else ctx.Error($"'{id}': missing 'modifiers' array");
-                        if (modifiers.Count == 0) ctx.Error($"'{id}': a perk without a modifier does nothing");
+                        else if (e.TryGetProperty("modifiers", out _)) ctx.Error($"'{id}': 'modifiers' must be an array");
 
-                        // Doc 08 §2.9 names three more closed sets. Nothing is in them yet (no rule flag is
-                        // implemented, nothing can be crafted or built), so whatever a perk names from them is unknown.
-                        foreach (string rule in J.StrArray(ctx, e, "rules", optional: true)) ctx.Error($"'{id}': unknown rule flag '{rule}'");
+                        // Doc 08 §2.9 "rules": the closed set of rule flags (ADR-0010 RuleFlag).
+                        var rules = new List<RuleFlag>();
+                        foreach (string rule in J.StrArray(ctx, e, "rules", optional: true))
+                        {
+                            if (!RuleFlags.TryParse(rule, out var flag)) { ctx.Error($"'{id}': unknown rule flag '{rule}' (known: {RuleFlags.Known})"); continue; }
+                            if (!team && RuleFlags.IsTeam(flag)) ctx.Error($"'{id}': a personal perk cannot hold the team rule flag '{rule}'");
+                            if (rules.Contains(flag)) ctx.Error($"'{id}': rule flag '{rule}' twice");
+                            rules.Add(flag);
+                        }
+                        if (modifiers.Count == 0 && rules.Count == 0) ctx.Error($"'{id}': a perk without a modifier or a rule flag does nothing");
+                        // Nothing can be crafted yet, so whatever a perk unlocks is unknown.
                         if (e.TryGetProperty("unlocks", out var unlocksEl))
                         {
                             if (unlocksEl.ValueKind != JsonValueKind.Array) ctx.Error($"'{id}': 'unlocks' must be an array");
@@ -781,6 +789,7 @@ namespace PerformativeMail.Sim.Content
                                     ctx.Error($"'{id}': unlocks references unknown recipe '{(u.ValueKind == JsonValueKind.Object ? J.Str(ctx, u, "recipe") : u.ToString())}'");
                         }
                         int shiftMin = 1, rankMin = 1;
+                        IReadOnlyList<string> builtAny = Array.Empty<string>(), blueprintAny = Array.Empty<string>(), vehicleAny = Array.Empty<string>();
                         if (e.TryGetProperty("prerequisites", out var preEl))
                         {
                             if (preEl.ValueKind != JsonValueKind.Object) ctx.Error($"'{id}': 'prerequisites' must be an object");
@@ -788,8 +797,10 @@ namespace PerformativeMail.Sim.Content
                             {
                                 shiftMin = J.Int(ctx, preEl, "shiftMin", 1);
                                 rankMin = J.Int(ctx, preEl, "rankMin", 1);
-                                foreach (string built in J.StrArray(ctx, preEl, "builtAny", optional: true))
-                                    ctx.Error($"'{id}': prerequisite builtAny references unknown building '{built}'");
+                                // Checked against the buildings, the shop and the vehicles once those are read.
+                                builtAny = J.StrArray(ctx, preEl, "builtAny", optional: true);
+                                blueprintAny = J.StrArray(ctx, preEl, "blueprintAny", optional: true);
+                                vehicleAny = J.StrArray(ctx, preEl, "vehicleAny", optional: true);
                             }
                         }
 
@@ -803,6 +814,10 @@ namespace PerformativeMail.Sim.Content
                             Team = team,
                             Rarity = ParsePerkRarity(ctx, id, J.Str(ctx, e, "rarity")),
                             Modifiers = modifiers,
+                            Rules = rules,
+                            BuiltAny = builtAny,
+                            BlueprintAny = blueprintAny,
+                            VehicleAny = vehicleAny,
                             ShiftMin = shiftMin,
                             RankMin = rankMin,
                             Excludes = J.StrArray(ctx, e, "excludes", optional: true),
@@ -829,6 +844,7 @@ namespace PerformativeMail.Sim.Content
                     }
                 }
                 db.Perks = list;
+                db._perkFiles = files;
             }
 
             // --- vehicles --------------------------------------------------------------------------
@@ -1393,6 +1409,19 @@ namespace PerformativeMail.Sim.Content
                     foreach (var v in map.Debug.Vehicles)
                         if (!db._vehiclesById.ContainsKey(v.Vehicle)) ctx.Error($"debug: unknown vehicle '{v.Vehicle}'");
                 }
+            }
+
+            // A perk's prerequisites name buildings, blueprints and vehicles, all read by now.
+            for (int i = 0; i < db.Perks.Count; i++)
+            {
+                var perk = db.Perks[i];
+                string at = $"{db._perkFiles[i]}: '{perk.Id}'";
+                foreach (string b in perk.BuiltAny)
+                    if (!db._buildingsById.ContainsKey(b)) errors.Add($"{at}: prerequisite builtAny references unknown building '{b}'");
+                foreach (string b in perk.BlueprintAny)
+                    if (!db._shopById.TryGetValue(b, out var bp) || bp.Kind != ShopKind.Blueprint) errors.Add($"{at}: prerequisite blueprintAny references unknown blueprint '{b}'");
+                foreach (string v in perk.VehicleAny)
+                    if (!db._vehiclesById.ContainsKey(v)) errors.Add($"{at}: prerequisite vehicleAny references unknown vehicle '{v}'");
             }
 
             db.ContentHash = hash.Value;

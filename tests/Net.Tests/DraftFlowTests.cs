@@ -233,7 +233,9 @@ namespace PerformativeMail.Net.Tests
             // Ada takes her second card: Bo sees whose perk it is, not his card 1.
             Assert.NotEqual(0u, ada.PickPerk(1));
             s.Run(10);
-            Assert.Equal(new[] { own[1] }, s.Sim.GetPlayer(ada.World.LocalId)!.Perks.Select(p => p.Id));
+            // Hers, or the team's through her.
+            var adaTruth = s.Sim.GetPlayer(ada.World.LocalId)!;
+            Assert.Equal(own[1], adaTruth.Perks.Concat(s.Sim.TeamPerks).Select(p => p.Id).Single(id => id == own[1]));
             Assert.Equal(own[1], bo.World.Players[ada.World.LocalId].DraftPerk!.Id);
             int same = Array.IndexOf(shared, own[1]);
             for (int i = 0; i < shared.Length; i++)

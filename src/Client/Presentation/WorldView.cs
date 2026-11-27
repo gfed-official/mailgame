@@ -39,7 +39,7 @@ namespace PerformativeMail.Client.Presentation
         private WorldMap? _map;
         /// <summary>The map this view was built for.</summary>
         public WorldMap? Map => _map;
-        private int _districtsFor = -1;
+        private int _districtsFor = -1, _districtsEarly;
 
         /// <summary>Mailboxes whose district is not open yet in the shift last shown (doc 01 §1.2 district unlock).</summary>
         public int LockedMailboxes { get; private set; }
@@ -104,14 +104,15 @@ namespace PerformativeMail.Client.Presentation
         /// The houses of a district not open yet by <paramref name="shift"/> say when it opens, in
         /// grey under their address; the others read as always. Cheap to call every frame.
         /// </summary>
-        public void ShowDistricts(int shift)
+        public void ShowDistricts(int shift, int early = 0)
         {
-            if (shift == _districtsFor || _map == null) return;
+            if ((shift, early) == (_districtsFor, _districtsEarly) || _map == null) return;
             _districtsFor = shift;
+            _districtsEarly = early;
             int locked = 0;
             foreach (var (dest, label) in _mailboxLabels)
             {
-                int opens = HudText.DistrictOpensAt(_map, dest);
+                int opens = HudText.DistrictOpensAt(_map, dest, early);
                 bool closed = opens > shift;
                 if (closed) locked++;
                 string name = dest.IsDock ? dest.Label + "  ·  Cargo" : dest.Label;

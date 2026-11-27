@@ -108,7 +108,7 @@ namespace PerformativeMail.App
             var standing = world.Constructs.At(_ruinTx, _ruinTz);
             if (standing == null || server.Constructs.At(_ruinTx, _ruinTz) == null || client.PendingRequestCount > 0) return true;
             if (!_session.Feed.Entries.Any(e => e.Text == "You rebuilt the Wooden Wall") && _ruinFrames < PlaytestStepFrames / 2) return true;
-            Check(standing.Def == wallDef && standing.Hp == wallDef.Hp && standing.Rotation == RuinRotation,
+            Check(standing.Def == wallDef && standing.Hp == standing.MaxHp && standing.Rotation == RuinRotation,
                 $"rebuilt: a {standing.Def.Id} of {standing.Hp} HP turned {standing.Rotation} (the wall was turned {RuinRotation})");
             Check(CarriedLogs(world) == _ruinLogs - _ruinCost, $"the rebuild took {_ruinLogs - CarriedLogs(world)} Logs, half the wall's is {_ruinCost}");
             Check(_session.Feed.Entries.Any(e => e.Text == "You rebuilt the Wooden Wall"), "no \"You rebuilt the Wooden Wall\" line in the feed");

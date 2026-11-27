@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.World;
 
@@ -54,7 +55,7 @@ namespace PerformativeMail.Sim
                 _turretReady[c] = Tick + System.Math.Max(1u, SimConstants.SecondsToTicks(c.Def.ShotSeconds));
                 TurretShots++;
                 Events.Add(new TurretFiredEvent { X = (byte)c.Tx, Y = (byte)c.Tz, TargetX = target.X, TargetZ = target.Z });
-                DamageEnemy(target, c.Def.ShotDamage, null);
+                DamageEnemy(target, c.Def.ShotDamage * TeamStat(Stat.TurretDamage, 1f), null);
             }
         }
 
@@ -121,7 +122,7 @@ namespace PerformativeMail.Sim
             if (target != null) Rewound(target, out tx, out tz);
             else TurretSight.Exit(px, pz, fx, fz, c.CentreX, c.CentreZ, c.Def.ShotRange, out tx, out tz);
             Events.Add(new TurretFiredEvent { X = (byte)c.Tx, Y = (byte)c.Tz, TargetX = tx, TargetZ = tz });
-            if (target != null) DamageEnemy(target, c.Def.ShotDamage, p);
+            if (target != null) DamageEnemy(target, c.Def.ShotDamage * TeamStat(Stat.TurretDamage, 1f), p);
         }
 
         /// <summary>

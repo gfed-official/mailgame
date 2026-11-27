@@ -8,6 +8,7 @@ using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Net;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.World;
@@ -716,7 +717,7 @@ namespace PerformativeMail.Client
             if (world.Paused) return;
             world.ServerTick += 1.0;
             // Doc 07 §8: the belts' items move here at the server's speed; only its events take them off an end.
-            world.Belts.Step(SimConstants.TickDt, null);
+            world.Belts.Step(SimConstants.TickDt, null, 0, world.LocalStat(Stat.BeltSpeed, 1f));
             world.Pipes.Step(SimConstants.TickDt, arrive: false);
             // The tank of what the local player drives goes down here as on the server; its events set it right.
             if (world.HasLocal && world.LocalRide is { Def.Fuelled: true } driven && world.Local.RideSpeed > 0.1f)

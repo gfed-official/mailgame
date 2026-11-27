@@ -9,6 +9,7 @@ namespace PerformativeMail.Sim.Perks
     {
         private readonly float[] _mul = new float[Stats.Count];
         private readonly float[] _add = new float[Stats.Count];
+        private readonly int[] _flags = new int[RuleFlags.Count];
 
         public StatSheet() => Clear();
 
@@ -19,6 +20,7 @@ namespace PerformativeMail.Sim.Perks
                 _mul[i] = 1f;
                 _add[i] = 0f;
             }
+            System.Array.Clear(_flags, 0, _flags.Length);
         }
 
         /// <summary>One more stack of a perk.</summary>
@@ -29,7 +31,11 @@ namespace PerformativeMail.Sim.Perks
                 if (m.Op == ModifierOp.Mul) _mul[(int)m.Stat] *= m.Value;
                 else _add[(int)m.Stat] += m.Value;
             }
+            foreach (var flag in perk.Rules) _flags[(int)flag]++;
         }
+
+        /// <summary>A perk of this sheet holds the flag.</summary>
+        public bool Has(RuleFlag flag) => _flags[(int)flag] > 0;
 
         public float Resolve(Stat stat, float baseValue) => baseValue * _mul[(int)stat] + _add[(int)stat];
 

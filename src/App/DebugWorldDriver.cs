@@ -203,8 +203,8 @@ namespace PerformativeMail.App
                     }
                     var hurt = world.Constructs.At(10, 15);
                     // A few frames for the number to rise into view and the bar to come up.
-                    if ((hurt == null || hurt.Hp == hurt.Def.Hp || !_screen.AttackMarker.Visible || _frames < _hurtAt + 8) && _frames < _hurtAt + 90) return;
-                    Check(hurt != null && hurt.Hp == hurt.Def.Hp - 200, $"the Stone Wall has {hurt?.Hp} of {hurt?.Def.Hp} on the client after a blow of 200");
+                    if ((hurt == null || hurt.Hp == hurt.MaxHp || !_screen.AttackMarker.Visible || _frames < _hurtAt + 8) && _frames < _hurtAt + 90) return;
+                    Check(hurt != null && hurt.Hp == hurt.MaxHp - 200, $"the Stone Wall has {hurt?.Hp} of {hurt?.MaxHp} on the client after a blow of 200");
                     Check(_screen.ConstructHealth.BarsShown >= 1, "no health bar over the hurt Stone Wall");
                     Check(_screen.ConstructHealth.NumbersShown > _hurtNumbers && _screen.ConstructHealth.LastNumber == "-200", $"the blow's number reads \"{_screen.ConstructHealth.LastNumber}\"");
                     Check(_screen.AttackMarker.Visible && _screen.AttackMarker.Text == "Stone Wall under attack", $"the HUD's marker reads \"{_screen.AttackMarker.Text}\"");

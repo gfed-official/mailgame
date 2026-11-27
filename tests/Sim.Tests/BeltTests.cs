@@ -447,5 +447,43 @@ namespace PerformativeMail.Sim.Tests
             for (int k = 1; k < 6; k++) Assert.NotSame(order[k - 1], order[k]);
             Assert.All(ins, i => Assert.Equal(3, order.Count(o => o == i)));
         }
+
+        [Fact]
+        public void ExpressLane_MovesTheMailHalfAgainAsFast()
+        {
+            var (world, host) = InPrep();
+            Assert.Equal(OpResult.Ok, Line(world, host, 6, Row, 9, Row, 0));
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("express_lane")));
+            world.Step();
+            var s = world.Belts.Segments.Single();
+            Assert.True(world.Belts.TryInsert(s, Letter(world, NumberOne(world)), out _));
+            SimDriver.StepTicks(world, Tps);
+            Assert.InRange(s.Items[0].Pos, 2.9f, 3.1f);
+        }
+
+        [Fact]
+        public void Presort_PutsTheIntakesMailOut_AStreetAtATime()
+        {
+            var (world, host) = InPrep();
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("presort")));
+            SimDriver.Teleport(host, Centre(8), Centre(7) + 1f);
+            var larch = NumberOne(world).Address;
+            var elsewhere = new AddressId(larch.District, larch.Street + 1, 3);
+            // Oldest first would be 901, 902, 903, 904; a street at a time it is 901, 903, then the other street's.
+            Assert.True(world.Give(world.Intake, ItemStack.OfMail(TestContent.Mail("letter", larch, 901))));
+            Assert.True(world.Give(world.Intake, ItemStack.OfMail(TestContent.Mail("letter", elsewhere, 902))));
+            Assert.True(world.Give(world.Intake, ItemStack.OfMail(TestContent.Mail("letter", larch, 903))));
+            Assert.True(world.Give(world.Intake, ItemStack.OfMail(TestContent.Mail("letter", elsewhere, 904))));
+            Assert.Equal(OpResult.Ok, Line(world, host, 6, 7, 10, 7, 0));
+            world.Submit(host.Id, SimRequest.PlaceLine(_nextRequest++, Belt.Index, 6, 8, 6, 8, BeltNetwork.OutfeedRotation));
+            var order = new System.Collections.Generic.List<uint>();
+            for (int i = 0; i < 4 * Tps; i++)
+            {
+                world.Events.Clear();
+                world.Step();
+                order.AddRange(world.Events.OfType<BeltItemAddedEvent>().Select(e => e.Item.MailId));
+            }
+            Assert.Equal(new uint[] { 901, 903, 902, 904 }, order);
+        }
     }
 }

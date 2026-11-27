@@ -30,7 +30,7 @@ namespace PerformativeMail.Sim
             if (Run.Phase != RunPhase.Delivery || _vehicles.Count == 0) return;
             foreach (var dock in Map.Destinations)
             {
-                if (!dock.IsDock || Map.OpensAt(dock) > Run.Shift) continue;
+                if (!dock.IsDock || Map.OpensAt(dock, DistrictsEarly) > Run.Shift) continue;
                 if (_dockNextTick.TryGetValue(dock.Id, out uint next) && Tick < next) continue;
                 foreach (var v in _vehicles)
                 {

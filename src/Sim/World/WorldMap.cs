@@ -247,14 +247,20 @@ namespace PerformativeMail.Sim.World
             return null;
         }
 
-        /// <summary>The shift a destination first takes mail: its district's, or its own if later (a Business Dock's).</summary>
-        public int OpensAt(DestinationDef d)
+        /// <summary>
+        /// The shift a destination first takes mail: its district's, or its own if later (a Business Dock's). A district
+        /// opens <paramref name="early"/> shifts before the map says, never before shift 1 (doc 10 §4.3 Zoning Board).
+        /// </summary>
+        public int OpensAt(DestinationDef d, int early = 0)
         {
             int at = int.MaxValue;
             foreach (var district in Districts)
-                if (district.Id == d.Address.District) { at = district.UnlockShift; break; }
+                if (district.Id == d.Address.District) { at = DistrictOpensAt(district, early); break; }
             return Math.Max(at, d.UnlockShift);
         }
+
+        /// <summary>The shift a district opens, <paramref name="early"/> shifts before its own and never before shift 1.</summary>
+        public static int DistrictOpensAt(DistrictDef district, int early) => Math.Max(1, district.UnlockShift - early);
 
         public string FormatAddress(AddressId address)
         {

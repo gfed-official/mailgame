@@ -204,5 +204,65 @@ namespace PerformativeMail.Sim.Tests
             Assert.Empty(world.Constructs.Ruins);
             Assert.Null(world.Constructs.RuinAt(Tx, Tz));
         }
+
+        // --- Insured and Reinforced (doc 10 §4.4) ---
+
+        /// <summary>The wall of <see cref="WallInPrep"/> broken, the shift played out to the next Prep.</summary>
+        private void BrokenThenNextPrep(SimWorld world, Player host, Construct wall)
+        {
+            world.SetPlaytest(host, PlaytestFlags.NoQuota, 2);
+            world.DamageConstruct(wall, wall.MaxHp);
+            Assert.NotNull(world.Constructs.RuinAt(Tx, Tz));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+            world.Events.Clear();
+            for (int i = 0; i < 400 * SimConstants.TickRate && !(world.Run.Phase == RunPhase.Prep && world.Run.Shift == 3); i++) world.Step();
+            Assert.Equal((RunPhase.Prep, 3), (world.Run.Phase, world.Run.Shift));
+        }
+
+        [Fact]
+        public void Insured_ARuinStandsAgainFree_AsTheNextPrepBegins()
+        {
+            var (world, host, wall) = WallInPrep();
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("insured")));
+            Assert.True(world.TeamHas(PerformativeMail.Sim.Perks.RuleFlag.InsuredRebuild));
+            int stone = Stone(host);
+            BrokenThenNextPrep(world, host, wall);
+            Assert.Null(world.Constructs.RuinAt(Tx, Tz));
+            var standing = world.Constructs.At(Tx, Tz)!;
+            Assert.Equal((StoneWall, 1, StoneWall.Hp), (standing.Def, (int)standing.Rotation, standing.Hp));
+            Assert.Equal(stone, Stone(host));
+            Assert.Equal(1, world.InsuredRaised);
+            var raised = world.Events.OfType<RuinEvent>().Single(e => e.Gone);
+            Assert.True(raised.Rebuilt);
+            Assert.True(raised.Player.IsNone);
+        }
+
+        [Fact]
+        public void Uninsured_TheRuinIsStillThereAtTheNextPrep()
+        {
+            var (world, host, wall) = WallInPrep();
+            BrokenThenNextPrep(world, host, wall);
+            Assert.NotNull(world.Constructs.RuinAt(Tx, Tz));
+            Assert.Equal(0, world.InsuredRaised);
+        }
+
+        [Fact]
+        public void Reinforced_GivesEveryConstructTwoFifthsMoreHp_ThoseStandingAndThoseToCome()
+        {
+            var (world, host, wall) = WallInPrep();
+            world.DamageConstruct(wall, 100);
+            Assert.Equal(StoneWall.Hp - 100, wall.Hp);
+            world.Events.Clear();
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("reinforced")));
+            int max = (int)System.MathF.Round(StoneWall.Hp * 1.4f);
+            Assert.Equal(max, wall.MaxHp);
+            // What it has grows with it.
+            Assert.Equal((int)System.MathF.Round((StoneWall.Hp - 100) * 1.4f), wall.Hp);
+            Assert.Equal(wall.Hp, world.Events.OfType<ConstructDamagedEvent>().Single().Hp);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.PlaceConstruct(0, StoneWall.Index, Tx + 1, Tz, 1)));
+            var next = world.Constructs.At(Tx + 1, Tz)!;
+            Assert.Equal((max, max), (next.Hp, next.MaxHp));
+        }
     }
 }

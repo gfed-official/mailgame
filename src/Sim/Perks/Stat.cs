@@ -44,6 +44,51 @@ namespace PerformativeMail.Sim.Perks
         LateValueRatio,
         /// <summary>Seconds of warning before a raid.</summary>
         RaidWarningSeconds,
+        /// <summary>The speed of what is on a belt, as a share of the belt's own; base 1.</summary>
+        BeltSpeed,
+        /// <summary>An inserter's swings a second, as a share of its def's; base 1.</summary>
+        InserterRate,
+        /// <summary>A turret's damage a shot, as a share of its def's; base 1.</summary>
+        TurretDamage,
+        /// <summary>Every construct's most HP, as a share of its def's; base 1.</summary>
+        ConstructHp,
+        /// <summary>The value of the mail a Delivery spawns, as a share of the quota's; base 1.</summary>
+        SpawnValue,
+        /// <summary>Shifts earlier than the map says that a district opens; base 0.</summary>
+        DistrictsEarly,
+    }
+
+    /// <summary>
+    /// What a perk switches on rather than changes by a number (ADR-0010 "RuleFlag": on while at least one perk held
+    /// has it; doc 08 §2.9 "rules"). A new flag is a code change and its handler; a perk with a flag that exists is
+    /// data. The names are what content/perks/*.json writes, in snake_case.
+    /// </summary>
+    public enum RuleFlag : byte
+    {
+        /// <summary>Doc 10 §4.4 Insured: a construct broken in a shift stands again, free, when the next Prep begins.</summary>
+        InsuredRebuild,
+        /// <summary>Doc 10 §4.2 Presort: the Intake's outfeed puts the mail on the belt a street at a time.</summary>
+        Presort,
+    }
+
+    public static class RuleFlags
+    {
+        public static readonly int Count = Enum.GetValues(typeof(RuleFlag)).Length;
+
+        private static readonly Dictionary<string, RuleFlag> ByName = new Dictionary<string, RuleFlag>(StringComparer.Ordinal)
+        {
+            ["insured_rebuild"] = RuleFlag.InsuredRebuild,
+            ["presort"] = RuleFlag.Presort,
+        };
+
+        /// <summary>The flag a content file names.</summary>
+        public static bool TryParse(string name, out RuleFlag flag) => ByName.TryGetValue(name, out flag);
+
+        /// <summary>The names content may write, for an error.</summary>
+        public static string Known => string.Join(", ", ByName.Keys);
+
+        /// <summary>A team flag is the whole team's; a personal perk cannot hold it.</summary>
+        public static bool IsTeam(RuleFlag flag) => true;
     }
 
     public static class Stats

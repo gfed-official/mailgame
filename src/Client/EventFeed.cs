@@ -106,7 +106,7 @@ namespace PerformativeMail.Client
                     // Doc 01 §1.2: Prep is when the shift's district opens.
                     if (e.Phase == RunPhase.Prep)
                     {
-                        string opened = HudText.DistrictOpened(world.Map, e.Shift);
+                        string opened = HudText.DistrictOpened(world.Map, e.Shift, world.DistrictsEarly);
                         if (opened.Length > 0) Add(opened);
                     }
                     break;
@@ -228,6 +228,11 @@ namespace PerformativeMail.Client
                     Push(new Entry { Text = HudText.Built(world, e.Player, world.Content.Buildings[e.Building]), Build = true, Player = e.Player, Kind = e.Building, Count = 1 });
                     break;
                 }
+                // Doc 10 §4.4 Insured: stood up again at Prep, by nobody's hand.
+                case RuinEvent e when e.Gone && e.Rebuilt && e.Player.IsNone && e.Building < world.Content.Buildings.Count:
+                    Add(HudText.InsuredRebuilt(world.Content.Buildings[e.Building]), good: true);
+                    _rebuilt = (e.X, e.Y);
+                    break;
                 // Cleared away with the run, nobody's doing: not worth a line.
                 case RuinEvent e when e.Gone && !e.Player.IsNone && e.Building < world.Content.Buildings.Count:
                     Add(HudText.RuinGone(world, e, world.Content.Buildings[e.Building]));

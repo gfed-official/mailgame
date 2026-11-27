@@ -134,5 +134,23 @@ namespace PerformativeMail.Sim.Tests
             // The carrier stood beside it all along.
             Assert.Equal(hp, host.Hp);
         }
+
+        [Fact]
+        public void HotBarrels_IsOfferedOnceTheTurretBlueprintIsOwned_AndAddsHalfToEveryShot()
+        {
+            var perk = Db.Perk("hot_barrels");
+            var (bare, _) = InPrep(blueprint: false);
+            Assert.False(bare.PrerequisitesMet(perk));
+            var (world, host, turret) = Built();
+            Assert.True(world.PrerequisitesMet(perk));
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, perk));
+            SimDriver.Teleport(host, Centre(Tx) + 40f, Centre(Tz) + 20f);
+            var raider = Db.Enemy("barbarian");
+            var near = world.SpawnEnemy(raider, turret.CentreX + 10f, turret.CentreZ)!;
+            world.Events.Clear();
+            world.Step();
+            Assert.Single(world.Events.OfType<TurretFiredEvent>());
+            Assert.Equal(raider.Hp - 18f, near.Hp, 3);
+        }
     }
 }

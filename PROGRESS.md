@@ -2644,6 +2644,30 @@ green; the base smoke passes rendered at 1280×720 (`--shots`).
       the deal, the cap giving way, the balance key), `DraftFlowTests.AtThePersonalCap_…`. `tools/smoke.sh`: SMOKE OK ×3,
       the island bot once over its tick budget on a loaded box (p99 4.4 ms, mean 0.25 ms), BOT OK when run again
 
+- [x] **The perk pool, first part** (doc 10 §4; doc 01 §2.5; design choice 156). Perks may now carry rule flags
+      (`"rules"`, the closed `RuleFlag` enum of ADR-0010: `insured_rebuild`, `presort`) and prerequisites beyond shift
+      and rank (`"prerequisites": { "builtAny", "blueprintAny", "vehicleAny" }`, checked against the buildings, the
+      shop's blueprints and the vehicles at load; `SimWorld.PrerequisitesMet` filters the Draft's pool and the cap's
+      "team perk left"). A perk needs a modifier or a flag. New stats, all the team's: `BeltSpeed`, `InserterRate`,
+      `TurretDamage`, `ConstructHp`, `SpawnValue`, `DistrictsEarly`. Each acts where the number is used (no perk ids
+      in code); `StatSheet.Has(flag)` is the one rule-flag test.
+      - Express Lane: belts carry mail 50 % faster (server and the client's belt prediction; a carrier riding a belt
+        keeps the belt's own push)
+      - Greased Inserters: inserters swing twice as often
+      - Presort (rule flag): the Intake's outfeed puts out the oldest mail of the street it last served first
+      - Zoning Board (`second_district`): every district opens a shift early (never before shift 1; a Business Dock
+        keeps its own later shift; the raiders' ways in keep theirs), and a Delivery spawns 15 % more mail value;
+        the mailbox signs, the Route Console's and sorter's choices, the map's title and the Prep feed line follow
+      - Reinforced: every construct's most HP ×1.4 (`Construct.MaxHp`, `ConstructField.HpScale`); those standing
+        grow in proportion (the server's `ConstructDamagedEvent`s say so), those built after start at the new most;
+        repair, the HUD's bars and the worn look go by `MaxHp`
+      - Hot Barrels: turret shots +50 % (offered once `bp_turret` is owned)
+      - Insured (rule flag): as Prep begins every ruin stands again, free, as it was (filters and routes too), where
+        its ground allows; the feed says "Insured: the Stone Wall stands again"
+      Tests: `TurretTests`, `InserterTests`, `BeltTests` (Express Lane, Presort), `RuinTests` (Insured, not insured,
+      Reinforced), `PerkTests` (Zoning Board, the pool). The smoke's wall checks go by `MaxHp` (its Draft took
+      Reinforced once and the Fortify check read 1120 of 800 HP)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4153,6 +4177,19 @@ See "Commands" at the bottom (filled in as the tooling lands).
     was dealt, that carrier has no open card in that Draft and goes without (no new deal mid-Draft, which would need a
     wire flag to tell it from a reroll). In a solo run the shared cards of a capped carrier are team cards only,
     as every card already has to be one somebody present can take.
+
+156. **Rule-flag perks and an ADR-0010 amendment (proposed).** ADR-0010 (Accepted) names a closed `RuleFlag` enum
+    "for behaviour switches (on while ≥ 1 live source holds it)" and doc 08 §2.9 a perk's `"rules"`; the code had no
+    such enum (Cursed Mail's switch is `StampRule`, Second Wind's an on-above-0 stat). The perks now use `RuleFlag`
+    as the ADR says, held in the `StatSheet` by count. **Proposed amendment for Evan**: (a) ADR-0010 §7's RuleFlag
+    list gains `InsuredRebuild` and `Presort` (and, with later perks, `PriorityPost`); (b) a perk's prerequisites
+    gain `blueprintAny` and `vehicleAny` beside doc 08's `builtAny`, since doc 10 writes "Prereq: bp_sorting" and
+    "Prereq: bike exists"; (c) Stamps keep `StampRule` for now — folding it into `RuleFlag` is a rename with no
+    behaviour, left for the amendment. Choices inside the perks: Insured rebuilds what is a ruin when Prep begins
+    (a ruin a carrier cleared is gone, so not insured), free, and leaves a ruin under a carrier or past the Vehicle
+    Depot limit to be rebuilt by hand; Reinforced scales what a construct has with its most (a wall at 700 of 800
+    has 980 of 1120); Zoning Board moves the districts (and with them their mail, signs and choices) but not the
+    raiders' spawn edges, which doc 05 ties to the shift, not the district.
 
 ## Commands
 

@@ -15,6 +15,8 @@ namespace PerformativeMail.Sim.World
         /// <summary>Quarter turns, below the building's <see cref="BuildingDef.Rotations"/>.</summary>
         public byte Rotation { get; }
         public int Hp { get; internal set; }
+        /// <summary>Its most HP: its def's, times the team's construct HP (doc 10 §4.4 Reinforced).</summary>
+        public int MaxHp { get; internal set; }
         /// <summary>The container of a chest; 0 for what holds nothing.</summary>
         public uint ContainerId { get; }
 
@@ -145,6 +147,7 @@ namespace PerformativeMail.Sim.World
                 RemoveRuin(x, z);
                 _ruinTiles[z * _map.Cols + x] = c;
             }
+            c.MaxHp = MaxHpOf(c.Def);
             _ruins.Add(c);
             Version++;
         }
@@ -175,7 +178,8 @@ namespace PerformativeMail.Sim.World
         /// <summary>Builds on the tile, and on as many more as its length takes (on the map); what stood on them goes.</summary>
         public Construct Add(BuildingDef def, int tx, int tz, int rotation, int hp, uint containerId)
         {
-            var c = new Construct(def, tx, tz, rotation % Math.Max(1, def.Rotations), Math.Clamp(hp, 1, def.Hp), containerId);
+            var c = new Construct(def, tx, tz, rotation % Math.Max(1, def.Rotations), Math.Clamp(hp, 1, MaxHpOf(def)), containerId);
+            c.MaxHp = MaxHpOf(def);
             for (int i = 0; i < def.TileCount; i++)
             {
                 var (x, z) = c.TileAt(i);
@@ -226,9 +230,38 @@ namespace PerformativeMail.Sim.World
             if (!same) Version++;
         }
 
+        /// <summary>The share of its def's HP a construct has at most (the team's ConstructHp stat); 1 without a perk.</summary>
+        public float HpScale { get; private set; } = 1f;
+
+        /// <summary>The most HP a construct of the def has at <see cref="HpScale"/>.</summary>
+        public int MaxHpOf(BuildingDef def) => Math.Max(1, (int)MathF.Round(def.Hp * HpScale));
+
+        /// <summary>
+        /// A new <see cref="HpScale"/>: every construct's most HP follows, and what it has grows (or shrinks) with it in
+        /// proportion, rounded (on a client, with <paramref name="scaleHp"/> false, it is only held to the new most). Returns
+        /// those whose HP changed, with their new HP.
+        /// </summary>
+        public List<(Construct, int)> Rescale(float scale, bool scaleHp = true)
+        {
+            var changed = new List<(Construct, int)>();
+            HpScale = scale;
+            foreach (var c in _all)
+            {
+                int max = MaxHpOf(c.Def);
+                if (max == c.MaxHp) continue;
+                // A client keeps what the server says it has: the server's word on the new HP follows.
+                int hp = scaleHp ? Math.Clamp((int)MathF.Round(c.Hp * (max / (float)c.MaxHp)), 1, max) : Math.Min(c.Hp, max);
+                c.MaxHp = max;
+                if (hp != c.Hp) { c.Hp = hp; changed.Add((c, hp)); }
+                Version++;
+            }
+            foreach (var r in _ruins) r.MaxHp = MaxHpOf(r.Def);
+            return changed;
+        }
+
         public void SetHp(Construct c, int hp)
         {
-            hp = Math.Clamp(hp, 0, c.Def.Hp);
+            hp = Math.Clamp(hp, 0, c.MaxHp);
             if (c.Hp == hp) return;
             c.Hp = hp;
             Version++;
