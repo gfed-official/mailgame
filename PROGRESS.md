@@ -3136,6 +3136,42 @@ the Draft, Payday, a four-row inventory, the Large Island, an apartment block, t
 Next in the docs' order: Cargo by boat to the far town's dock (the Motor Boat route of doc 11 §4), the map's outline of
 the incoming district (doc 01 §2.1 "Preview"), then M5.
 
+### 8. M4 — onboarding tips and the replay acceptance test (doc 12 M4; doc 09 §6), 2026-11-27
+
+The 24cbd0a playtest was still running when this batch began (its results directory had no report yet); the build was
+green at 24cbd0a (Sim.Tests 716, Net.Tests 245, `tools/smoke.sh` SMOKE OK ×3, BOT OK ×2), so M4 went on meanwhile.
+
+- [x] **Onboarding tips** (`TipTracker`, design choice 173). A profile with no finished run sees, in shift 1's
+      Delivery, one tip at a time on the hint's line (amber, top row beside the corner's plate; the hint is empty in
+      Delivery): "Tip: pick up mail from the Intake — [E] at the Intake, click its rows", then while carrying mail "Tip:
+      match the address — hold [E] at the mailbox that says MATCH", then "Tip: build a belt from the Intake's outfeed —
+      [B], then [n] for the belt" (n is the belts' Build mode key, from the content), and in the shift's last minute (or
+      once the others are done) "Tip: raids start next shift — build walls and turrets in Prep" (not in a practice run
+      or a one-shift run). Each ends "[H] hide tip". A tip is done when the local carrier does the thing (holds mail;
+      delivers by hand; builds a belt; reaches Payday with the raids' tip shown) or puts it away with H, and is written
+      into `MetaProfile.TipsDone` (`"tipsDone"` in the file) and saved: never shown again. A profile that has finished a
+      run sees none; `--playtest-tips` forces them on any profile and in any shift (the done list is then not read).
+      No new HUD widget kind: the hint's own line (ADR-0018).
+- [x] **The Lobby's "How to play" card** (doc 09 §6). H in the Lobby puts up the Payday / Results card (the same plate,
+      title face and dodging) with the shift loop in seven lines: "A run is 5 shifts; each is Prep, Delivery and
+      Payday", Prep (build, buy at the counter, [G] ready), Delivery (take mail from the Intake, match each address),
+      belts / sorters / trucks, Payday (meet the quota or the run ends, then a perk), raiders from shift 2, "[H] close".
+      The Lobby's hint ends "[H] how to play" for everyone. The card leaves with the Lobby.
+- [x] Tests: `TipTests` (a first run's order intake → address → belt → raids, the done list saved and read back, none
+      past shift 1 or for a played profile, the forced flag, H's dismissal; the Lobby hint and card lines). The smoke opens
+      and closes the card in the Lobby (its words, on screen, clear of the corner's plate, the hint and every Lobby
+      plate; shot `how-to-play`), checks every frame that a tip is the hint's line in Delivery (the hint checks keep it
+      off the plate and the trackers), and that shift 1 of its fresh profile showed the Intake's tip and ended with the
+      Intake's and the address's tips done.
+- [x] **The replay acceptance test** (doc 12 M4: "Same seed + stamps + player count reproduces the mail schedule and
+      perk offers exactly"; `ReplayTests`). Two servers set up alike — the Small Island with Rush Hour and Double Raids
+      for two carriers, the Large Island with Megamail solo, the Daily Seed (a fixed UTC date) for three — play three
+      shifts with run events, raids, starting kits and the Draft on, idle carriers (no quota), the host rerolling the
+      first Draft once and everyone taking the first open card. Every mail item as it first reaches the Intake (tick, id,
+      kind, address, value, shifts, flags, due tick: 340–600 items a run) and every offer (three Drafts and the reroll)
+      are the same; another seed gives another schedule. It found no non-determinism (the sim's sets and maps iterate in
+      insertion order, never by hash; the daily date comes from `SimSettings.UtcNow`).
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4803,6 +4839,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the rule is not tied to an id in code. (d) The fog is drawn as a thick grey environment fog on every client, not a
     gameplay sight limit; the edge markers and world labels still show through it.
 
+173. **Onboarding tips, where doc 09 §6 is short.** (a) "First run (per profile)" is a profile with no finished run
+    (`Runs` 0; a practice run is not counted, so it keeps the tips for whoever starts with one); a profile from before
+    the tips that has played sees none. (b) One tip at a time, on the hint's line, which is empty in Delivery: no new
+    widget (ADR-0018), and in Prep the hint has its own words. (c) "Once the action is performed": the Intake's tip when
+    the local carrier holds mail, the address's on a hand delivery of theirs, the belt's when they build a belt piece;
+    "Raids start next shift" has no action, so it counts as read once shift 1's Payday comes with it shown (it comes in
+    the shift's last minute at the latest). H puts the shown tip away for good, as doc 09's "dismissable". (d) The done
+    list is the profile's `tipsDone` (doc 08 §3.8 has no field for it); what a carrier does counts even while no tip is
+    shown. (e) The Lobby's "How to play" card is the Payday / Results card's plate on H, not a new kind of panel.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4839,6 +4885,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   T points at the next of the eight Postage Stamps and Y puts it on or off (tier 2 from Postal Rank 6, tier 3 from 12),
 #   P chooses the practice run (test street, 2 shifts, no raid, no XP) and O today's Daily Seed; each again leaves it;
 #   Ctrl+V pastes a seed string ("PM1-SMALL-7F3A9C21-CM.DR", as C copies it at Results) with its stamps
+# in the Lobby H puts the "How to play" card up or down; in a first run's shift 1, H puts the shown tip away
 # in the Draft: 1-3 take a card, R (or the button) draws new cards of your own, once a run (twice from Postal Rank 4)
 # in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)
 # in a run: M puts up the map with the way to the house of the mail in your hand; Z / X / V toggle its Mail / Routes / Resources chips; at a depot's or port's console, M edits its route on the map
@@ -4865,6 +4912,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --playtest-stamps     as host, every tier of the Postage Stamps, the whole perk pool and the Large Island are open whatever your Postal Rank
 #                         (--playtest-unlocks says the same)
 #   --playtest-perks=A,B  as host, those perks (content/perks ids) are the first cards of every Draft, whatever the pool
+#   --playtest-tips       the onboarding tips (doc 09 §6) as on a first run, on any profile and in any shift (the client's own flag)
 #   --event=ID            as host, the run event ID of content/events (festival, lost_parcels, wildfire, fog on a Large Island, …) comes in every shift it may
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
