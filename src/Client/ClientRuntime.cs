@@ -452,6 +452,17 @@ namespace PerformativeMail.Client
         /// The shop key: the cards up where the counter serves this player (<see cref="OpenShop"/>:
         /// no aim asked), down when they are up. Returns whether the key did anything.
         /// </summary>
+        /// <summary>
+        /// Doc 09 §2.11 "seed string with a copy button": in the Lobby and at Results, where the shop is shut, the shop's
+        /// key copies the world's seed string; elsewhere null.
+        /// </summary>
+        public string? SeedToCopy()
+        {
+            var world = World;
+            if (world == null || (world.Global.Phase != RunPhase.Lobby && world.Global.Phase != RunPhase.Results)) return null;
+            return HudText.SeedString(world.Map.Id, world.Seed);
+        }
+
         public bool ToggleShop()
         {
             var world = World;

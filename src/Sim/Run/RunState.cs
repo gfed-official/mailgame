@@ -52,6 +52,11 @@ namespace PerformativeMail.Sim.Run
         /// <summary>Player with the most deliveries this shift; None if nobody delivered.</summary>
         public EntityId Mvp;
         public ushort MvpDeliveries;
+        /// <summary>Doc 01 §2.4's other callouts: who dealt raiders the most damage and who built the most this shift; None if nobody did.</summary>
+        public EntityId MvpDamage, MvpBuilt;
+        public ushort MvpDamageDealt, MvpBuiltCount;
+        /// <summary>Doc 01 §2.4: what the team built that broke this shift.</summary>
+        public ushort ConstructsLost;
 
         public int Deliveries
         {
@@ -72,6 +77,9 @@ namespace PerformativeMail.Sim.Run
         public int Earned;
         /// <summary>Postal Rank XP awarded for this run (doc 01 §5.1).</summary>
         public int Xp;
+        /// <summary>Doc 09 §2.11's run stats: raiders felled, damage dealt to them, things built.</summary>
+        public ushort Kills, Built;
+        public int Damage;
     }
 
     /// <summary>The Results payload (doc 01 §1 phase table, doc 08 §3.2).</summary>
@@ -89,6 +97,8 @@ namespace PerformativeMail.Sim.Run
         public int Score;
         public int Deliveries;
         public int Misdeliveries;
+        /// <summary>What the team built that broke over the run.</summary>
+        public int ConstructsLost;
         public readonly List<PlayerResult> Players = new List<PlayerResult>();
     }
 

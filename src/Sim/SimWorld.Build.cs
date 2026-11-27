@@ -132,6 +132,11 @@ namespace PerformativeMail.Sim
             }
             var built = Constructs.Add(def, tx, tz, rotation, Constructs.MaxHpOf(def), containerId);
             if (containerId != 0) ApplyContainerRows();
+            if (GetPlayer(by) is { } builder)
+            {
+                builder.ShiftBuilt++;
+                builder.Built++;
+            }
             Events.Add(new ConstructPlacedEvent
             {
                 Player = by, Building = def.Index, X = (byte)tx, Y = (byte)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,
@@ -207,6 +212,9 @@ namespace PerformativeMail.Sim
         /// tiles (doc 05 §5, <see cref="LeaveRuin"/>); what a chest held lies on its tile in a bag
         /// that is nobody's, and the mail on a belt goes back to the Intake.
         /// </summary>
+        /// <summary>Constructs broken this shift and this run (doc 01 §2.4 "constructs lost").</summary>
+        private int _shiftConstructsLost, _runConstructsLost;
+
         public void DamageConstruct(Construct built, float damage)
         {
             if (damage <= 0f || Constructs.At(built.Tx, built.Tz) != built) return;
@@ -221,6 +229,8 @@ namespace PerformativeMail.Sim
             if (chest != null && chest.EntryCount > 0) Spill(chest, built.X, built.Z);
             RemoveConstruct(built, EntityId.None, destroyed: true);
             LeaveRuin(built);
+            _shiftConstructsLost++;
+            _runConstructsLost++;
         }
 
         /// <summary>

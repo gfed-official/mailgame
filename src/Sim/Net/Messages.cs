@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m4.2;" +
+            "m4.3;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages,materials,allStamps;" +
             "Inputs:u8 n,u16 ack,u16 enemyAck,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -73,8 +73,8 @@ namespace PerformativeMail.Sim.Net
             "BagDropped:u32 container,u32 owner,f32 x,f32 z,u32 despawn;BagGone:u32 container,u8 returned,u16 mail;PlayerAway:u32 player,u32 until;PlayerBack:u32 player;" +
             "Phase:u8 shift,u8 phase,u32 tick,u32 end,i32 quota,u8 outcome;Phases:lobby,prep,delivery,payday,draft,results,generating;" +
             "Paused:u8 paused,u32 tick;" +
-            "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
-            "Results:u8 outcome,u8 shifts,u8 firstShift,u8 lastShift,u8 quotaWaived,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +
+            "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries,u32 mvpDamage,u16 damage,u32 mvpBuilt,u16 built,u16 constructsLost;" +
+            "Results:u8 outcome,u8 shifts,u8 firstShift,u8 lastShift,u8 quotaWaived,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,i32 constructsLost,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp,u16 kills,u16 built,i32 damage};" +
             "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags,[priority:u32 due]}|item:i32 count);ContainerState:u32 id,u16 def,u8 extraRows,u32 version,u32 hash,u16 n,{entry};Forecast:u8 shift,u16 n,{u16 street,u16 count};RunEvent:u8 event,u8 shift,u8 stage,u8 street,i32 amount;RunEventStages:fired,ended,paid,fizzled,coming";
 
         /// <summary>32-bit hash of the message schema plus the content data hash.</summary>

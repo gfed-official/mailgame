@@ -138,6 +138,7 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)s.DeliveriesByKind.Length);
                     foreach (ushort n in s.DeliveriesByKind) w.U16(n);
                     w.U16(s.Misdeliveries); w.U16(s.LateDeliveries); w.U32(s.Mvp.Value); w.U16(s.MvpDeliveries);
+                    w.U32(s.MvpDamage.Value); w.U16(s.MvpDamageDealt); w.U32(s.MvpBuilt.Value); w.U16(s.MvpBuiltCount); w.U16(s.ConstructsLost);
                     break;
                 }
                 case RunResultsEvent e:
@@ -146,11 +147,12 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.RunResults);
                     w.U8((byte)s.Outcome); w.U8(s.ShiftsCompleted); w.U8(s.FirstShift); w.U8(s.LastShift); w.U8(s.QuotaWaived ? (byte)1 : (byte)0);
                     w.I32(s.TotalEarned); w.I32(s.Score);
-                    w.I32(s.Deliveries); w.I32(s.Misdeliveries);
+                    w.I32(s.Deliveries); w.I32(s.Misdeliveries); w.I32(s.ConstructsLost);
                     w.U8((byte)s.Players.Count);
                     foreach (var p in s.Players)
                     {
                         w.U32(p.Player.Value); w.U16(p.Deliveries); w.U16(p.Misdeliveries); w.I32(p.Earned); w.I32(p.Xp);
+                        w.U16(p.Kills); w.U16(p.Built); w.I32(p.Damage);
                     }
                     break;
                 }
@@ -467,6 +469,11 @@ namespace PerformativeMail.Sim.Net
                     s.LateDeliveries = r.U16();
                     s.Mvp = new EntityId(r.U32());
                     s.MvpDeliveries = r.U16();
+                    s.MvpDamage = new EntityId(r.U32());
+                    s.MvpDamageDealt = r.U16();
+                    s.MvpBuilt = new EntityId(r.U32());
+                    s.MvpBuiltCount = r.U16();
+                    s.ConstructsLost = r.U16();
                     return new ShiftSummaryEvent { Summary = s };
                 }
                 case EventType.RunResults:
@@ -475,7 +482,7 @@ namespace PerformativeMail.Sim.Net
                     {
                         Outcome = (RunOutcome)r.U8(), ShiftsCompleted = r.U8(), FirstShift = r.U8(), LastShift = r.U8(), QuotaWaived = r.U8() != 0,
                         TotalEarned = r.I32(), Score = r.I32(),
-                        Deliveries = r.I32(), Misdeliveries = r.I32(),
+                        Deliveries = r.I32(), Misdeliveries = r.I32(), ConstructsLost = r.I32(),
                     };
                     int n = r.U8();
                     for (int i = 0; i < n; i++)
@@ -483,6 +490,7 @@ namespace PerformativeMail.Sim.Net
                         s.Players.Add(new PlayerResult
                         {
                             Player = new EntityId(r.U32()), Deliveries = r.U16(), Misdeliveries = r.U16(), Earned = r.I32(), Xp = r.I32(),
+                            Kills = r.U16(), Built = r.U16(), Damage = r.I32(),
                         });
                     }
                     return new RunResultsEvent { Results = s };

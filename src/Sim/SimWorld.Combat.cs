@@ -473,9 +473,13 @@ namespace PerformativeMail.Sim
         public void DamageEnemy(Enemy e, float damage, Player? attacker)
         {
             if (e.Hp <= 0f) return;
+            float dealt = MathF.Min(damage, e.Hp);
             e.Hp -= damage;
             if (attacker != null)
             {
+                int whole = (int)MathF.Round(dealt);
+                attacker.ShiftDamage += whole;
+                attacker.Damage += whole;
                 e.LastHitBy = attacker.Id;
                 // Who hurts a raider is in the fight again; a swing at the air is not a blow.
                 EndProtection(attacker);

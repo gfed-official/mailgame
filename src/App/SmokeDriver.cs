@@ -903,6 +903,9 @@ namespace PerformativeMail.App
                         string want = string.Join("\n", HudText.ResultsLines(world, results, tracker.Profile, tracker.LastGain));
                         Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Results the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
                         Check(hud.StampShown.Text == HudText.ResultsStamp(results, out _), $"at Results the stamp reads \"{hud.StampShown.Text}\"");
+                        // Doc 09 §2.11: the seed string on the card, and the shop's key copies it.
+                        Check(hud.OverlayText.Contains(HudText.SeedLine(world), StringComparison.Ordinal) && client.SeedToCopy() == HudText.SeedString(world.Map.Id, world.Seed),
+                            $"at Results the seed line or its copy is missing (\"{client.SeedToCopy()}\")");
                         CheckProfile(world, results);
                         Check(hud.PhaseText.StartsWith("RESULTS", StringComparison.Ordinal), $"at Results the HUD phase line is \"{hud.PhaseText}\"");
                         Check(hud.HintText.Contains($"Press {HudText.GoKey}", StringComparison.Ordinal), $"at Results the HUD hint is \"{hud.HintText}\"");

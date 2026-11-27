@@ -2832,6 +2832,29 @@ Sim.Tests 652 and Net.Tests 231 green.
       `RunEventTests` (each event), `RunEventFlowTests` (the feed, the banner, the tracker, the client's closed street
       and sheet), `CodecTests`; the smoke checks every event's line reaches the feed and the tracker row while live
 
+### 6c. Payday MVP callouts, extended results, seed copy (doc 12 M4; doc 01 §2.4; doc 09 §2.9, §2.11), 2026-11-27
+
+- [x] **MVP callouts on the Payday card** (design choice 163). Beside most deliveries, doc 01 §2.4's most damage (to
+      raiders, by the hammer, the Slingshot, the cannon; what the blow took, not its overkill) and most built (placed or
+      a ruin rebuilt by a carrier), on one line, each only when somebody did it; and "Constructs lost N" beside the
+      misdeliveries when any broke. Counted from the shift's Prep (`Player.ShiftDamage`, `ShiftBuilt`; `ShiftSummary.MvpDamage`,
+      `MvpBuilt`, `ConstructsLost`). Protocol `m4.3`
+- [x] **Extended results** (doc 09 §2.11 "run stats"): each carrier's row adds the raiders they felled and what they
+      built ("Ada: 41 delivered, 1 misdelivered, 980 g, 12 felled, 6 built · +350 XP"; damage on the wire and in
+      `PlayerResult`), the run's line the constructs lost
+- [x] **Seed copy** (doc 09 §2.11 "seed string with a copy button"): the Results card ends with "Seed PM1-TEST-00000001 ·
+      [C] copies it"; in the Lobby and at Results, where the shop is shut, the shop's key puts the seed string on the
+      clipboard and the feed says "Seed … copied" (`ClientRuntime.SeedToCopy`). A key rather than a button: the card
+      takes no clicks, and C is the one key free in both
+      `MvpTests`, `CodecTests`, `RunFlowTests`; the smoke checks the seed line and its copy at Results
+- Not built in this batch: the Payday card's "misdeliveries with the offending addresses" and "upcoming district preview
+      and mail forecast" (doc 09 §2.9; the forecast exists as Forecast Desk's feed line), the Results' "Play again (same
+      seed)" / "New seed" buttons (the Lobby's [N] and G do that today)
+
+Batch 6a–6c (the e5be644 bugs, run events, the callouts / results / seed copy): `tools/smoke.sh`'s three Godot smokes
+SMOKE OK, BOT OK, the seeds valid; Sim.Tests 667 and Net.Tests 234 green. The rendered 1280×720 smoke passed after 6a
+(the shop's hint and prompt, the Payday card without the crosshair and the map under the hint checked in its shots).
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4409,6 +4432,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     raid and spawn. Neighbourhood Watch's +25 % is paid like the zero-misdelivery shift bonus (into the wallet, not
     towards the quota). Mega Migration's "all megas drop 2 Lost Parcels" replaces the one, it does not add one. Sea Fog
     waits for the Large Island.
+
+163. **Payday's callouts and the run stats.** "Most damage" counts what a carrier's blows took off raiders (capped at
+    the HP left, so a 1e6 blow on a 20 HP Swarmling is 20), not damage to constructs; "most built" counts placements and
+    ruins rebuilt by hand, not Insured's free rebuilds or the debug showcase. A tie goes to whoever joined first (the
+    first to reach the count), as most deliveries did. All three share one line so the card does not grow at 720p.
 
 ## Commands
 

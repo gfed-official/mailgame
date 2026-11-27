@@ -110,6 +110,8 @@ namespace PerformativeMail.Sim.Players
         /// <summary>Run totals of the fight; cleared when a run starts.</summary>
         public int Kills;
         public int LootCoins;
+        /// <summary>Damage dealt to raiders and things built, this shift and this run (doc 01 §2.4's MVP callouts, doc 09 §2.11's run stats).</summary>
+        public int ShiftDamage, Damage, ShiftBuilt, Built;
 
         /// <summary>Personal perks of the run (doc 01 §2.5), one entry per stack, and what they do to this carrier's stats.</summary>
         public readonly List<PerkDef> Perks = new List<PerkDef>();

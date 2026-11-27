@@ -185,7 +185,7 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal((3, RunPhase.Prep), (world.Run.Shift, world.Run.Phase));
             Assert.True(world.EventLive(inspector));
             Assert.Equal(0.9f, world.TeamStatOf(Stat.DeliveryEarnings, 1f), 3);
-            Assert.Equal(Fired(world, "inspector").Shift, (byte)3);
+            Assert.Equal((byte)3, Fired(world, "inspector").Shift);
             // Over with its shift, unless the meter calls it again.
             ToDelivery(world, host);
             world.Economy.AddComplaint(-100);

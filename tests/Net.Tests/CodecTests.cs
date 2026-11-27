@@ -238,14 +238,15 @@ namespace PerformativeMail.Net.Tests
                     {
                         Shift = 2, Earned = -40, Quota = 1100, QuotaMet = true, Bonus = 110, DeliveriesByKind = new ushort[] { 7, 0, 3 },
                         Misdeliveries = 2, LateDeliveries = 1, Mvp = player, MvpDeliveries = 6,
+                        MvpDamage = new EntityId(EntityClass.Player, 9), MvpDamageDealt = 340, MvpBuilt = player, MvpBuiltCount = 7, ConstructsLost = 3,
                     },
                 },
                 new RunResultsEvent
                 {
                     Results = new RunResults
                     {
-                        Outcome = RunOutcome.QuotaMissed, ShiftsCompleted = 3, FirstShift = 2, LastShift = 5, QuotaWaived = true, TotalEarned = 4321, Score = 4321, Deliveries = 70000, Misdeliveries = 9,
-                        Players = { new PlayerResult { Player = player, Deliveries = 41, Misdeliveries = 4, Earned = -15, Xp = 505 } },
+                        Outcome = RunOutcome.QuotaMissed, ShiftsCompleted = 3, FirstShift = 2, LastShift = 5, QuotaWaived = true, TotalEarned = 4321, Score = 4321, Deliveries = 70000, Misdeliveries = 9, ConstructsLost = 12,
+                        Players = { new PlayerResult { Player = player, Deliveries = 41, Misdeliveries = 4, Earned = -15, Xp = 505, Kills = 17, Built = 23, Damage = 4567 } },
                     },
                 },
                 new PausedChangedEvent { Paused = true, Tick = 90210 },
@@ -400,6 +401,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(new ushort[] { 7, 0, 3 }, summary.DeliveriesByKind);
             Assert.Equal(10, summary.Deliveries);
             Assert.Equal((2, 1, player, 6), (summary.Misdeliveries, summary.LateDeliveries, summary.Mvp, summary.MvpDeliveries));
+            Assert.Equal((new EntityId(EntityClass.Player, 9), (ushort)340, player, (ushort)7, (ushort)3), (summary.MvpDamage, summary.MvpDamageDealt, summary.MvpBuilt, summary.MvpBuiltCount, summary.ConstructsLost));
 
             var results = ((RunResultsEvent)back[11]).Results;
             Assert.Equal((RunOutcome.QuotaMissed, 3, 4321, 4321, 70000, 9),
@@ -407,6 +409,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal((2, 5, true), (results.FirstShift, results.LastShift, results.QuotaWaived));
             var row = Assert.Single(results.Players);
             Assert.Equal((player, 41, 4, -15, 505), (row.Player, row.Deliveries, row.Misdeliveries, row.Earned, row.Xp));
+            Assert.Equal(((ushort)17, (ushort)23, 4567, 12), (row.Kills, row.Built, row.Damage, results.ConstructsLost));
 
             var paused = (PausedChangedEvent)back[12];
             Assert.Equal((true, 90210u), (paused.Paused, paused.Tick));

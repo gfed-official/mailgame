@@ -127,6 +127,7 @@ namespace PerformativeMail.Sim
             Economy.TopUp(StartWallet);
             ResetCombatRng();
             ResetRunEvents();
+            _runConstructsLost = 0;
             ClearPerks();
             ClearShop();
             RegrowNodes(all: true);
@@ -142,6 +143,8 @@ namespace PerformativeMail.Sim
                 p.ShiftDeliveries = 0;
                 p.Kills = 0;
                 p.LootCoins = 0;
+                p.Damage = 0;
+                p.Built = 0;
                 p.RepairPaid.Clear();
             }
         }
@@ -151,6 +154,13 @@ namespace PerformativeMail.Sim
             RegrowNodes(all: false);
             RollShopSpecials();
             BeginShiftEvents();
+            // Doc 01 §2.4's callouts count what is done from the shift's Prep on.
+            _shiftConstructsLost = 0;
+            foreach (var p in _players)
+            {
+                p.ShiftDamage = 0;
+                p.ShiftBuilt = 0;
+            }
             if (Settings.QuickStart) BeginDelivery();
             else BeginPrep();
         }
@@ -217,10 +227,23 @@ namespace PerformativeMail.Sim
                 summary.DeliveriesByKind[i] = Clamp16(Economy.ShiftDeliveriesByKind[i]);
             foreach (var p in _players)
             {
-                if (p.ShiftDeliveries <= summary.MvpDeliveries) continue;
-                summary.Mvp = p.Id;
-                summary.MvpDeliveries = Clamp16(p.ShiftDeliveries);
+                if (p.ShiftDeliveries > summary.MvpDeliveries)
+                {
+                    summary.Mvp = p.Id;
+                    summary.MvpDeliveries = Clamp16(p.ShiftDeliveries);
+                }
+                if (p.ShiftDamage > summary.MvpDamageDealt)
+                {
+                    summary.MvpDamage = p.Id;
+                    summary.MvpDamageDealt = Clamp16(p.ShiftDamage);
+                }
+                if (p.ShiftBuilt > summary.MvpBuiltCount)
+                {
+                    summary.MvpBuilt = p.Id;
+                    summary.MvpBuiltCount = Clamp16(p.ShiftBuilt);
+                }
             }
+            summary.ConstructsLost = Clamp16(_shiftConstructsLost);
             summary.Bonus = Economy.PayShiftBonus() + PaydayEvents();
             if (summary.QuotaMet) Run.ShiftsCompleted++;
             Run.LastSummary = summary;
@@ -256,6 +279,7 @@ namespace PerformativeMail.Sim
                 Score = StampedScore(Economy.TotalEarned),
                 Deliveries = Economy.TotalDeliveries,
                 Misdeliveries = Economy.TotalMisdeliveries,
+                ConstructsLost = _runConstructsLost,
             };
             int xp = StampedXp(QuotaFormula.Xp(b, Run.ShiftsCompleted, outcome == RunOutcome.Victory, Economy.TotalDeliveries, _players.Count));
             foreach (var p in _players)
@@ -263,6 +287,7 @@ namespace PerformativeMail.Sim
                 results.Players.Add(new PlayerResult
                 {
                     Player = p.Id, Deliveries = Clamp16(p.Deliveries), Misdeliveries = Clamp16(p.Misdeliveries), Earned = p.Earned, Xp = xp,
+                    Kills = Clamp16(p.Kills), Built = Clamp16(p.Built), Damage = p.Damage,
                 });
             }
             Run.Results = results;

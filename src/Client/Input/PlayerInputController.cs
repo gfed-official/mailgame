@@ -22,6 +22,8 @@ namespace PerformativeMail.Client.InputHandling
         public event Action? MapToggled;
         /// <summary>F6 in a debug build: the content is to be read again (doc 07 §6).</summary>
         public event Action? ContentReloadAsked;
+        /// <summary>The seed string was put on the clipboard (the shop's key in the Lobby and at Results).</summary>
+        public event Action? SeedCopied;
         /// <summary>A chip's key while the map is up (Z, X, V).</summary>
         public event Action<MapChip>? MapChipPressed;
         /// <summary>True while the map is up: Esc puts it down first.</summary>
@@ -157,7 +159,15 @@ namespace PerformativeMail.Client.InputHandling
             else if (Building && ev is InputEventJoypadMotion && ev.IsActionPressed(InputActions.Attack)) _placeQueued = true;
             else if (ev.IsActionPressed(InputActions.Use) && Building) _build!.Pipette();
             else if (ev.IsActionPressed(InputActions.Use) && !UiOpen) _client.UseHeld();
-            else if (ev.IsActionPressed(InputActions.Shop) && !Paused) _client.ToggleShop();
+            else if (ev.IsActionPressed(InputActions.Shop) && !Paused)
+            {
+                if (_client.SeedToCopy() is { } seed)
+                {
+                    DisplayServer.ClipboardSet(seed);
+                    SeedCopied?.Invoke();
+                }
+                else _client.ToggleShop();
+            }
             else if (ev.IsActionPressed(InputActions.Map)) MapToggled?.Invoke();
             // While the map is up Z, X and V are its chips (V is the world's key only in the Lobby, with the map down).
             else if (MapOpen?.Invoke() == true && ev.IsActionPressed(InputActions.MapMail)) MapChipPressed?.Invoke(MapChip.Mail);

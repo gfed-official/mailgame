@@ -528,12 +528,27 @@ namespace PerformativeMail.Client
                 kinds.Add(CountAndKind(i < world.Content.MailKinds.Count ? world.Content.MailKinds[i].Name : "item", s.DeliveriesByKind[i]));
             }
             lines.Add(kinds.Count == 0 ? "Delivered nothing" : "Delivered " + string.Join(", ", kinds));
-            lines.Add($"Misdelivered {s.Misdeliveries}   ·   Late {s.LateDeliveries}");
+            // Doc 01 §2.4 "constructs lost", when any were.
+            lines.Add($"Misdelivered {s.Misdeliveries}   ·   Late {s.LateDeliveries}{(s.ConstructsLost > 0 ? $"   ·   Constructs lost {s.ConstructsLost}" : "")}");
             // The Backlog and the Complaint left the HUD's corner for here and the inventory screen (UI polish plan item 4).
             lines.Add(Status(world.Global));
             if (s.Bonus > 0) lines.Add($"No misdeliveries: bonus +{Gold(s.Bonus)}");
-            if (!s.Mvp.IsNone) lines.Add($"Most deliveries: {PlayerName(world, s.Mvp)} ({s.MvpDeliveries})");
+            string mvp = MvpLine(world, s);
+            if (mvp.Length > 0) lines.Add(mvp);
             return lines;
+        }
+
+        /// <summary>
+        /// Doc 01 §2.4's MVP callouts on one line, each only if somebody did it: "Most deliveries: Ada (64)   ·   Most damage:
+        /// Bo (340)   ·   Most built: Ada (6)"; empty when nobody did anything.
+        /// </summary>
+        public static string MvpLine(ClientWorld world, ShiftSummary s)
+        {
+            var parts = new List<string>();
+            if (!s.Mvp.IsNone) parts.Add($"Most deliveries: {PlayerName(world, s.Mvp)} ({s.MvpDeliveries})");
+            if (!s.MvpDamage.IsNone) parts.Add($"Most damage: {PlayerName(world, s.MvpDamage)} ({s.MvpDamageDealt})");
+            if (!s.MvpBuilt.IsNone) parts.Add($"Most built: {PlayerName(world, s.MvpBuilt)} ({s.MvpBuiltCount})");
+            return string.Join("   ·   ", parts);
         }
 
         /// <summary>Where the stamp and the grade stand in the lines of the report card, and the earned line (Payday only).</summary>
@@ -615,12 +630,22 @@ namespace PerformativeMail.Client
                 ResultsStamp(r, out _),
                 GradeLine(r.Deliveries, r.Deliveries + r.Misdeliveries),
                 $"{ShiftsLine(world.Content, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" ({Gold(r.TotalEarned)} {StampsMultLine(world)})" : "")}",
-                $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}",
+                $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}{(r.ConstructsLost > 0 ? $"   ·   Constructs lost {r.ConstructsLost}" : "")}",
             };
+            // Doc 09 §2.11 "run stats": what each carrier fought and built besides the mail, where they did.
             foreach (var p in r.Players)
-                lines.Add($"{PlayerName(world, p.Player)}:   {p.Deliveries} delivered, {p.Misdeliveries} misdelivered, {Gold(p.Earned)}   ·   +{p.Xp} XP");
+                lines.Add($"{PlayerName(world, p.Player)}:   {p.Deliveries} delivered, {p.Misdeliveries} misdelivered, {Gold(p.Earned)}"
+                    + (p.Kills > 0 ? $", {p.Kills} felled" : "") + (p.Built > 0 ? $", {p.Built} built" : "") + $"   ·   +{p.Xp} XP");
+            // Doc 09 §2.11 "seed string with a copy button": the key copies it.
+            lines.Add(SeedLine(world));
             return lines;
         }
+
+        /// <summary>"Seed PM1-TEST-00000001   ·   [C] copies it".</summary>
+        public static string SeedLine(ClientWorld world) => $"Seed {SeedString(world.Map.Id, world.Seed)}   ·   {ShopKey} copies it";
+
+        /// <summary>The feed's line once the seed is on the clipboard.</summary>
+        public static string SeedCopied(ClientWorld world) => $"Seed {SeedString(world.Map.Id, world.Seed)} copied";
 
         /// <summary>
         /// "Shifts completed 3 / 5" of the shifts the run set out to play (from the one it started at); with the
