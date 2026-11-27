@@ -44,12 +44,16 @@ namespace PerformativeMail.Sim.World
         }
 
         /// <summary>
-        /// A sorter's or a splitter's filters (doc 04 §2.3, §2.4): output by output,
-        /// <see cref="BuildingDef.FilterSlots"/> each; empty for what sorts nothing.
+        /// A sorter's or a splitter's filters (doc 04 §2.3, §2.4): slot by slot, each output's first slot, then each
+        /// output's second, and so on (<see cref="BuildingDef.FilterSlots"/> of them); empty for what sorts nothing.
+        /// The first slots lead, so a list of one filter an output (a route, the debug world's) is a whole setting.
         /// </summary>
         public MailFilter[] Filters { get; }
 
-        public MailFilter Filter(int output, int slot) => Filters[output * Def.FilterSlots + slot];
+        public MailFilter Filter(int output, int slot) => Filters[FilterIndex(Def, output, slot)];
+
+        /// <summary>Where the filter of a slot of an output stands in <see cref="Filters"/>.</summary>
+        public static int FilterIndex(BuildingDef def, int output, int slot) => slot * def.FilterOutputs + output;
         /// <summary>A wall runs along X (false) or along Z (true).</summary>
         public bool AlongZ => (Rotation & 1) != 0;
 

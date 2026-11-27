@@ -2695,6 +2695,21 @@ green; the base smoke passes rendered at 1280×720 (`--shots`).
       `m4.1`. `MovementTests`, `VehicleTests`, `PerkTests` (Big Pockets, shrink, Bulk Depot), `DraftFlowTests`
       (the client's inventory grows in step). Not yet looked at rendered: a 4-row inventory at 1280×720
 
+- [x] **Bulk Mailer, Extra Labels, Postmaster's Eye** (doc 10 §4.2, §4.3; design choice 159). Stats
+      `PaperMailStack`, `SorterFilterSlots`, `SorterThroughput` (the team's).
+      - Bulk Mailer: a stack of letters or postcards holds twice its kind's (20 → 40, 40 → 80) in every grid, the
+        server's and the clients' mirrors alike (`GridContainer.MailStackMult`, used where stacks merge); parcels as
+        before
+      - Extra Labels (offered once `bp_sorting` is owned): an Address Sorter's output takes up to three labels and a
+        piece goes out by the first output any of whose labels catches it. The Mk1 sorter now holds three slots an
+        output (`filterSlotsPerOutput: 3`) of which one is open (`filterSlotsOpen: 1`); the stat opens the rest
+        (`FilterSlotsOpen`, a set past them is `NotAllowed`). The filters lie slot by slot (`Construct.FilterIndex`),
+        so a list of one filter an output — a route, the debug world's sorters, a ruin's — still is a whole setting.
+        On the panel Shift + click steps an output's second label and Ctrl + click its third; the card reads
+        "Larch Lane + District 2"; the hint says so once they are open
+      - Postmaster's Eye: every slot open and the sorters twice as fast (`BeltNetwork.SorterThroughputMult`)
+      `PerkTests` (Bulk Mailer), `SorterTests` (the slots, Extra Labels, Postmaster's Eye), `RuinTests`
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4233,6 +4248,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     perk but a bike's cargo is not a person's: the bikes' grids grow while anybody holds it. "+50 %" of a depot's 10
     rows is 15, of a chest's 4 is 6 (rounded). Bunny Hop's "jumping onto a belt keeps momentum" is not built: there
     is no air momentum in the movement step to keep (a carrier on a belt is carried at the belt's pace already).
+
+159. **"Unlimited" sorter slots.** Postmaster's Eye's "filter slots unlimited" is read as all the slots a sorter has
+    (three, the most the validator and doc 04 allow a sorter), so after Extra Labels it adds only the speed. A
+    sorter that could take any number of labels would need a list editor on the panel rather than three cards'
+    slots. The extra labels are set with Shift / Ctrl + click (the number keys stay the first label's); no new widget.
 
 ## Commands
 

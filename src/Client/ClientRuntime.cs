@@ -584,25 +584,29 @@ namespace PerformativeMail.Client
         {
             var world = World;
             var built = world?.FilterTarget;
-            if (world == null || built == null || output < 0 || output >= built.Def.FilterOutputs || slot < 0 || slot >= built.Def.FilterSlots) return 0;
+            if (world == null || built == null || output < 0 || output >= built.Def.FilterOutputs || slot < 0 || slot >= world.FilterSlotsOpen(built.Def)) return 0;
             if (world.ShownFilter(built, output, slot) == filter) return 0;
             uint id = Send(SimRequest.Configure(0, built.Tx, built.Tz, SimRequest.ConfigureSet, output, slot, filter.Encode()));
             if (id != 0) world.FilterPending[output * 16 + slot] = filter;
             return id;
         }
 
-        /// <summary>The next (+1) or previous (−1) of <see cref="ClientWorld.FilterChoices"/> for an output's first slot. 0 if nothing was sent.</summary>
-        public uint StepFilter(int output, int step)
+        /// <summary>
+        /// The next (+1) or previous (−1) of <see cref="ClientWorld.FilterChoices"/> for a slot of an output (its first
+        /// unless Extra Labels opened more). 0 if nothing was sent.
+        /// </summary>
+        public uint StepFilter(int output, int step, int slot = 0)
         {
             var world = World;
             var built = world?.FilterTarget;
             // A depot's card after its stops is its driver: a click hires one.
             if (built != null && built.Def.HasConsole && output == built.Def.RouteStops) return step > 0 ? HireDriver() : 0;
             if (world == null || built == null || output < 0 || output >= built.Def.FilterOutputs) return 0;
+            if (slot < 0 || slot >= world.FilterSlotsOpen(built.Def)) return 0;
             var choices = world.FilterChoices(built);
-            int at = choices.IndexOf(world.ShownFilter(built, output, 0));
+            int at = choices.IndexOf(world.ShownFilter(built, output, slot));
             int next = ((Math.Max(0, at) + step) % choices.Count + choices.Count) % choices.Count;
-            return SetFilter(output, 0, choices[next]);
+            return SetFilter(output, slot, choices[next]);
         }
 
         /// <summary>Hires the driver of the depot whose console is up (doc 04 §3.2), for this shift. 0 if nothing was sent.</summary>
@@ -1523,7 +1527,7 @@ namespace PerformativeMail.Client
         {
             var world = World!;
             if (state.DefIndex >= _content.Containers.Count) { ContainerDesyncs++; return null; }
-            var mirror = new GridContainer(state.ContainerId, _content.Containers[state.DefIndex], state.ExtraRows);
+            var mirror = new GridContainer(state.ContainerId, _content.Containers[state.DefIndex], state.ExtraRows) { MailStackMult = world.MailStackMult };
             mirror.Load(state);
             world.Containers[state.ContainerId] = mirror;
             world.Prediction.Invalidate();

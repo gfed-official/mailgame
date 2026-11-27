@@ -146,8 +146,8 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(new[]
             {
                 "long_legs", "big_pockets", "quick_hands", "strong_back", "bunny_hop", "bike_courier", "second_wind", "local_knowledge", "postal_sprint",
-                "express_lane", "greased_inserters", "bulk_depot", "presort",
-                "union_rep", "stamp_collector", "fragile_handling", "grace_period", "priority_post", "second_district",
+                "express_lane", "greased_inserters", "bulk_depot", "extra_labels", "presort", "postmasters_eye",
+                "union_rep", "stamp_collector", "fragile_handling", "bulk_mailer", "grace_period", "priority_post", "second_district",
                 "early_warning", "union_muscle", "reinforced", "hot_barrels", "insured",
             }, Db.Perks.Select(p => p.Id));
             for (int i = 0; i < Db.Perks.Count; i++) Assert.Equal(i, Db.Perks[i].Index);
@@ -722,6 +722,28 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.PlaceConstruct(0, Db.Building("chest").Index, 10, 12, 0)));
             var chest = world.GetContainer(world.Constructs.At(10, 12)!.ContainerId)!;
             Assert.Equal((8, 6), (chest.Cols, chest.Rows));
+        }
+
+        [Fact]
+        public void BulkMailer_DoublesTheLettersAStackHolds_InEveryGrid()
+        {
+            var world = NewWorld(raids: false);
+            var p = world.AddPlayer("carrier")!;
+            StartRun(world, p);
+            var home = world.Map.Destinations[0].Address;
+            int Stacks(GridContainer c) => c.Entries.Count(e => e.Stack.Kind == StackKind.Mail);
+            for (int i = 0; i < 40; i++) Assert.True(world.Give(p.Inventory, ItemStack.OfMail(TestContent.Mail("letter", home, _nextMailId++, 1))));
+            Assert.Equal(2, Stacks(p.Inventory));
+            Assert.Equal(OpResult.Ok, world.GrantPerk(p, Db.Perk("bulk_mailer")));
+            Assert.Equal(2, world.MailStackMult);
+            var chest = world.AddWorldContainer("chest", 0, 0);
+            Assert.Equal(2, chest.MailStackMult);
+            for (int i = 0; i < 40; i++) Assert.True(world.Give(chest, ItemStack.OfMail(TestContent.Mail("letter", home, _nextMailId++, 1))));
+            Assert.Equal(1, Stacks(chest));
+            // A parcel still stacks alone.
+            Assert.True(world.Give(chest, ItemStack.OfMail(TestContent.Mail("small", home, _nextMailId++, 1))));
+            Assert.True(world.Give(chest, ItemStack.OfMail(TestContent.Mail("small", home, _nextMailId++, 1))));
+            Assert.Equal(3, Stacks(chest));
         }
     }
 }

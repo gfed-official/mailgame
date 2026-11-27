@@ -420,7 +420,7 @@ namespace PerformativeMail.Sim
         {
             var info = new ContainerInfo
             {
-                Container = new GridContainer(_nextContainerId++, Content.Container(defId)),
+                Container = new GridContainer(_nextContainerId++, Content.Container(defId)) { MailStackMult = MailStackMult },
                 Owner = owner, X = x, Z = z,
             };
             _containers[info.Container.Id] = info;

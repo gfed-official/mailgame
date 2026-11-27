@@ -1178,7 +1178,11 @@ namespace PerformativeMail.Client
         public const string FilterHint = "A number key or a click: the next filter   ·   right click: back   ·   [E] or [Esc] close";
 
         /// <summary>The hint under the cards: a depot's console says its stops are stepped as filters are.</summary>
-        public static string FilterHintFor(Construct built) => !built.Def.HasConsole ? FilterHint : built.Def.IsPort ? CaptainHint : RouteHint;
+        public static string FilterHintFor(Construct built, int slotsOpen = 1) =>
+            built.Def.HasConsole ? built.Def.IsPort ? CaptainHint : RouteHint
+            : slotsOpen >= 3 ? FilterHint + "   ·   Shift / Ctrl + click: 2nd / 3rd label"
+            : slotsOpen == 2 ? FilterHint + "   ·   Shift + click: 2nd label"
+            : FilterHint;
 
         public const string RouteHint = "[1-6] or a click: next stop   ·   right click: back   ·   [7] hires the driver   ·   [M] route on the map   ·   [E] or [Esc] close";
         public const string CaptainHint = "[1-6] or a click: next stop   ·   right click: back   ·   [7] hires the captain   ·   [M] route on the map   ·   [E] or [Esc] close";
@@ -1270,6 +1274,13 @@ namespace PerformativeMail.Client
             bool overflow = output >= built.Def.FilterOutputs;
             string head = overflow ? PortName(built, output) : $"[{KeyName(output)}]  {PortName(built, output)}";
             string what = overflow ? "whatever no filter catches" : FilterName(world, built, world.ShownFilter(built, output, 0));
+            // Doc 10 §4.2 Extra Labels: the other labels of the output, after the first ("Larch Lane + Oak Street").
+            if (!overflow)
+                for (int slot = 1; slot < world.FilterSlotsOpen(built.Def); slot++)
+                {
+                    var more = world.ShownFilter(built, output, slot);
+                    if (!more.IsEmpty) what += " + " + FilterName(world, built, more);
+                }
             var status = world.FilterStatus;
             string matches = status != null && output < status.Matches.Count
                 ? $"{status.Matches[output].ToString(CultureInfo.InvariantCulture)} in the Intake now"

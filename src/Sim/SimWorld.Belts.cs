@@ -51,6 +51,7 @@ namespace PerformativeMail.Sim
             CompileBelts();
             if (belts.Segments.Count == 0) return;
             StepOutfeed();
+            belts.SorterThroughputMult = TeamStat(Stat.SorterThroughput, 1f);
             belts.Step(SimConstants.TickDt, this, Tick, TeamStat(Stat.BeltSpeed, 1f));
             for (int i = 0; i < belts.Segments.Count; i++)
             {

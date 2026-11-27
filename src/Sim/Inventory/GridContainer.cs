@@ -58,6 +58,15 @@ namespace PerformativeMail.Sim.Inventory
         /// <summary>Its def's rows and the rows a perk adds below them (doc 10 §4.1 Big Pockets, §4.2 Bulk Depot).</summary>
         public int Rows => Def.Rows + ExtraRows;
         public int ExtraRows { get; private set; }
+
+        /// <summary>
+        /// What a stack of mail that stacks at all (letters, postcards) may hold here, as a multiple of its kind's
+        /// (doc 10 §4.3 Bulk Mailer: 20 → 40). The world sets it on every grid alike, the server's and the mirrors.
+        /// </summary>
+        public int MailStackMult { get; set; } = 1;
+
+        /// <summary>The most of a stack of this shape in one cell here.</summary>
+        public int MaxStackOf(in StackShape shape) => shape.Category == "mail" && shape.MaxStack > 1 ? shape.MaxStack * MailStackMult : shape.MaxStack;
         public uint Version { get; private set; }
 
         private uint[] _cells;
@@ -236,7 +245,7 @@ namespace PerformativeMail.Sim.Inventory
 
         public GridContainer Clone()
         {
-            var copy = new GridContainer(Id, Def, ExtraRows);
+            var copy = new GridContainer(Id, Def, ExtraRows) { MailStackMult = MailStackMult };
             foreach (var e in _entries.Values) copy.Add(e.Clone());
             copy.Version = Version;
             copy.ClearChanges();

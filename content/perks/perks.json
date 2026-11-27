@@ -59,10 +59,24 @@
     "category": "facility", "scope": "team", "rarity": "common",
     "modifiers": [ { "stat": "StorageRows", "op": "mul", "value": 1.5 } ],
     "maxStacks": 1, "tags": ["storage"] },
+  { "id": "extra_labels", "name": "Extra Labels", "description": "Sorter filter slots per output 1 to 3.",
+    "category": "facility", "scope": "team", "rarity": "common",
+    "modifiers": [ { "stat": "SorterFilterSlots", "op": "add", "value": 2 } ],
+    "prerequisites": { "blueprintAny": ["bp_sorting"] },
+    "maxStacks": 1, "tags": ["sorting"] },
   { "id": "presort", "name": "Presort", "description": "The Intake's outfeed puts the mail on the belt a street at a time.",
     "category": "facility", "scope": "team", "rarity": "uncommon",
     "rules": ["presort"],
     "maxStacks": 1, "tags": ["belt", "sorting"] },
+
+  { "id": "postmasters_eye", "name": "Postmaster's Eye", "description": "Sorter filter slots unlimited (all three); sorter throughput x2.",
+    "category": "facility", "scope": "team", "rarity": "rare",
+    "modifiers": [
+      { "stat": "SorterFilterSlots", "op": "add", "value": 2 },
+      { "stat": "SorterThroughput", "op": "mul", "value": 2 }
+    ],
+    "prerequisites": { "blueprintAny": ["bp_sorting"] },
+    "maxStacks": 1, "tags": ["sorting"] },
 
   { "id": "union_rep", "name": "Union Rep", "description": "Quota -10%.",
     "category": "postal", "scope": "team", "rarity": "uncommon",
@@ -79,6 +93,10 @@
       { "stat": "MisdeliveryComplaint", "op": "mul", "value": 0.5 }
     ],
     "maxStacks": 1, "tags": ["misdelivery"] },
+  { "id": "bulk_mailer", "name": "Bulk Mailer", "description": "Letter stack size 20 to 40; postcards 40 to 80.",
+    "category": "postal", "scope": "team", "rarity": "uncommon",
+    "modifiers": [ { "stat": "PaperMailStack", "op": "mul", "value": 2 } ],
+    "maxStacks": 1, "tags": ["inventory"] },
   { "id": "grace_period", "name": "Grace Period", "description": "Mail one shift late pays 100%.",
     "category": "postal", "scope": "team", "rarity": "uncommon",
     "modifiers": [

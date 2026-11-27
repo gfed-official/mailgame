@@ -445,6 +445,10 @@ namespace PerformativeMail.Client
         /// <summary>The speed of a vehicle the local player pedals on land, as a share (Bike Courier).</summary>
         public float LocalBikeMult => LocalStat(Stat.BikeSpeed, 1f);
 
+        /// <summary>The filter slots of an output of a building of this def the local player may set (doc 10 §4.2 Extra Labels).</summary>
+        public int FilterSlotsOpen(BuildingDef def) =>
+            Math.Clamp((int)MathF.Round(_teamStats.Resolve(Stat.SorterFilterSlots, def.FilterSlotsOpen)), 1, def.FilterSlots);
+
         /// <summary>A perk of the team's or of the local player's own holds the rule flag.</summary>
         public bool LocalHas(RuleFlag flag) => _teamStats.Has(flag) || _localStats.Has(flag);
 
@@ -452,7 +456,14 @@ namespace PerformativeMail.Client
         public bool TeamHas(RuleFlag flag) => _teamStats.Has(flag);
 
         /// <summary>What the team's stats set that the world keeps: the constructs' most HP (their HP is the server's word).</summary>
-        private void TeamStatsChanged() => Constructs.Rescale(_teamStats.Resolve(Stat.ConstructHp, 1f), scaleHp: false);
+        private void TeamStatsChanged()
+        {
+            Constructs.Rescale(_teamStats.Resolve(Stat.ConstructHp, 1f), scaleHp: false);
+            foreach (var c in Containers.Values) c.MailStackMult = MailStackMult;
+        }
+
+        /// <summary>Doc 10 §4.3 Bulk Mailer: a stack of letters or postcards holds this many times its kind's, as the server reckons it.</summary>
+        public int MailStackMult => Math.Max(1, (int)MathF.Round(_teamStats.Resolve(Stat.PaperMailStack, 1f)));
 
         /// <summary>Whether a player may take the perk, by the rules of the server's SimWorld.CanTake.</summary>
         public OpResult CanTake(ClientPlayer player, PerkDef perk)

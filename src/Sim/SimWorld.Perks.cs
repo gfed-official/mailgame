@@ -157,6 +157,13 @@ namespace PerformativeMail.Sim
             Spawner.PriorityTicks = SimConstants.SecondsToTicks(b.GetDouble("priorityMailSeconds"));
         }
 
+        /// <summary>The filter slots of an output of a building of this def a carrier may set (doc 10 §4.2 Extra Labels).</summary>
+        public int FilterSlotsOpen(Content.BuildingDef def) =>
+            Math.Clamp((int)MathF.Round(TeamStat(Stat.SorterFilterSlots, def.FilterSlotsOpen)), 1, def.FilterSlots);
+
+        /// <summary>Doc 10 §4.3 Bulk Mailer: a stack of letters or postcards holds this many times its kind's.</summary>
+        public int MailStackMult => Math.Max(1, (int)MathF.Round(TeamStat(Stat.PaperMailStack, 1f)));
+
         /// <summary>A team perk of the run holds the rule flag (ADR-0010 RuleFlag).</summary>
         public bool TeamHas(RuleFlag flag) => _teamStats.Has(flag);
 
@@ -167,6 +174,8 @@ namespace PerformativeMail.Sim
         private void ApplyTeamStats()
         {
             ApplyPriorityPost();
+            int mult = MailStackMult;
+            foreach (var info in _containers.Values) info.Container.MailStackMult = mult;
             float scale = TeamStat(Stat.ConstructHp, 1f);
             if (Math.Abs(scale - Constructs.HpScale) < 1e-6f) return;
             foreach (var (c, hp) in Constructs.Rescale(scale))

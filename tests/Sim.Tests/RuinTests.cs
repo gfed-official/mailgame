@@ -169,7 +169,7 @@ namespace PerformativeMail.Sim.Tests
             var (ox, oz) = sorter.TileAt(3);
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.RebuildRuin(0, ox, oz, true)));
             var back = world.Constructs.At(16, 21)!;
-            Assert.Equal(filters, back.Filters);
+            Assert.Equal(filters, back.Filters.Take(filters.Length));
             Assert.Equal(iron - 2, BuildRules.Have(host.Hotbar, host.Inventory, Db.Item("iron_ingot")));
             Assert.Contains(world.Events.OfType<ConstructConfiguredEvent>(), e => e.X == 16 && e.Y == 21);
         }

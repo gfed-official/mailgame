@@ -143,7 +143,7 @@ namespace PerformativeMail.Sim.Inventory
             if (target != null && target != entry)
             {
                 if (!target.Stack.CanStackWith(entry.Stack)) return OpResult.DoesNotFit;
-                int n = Math.Min(count, shape.MaxStack - target.Stack.Count);
+                int n = Math.Min(count, to.MaxStackOf(shape) - target.Stack.Count);
                 if (n <= 0) return OpResult.DoesNotFit;
                 target.Stack.Absorb(entry.Stack, n);
                 to.MarkDirty(target.EntryId);
@@ -260,7 +260,7 @@ namespace PerformativeMail.Sim.Inventory
             {
                 int room = 0;
                 foreach (var e in target.Entries)
-                    if (e.Stack.CanStackWith(stack)) room += shape.MaxStack - e.Stack.Count;
+                    if (e.Stack.CanStackWith(stack)) room += target.MaxStackOf(shape) - e.Stack.Count;
                 if (room >= stack.Count) return true;
             }
             return target.FindFreeSpot(shape.W, shape.H, out _, out _)
@@ -333,7 +333,7 @@ namespace PerformativeMail.Sim.Inventory
                     var e = target.EntryAt(x, y);
                     if (e == null || e.X != x || e.Y != y || ReferenceEquals(e.Stack, stack)) continue;
                     if (!e.Stack.CanStackWith(stack)) continue;
-                    int n = Math.Min(stack.Count, shape.MaxStack - e.Stack.Count);
+                    int n = Math.Min(stack.Count, target.MaxStackOf(shape) - e.Stack.Count);
                     if (n <= 0) continue;
                     e.Stack.Absorb(stack, n);
                     target.MarkDirty(e.EntryId);

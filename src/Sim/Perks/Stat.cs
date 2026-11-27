@@ -66,6 +66,12 @@ namespace PerformativeMail.Sim.Perks
         DistrictsEarly,
         /// <summary>The rows of a built chest's and depot's grid, as a share of its def's; base 1 (doc 10 §4.2 Bulk Depot).</summary>
         StorageRows,
+        /// <summary>What a stack of letters or postcards holds, as a multiple of its kind's; base 1 (doc 10 §4.3 Bulk Mailer).</summary>
+        PaperMailStack,
+        /// <summary>The filter slots of a sorter's output a carrier may set; base the sorter's open ones (doc 10 §4.2 Extra Labels).</summary>
+        SorterFilterSlots,
+        /// <summary>A sorter's pieces a second, as a share of its def's; base 1 (doc 10 §4.2 Postmaster's Eye).</summary>
+        SorterThroughput,
     }
 
     /// <summary>

@@ -443,6 +443,11 @@ namespace PerformativeMail.Sim.Content
         public int Reach { get; init; } = 1;
         /// <summary>Filters an output holds (doc 04 §2.4: 1 on a Mk1 sorter); a splitter's one, a kind.</summary>
         public int FilterSlots { get; init; } = 1;
+        /// <summary>
+        /// Of those, the ones a carrier may set without a perk (doc 10 §4.2 Extra Labels: "1 → 3"); the team's
+        /// SorterFilterSlots stat over this, held to <see cref="FilterSlots"/>.
+        /// </summary>
+        public int FilterSlotsOpen { get; init; } = 1;
         /// <summary>A sorter: pieces of mail it looks at a second (doc 11: Mk1 2).</summary>
         public float Throughput { get; init; }
         /// <summary>A sorter: pieces of mail it holds inside (doc 04 §2.4: a 2 × 4 buffer).</summary>

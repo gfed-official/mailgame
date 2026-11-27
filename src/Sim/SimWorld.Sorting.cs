@@ -42,10 +42,12 @@ namespace PerformativeMail.Sim
                 {
                     int output = (int)(r.EntryId / 16), slot = (int)(r.EntryId % 16);
                     if (output >= built.Def.FilterOutputs || slot >= built.Def.FilterSlots) return OpResult.BadRequest;
+                    // Doc 10 §4.2 Extra Labels: the slots past the open ones are the perk's.
+                    if (slot >= FilterSlotsOpen(built.Def)) return OpResult.NotAllowed;
                     var filter = MailFilter.Decode(r.DestId);
                     if (filter.Encode() != r.DestId || !FilterExists(built.Def, filter)) return OpResult.BadRequest;
                     var filters = new System.Collections.Generic.List<MailFilter>(built.Filters);
-                    filters[output * built.Def.FilterSlots + slot] = filter;
+                    filters[Construct.FilterIndex(built.Def, output, slot)] = filter;
                     Constructs.SetFilters(built, filters);
                     Events.Add(Configured(built, player.Id));
                     if (player.ViewingFilters == TileIndex(built) + 1) SendSorterStatus(player, built);

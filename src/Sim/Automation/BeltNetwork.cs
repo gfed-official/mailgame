@@ -685,6 +685,9 @@ namespace PerformativeMail.Sim.Automation
             foreach (var node in _sorters) StepSorter(node, sink, tick);
         }
 
+        /// <summary>The sorters' rate as a share of their defs' (doc 10 §4.2 Postmaster's Eye); the server sets it each tick.</summary>
+        public float SorterThroughputMult { get; set; } = 1f;
+
         /// <summary>Doc 04 §2.4: one piece at a time, at the sorter's rate, out by the first filter it matches.</summary>
         private void StepSorter(SorterNode node, IBeltSink sink, uint tick)
         {
@@ -696,7 +699,7 @@ namespace PerformativeMail.Sim.Automation
             node.Buffer.RemoveAt(0);
             if (port == SorterNode.Overflow) node.Overflowed++;
             else node.Sorted++;
-            node.NextTick = tick + Math.Max(1u, SimConstants.SecondsToTicks(1.0 / node.Built.Def.Throughput));
+            node.NextTick = tick + Math.Max(1u, SimConstants.SecondsToTicks(1.0 / (node.Built.Def.Throughput * SorterThroughputMult)));
             sink.Sorted(node, port, node.Outs[port]!, item);
         }
 

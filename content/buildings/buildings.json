@@ -49,7 +49,7 @@
     "recipe": "recipe_belt_mk1_elevated", "tags": ["transport"] },
   { "id": "address_sorter_mk1", "name": "Address Sorter", "footprint": [2, 2], "rotations": 4, "hp": 500,
     "placement": { "onStreet": false }, "behaviour": "sorter",
-    "params": { "radius": 1.5, "height": 1.6, "throughputPerSecond": 2.0, "filterSlotsPerOutput": 1, "bufferSize": 8 },
+    "params": { "radius": 1.5, "height": 1.6, "throughputPerSecond": 2.0, "filterSlotsPerOutput": 3, "filterSlotsOpen": 1, "bufferSize": 8 },
     "recipe": "recipe_address_sorter_mk1", "tags": ["automation", "sorting"] },
   { "id": "inserter", "name": "Inserter", "footprint": [1, 1], "rotations": 4, "hp": 120,
     "placement": { "onStreet": false }, "behaviour": "inserter",

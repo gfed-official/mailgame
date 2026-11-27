@@ -1211,6 +1211,7 @@ namespace PerformativeMail.Sim.Content
                             Length = footprint.Length > 1 ? footprint[1] : 1,
                             Width = footprint.Length > 0 ? footprint[0] : 1,
                             FilterSlots = hasParams ? J.Int(ctx, pars, "filterSlotsPerOutput", 1) : 1,
+                            FilterSlotsOpen = hasParams ? J.Int(ctx, pars, "filterSlotsOpen", 1) : 1,
                             Throughput = hasParams ? (float)J.Num(ctx, pars, "throughputPerSecond", 0) : 0f,
                             BufferSize = hasParams ? J.Int(ctx, pars, "bufferSize", 0) : 0,
                             Rate = hasParams ? (float)J.Num(ctx, pars, "rate", 0) : 0f,
@@ -1272,6 +1273,7 @@ namespace PerformativeMail.Sim.Content
                         if (inserter ? def.Rate <= 0f || def.Rotations != 4 : def.Rate != 0f) ctx.Error($"'{id}': an inserter, and only an inserter, has params.rate > 0 (and 4 rotations)");
                         if (inserter ? def.Reach != 1 && def.Reach != 2 : def.Reach != 1) ctx.Error($"'{id}': params.reach is an inserter's, 1 or 2");
                         if (def.FilterSlots < 1 || def.FilterSlots > 3 || (def.FilterSlots != 1 && !sorter)) ctx.Error($"'{id}': params.filterSlotsPerOutput is 1 (a sorter's up to 3)");
+                        if (def.FilterSlotsOpen < 1 || def.FilterSlotsOpen > def.FilterSlots) ctx.Error($"'{id}': params.filterSlotsOpen is from 1 to filterSlotsPerOutput");
                         if (def.Ramp && (behaviour != BuildingBehaviour.Belt || def.Length != 2 || def.Rotations != 8 || def.Level != 0)) ctx.Error($"'{id}': a ramp is a belt of footprint [1, 2], 8 rotations and level 0");
                         if (def.Level != 0 && (behaviour != BuildingBehaviour.Belt || def.Level != 1)) ctx.Error($"'{id}': only a belt is raised, by one level");
                         if (def.OnStreet && def.Level != 1 && def.PipeRole != PipeRole.Underground) ctx.Error($"'{id}': only an elevated belt and an underground pipe are built on a street");

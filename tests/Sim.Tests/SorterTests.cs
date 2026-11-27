@@ -70,7 +70,7 @@ namespace PerformativeMail.Sim.Tests
         public void TheSorter_IsContent_TwoByTwo_BehindTheSortingBlueprint()
         {
             Assert.Equal((BuildingBehaviour.Sorter, 2, 2, 4, 500), (Sorter.Behaviour, Sorter.Width, Sorter.Length, Sorter.Rotations, Sorter.Hp));
-            Assert.Equal((2f, 8, 1, 3), (Sorter.Throughput, Sorter.BufferSize, Sorter.FilterSlots, Sorter.FilterOutputs));
+            Assert.Equal((2f, 8, 3, 1, 3), (Sorter.Throughput, Sorter.BufferSize, Sorter.FilterSlots, Sorter.FilterSlotsOpen, Sorter.FilterOutputs));
             Assert.True(Sorter.Solid && !Sorter.Carries);
             Assert.Equal(new[] { ("iron_ingot", 4), ("stone", 6) }, Sorter.Recipe.Inputs.Select(i => (i.Item.Id, i.Count)));
             var bp = Db.ShopItem("bp_sorting");
@@ -320,11 +320,13 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Configure(0, 17, 22, SimRequest.ConfigureSet, 1, 0, filter.Encode())));
             var configured = world.Events.OfType<ConstructConfiguredEvent>().Single();
             Assert.Equal(((byte)16, (byte)21, host.Id), (configured.X, configured.Y, configured.Player));
-            Assert.Equal(new ushort[] { 0, filter.Encode(), 0 }, configured.Filters);
+            // Three outputs of three slots each (doc 10 §4.2 Extra Labels opens the second and third).
+            Assert.Equal(new ushort[] { 0, filter.Encode(), 0, 0, 0, 0, 0, 0, 0 }, configured.Filters);
             Assert.Equal(filter, built.Filter(1, 0));
             // Out of range of the outputs, the slots, the map, or a filter a sorter does not have.
             Assert.Equal(OpResult.BadRequest, Request(world, host, SimRequest.Configure(0, 16, 21, SimRequest.ConfigureSet, 3, 0, filter.Encode())));
-            Assert.Equal(OpResult.BadRequest, Request(world, host, SimRequest.Configure(0, 16, 21, SimRequest.ConfigureSet, 0, 1, filter.Encode())));
+            Assert.Equal(OpResult.NotAllowed, Request(world, host, SimRequest.Configure(0, 16, 21, SimRequest.ConfigureSet, 0, 1, filter.Encode())));
+            Assert.Equal(OpResult.BadRequest, Request(world, host, SimRequest.Configure(0, 16, 21, SimRequest.ConfigureSet, 0, 3, filter.Encode())));
             Assert.Equal(OpResult.BadRequest, Request(world, host, SimRequest.Configure(0, 16, 21, SimRequest.ConfigureSet, 0, 0, new MailFilter(FilterKind.Street, 250).Encode())));
             Assert.Equal(OpResult.BadRequest, Request(world, host, SimRequest.Configure(0, 16, 21, SimRequest.ConfigureSet, 0, 0, 0x0900)));
             // Nor anything at a belt.
@@ -391,6 +393,41 @@ namespace PerformativeMail.Sim.Tests
             Assert.Null(world.Constructs.At(16, 21));
             int intakeAfter = world.Intake.Entries.Where(e => e.Stack.Kind == StackKind.Mail).Sum(e => e.Stack.Mail.Count);
             Assert.Equal(intakeBefore + buffered, intakeAfter);
+        }
+
+        [Fact]
+        public void ExtraLabels_OpensTheSecondAndThirdSlots_AndAPieceGoesOutByAnyLabelOfItsOutput()
+        {
+            var (world, host) = InPrep();
+            Assert.False(world.PrerequisitesMet(Db.Perk("extra_labels")));
+            Assert.Equal(OpResult.Ok, Buy(world, host));
+            Assert.True(world.PrerequisitesMet(Db.Perk("extra_labels")));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.PlaceConstruct(0, Sorter.Index, 16, 21, 0)));
+            var built = world.Constructs.At(16, 21)!;
+            Assert.Equal(1, world.FilterSlotsOpen(Sorter));
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("extra_labels")));
+            Assert.Equal(3, world.FilterSlotsOpen(Sorter));
+            var street = world.Map.Streets[0];
+            var larch = world.Map.Destinations[0].Address;
+            var elsewhere = new AddressId(larch.District, street.Id + 1, 5);
+            // Out of the overflow too, so that "no filter" has somewhere to go.
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.PlaceLine(0, Belt.Index, 15, 22, 14, 22, 2)));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.PlaceLine(0, Belt.Index, 18, 21, 19, 21, 0)));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Configure(0, 16, 21, SimRequest.ConfigureSet, 0, 0, new MailFilter(FilterKind.Street, street.Id).Encode())));
+            world.Step();
+            var node = Assert.Single(world.Belts.Sorters);
+            int first = node.PortFor(TestContent.Mail("letter", larch, 2, 1));
+            Assert.NotEqual(SorterNode.Overflow, first);
+            Assert.Equal(SorterNode.Overflow, node.PortFor(TestContent.Mail("letter", elsewhere, 1, 1)));
+            // The third label of the same output catches the district: the other street's mail goes out by it too.
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Configure(0, 16, 21, SimRequest.ConfigureSet, 0, 2, new MailFilter(FilterKind.District, larch.District).Encode())));
+            world.Step();
+            Assert.Equal(first, node.PortFor(TestContent.Mail("letter", elsewhere, 1, 1)));
+            // Postmaster's Eye: twice the pieces a second; its slots are all the sorter has already.
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("postmasters_eye")));
+            Assert.Equal(3, world.FilterSlotsOpen(Sorter));
+            world.Step();
+            Assert.Equal(2f, world.Belts.SorterThroughputMult, 3);
         }
     }
 }

@@ -74,12 +74,15 @@ namespace PerformativeMail.Client.UI
             AddChild(_hint);
         }
 
-        /// <summary>A click on the card of an output: its filter one on (<paramref name="step"/> 1), or one back (−1).</summary>
-        public void Click(int output, int step = 1)
+        /// <summary>
+        /// A click on the card of an output: its filter one on (<paramref name="step"/> 1), or one back (−1); with
+        /// Extra Labels, Shift steps its second label and Ctrl its third (<paramref name="slot"/>).
+        /// </summary>
+        public void Click(int output, int step = 1, int slot = 0)
         {
             LastRequestId = 0;
             if (_client?.World?.FilterTarget == null) return;
-            LastRequestId = _client.StepFilter(output, step);
+            LastRequestId = _client.StepFilter(output, step, slot);
         }
 
         public void Refresh(ClientWorld world)
@@ -89,7 +92,7 @@ namespace PerformativeMail.Client.UI
             if (built == null) return;
             _title.Text = HudText.FilterTitle(built);
             _status.Text = HudText.FilterStatusLine(world, built, world.FilterStatus);
-            _hint.Text = HudText.FilterHintFor(built);
+            _hint.Text = HudText.FilterHintFor(built, world.FilterSlotsOpen(built.Def));
             _status.Visible = _status.Text.Length > 0;
             int rows = HudText.FilterRows(built);
             while (_cards.Count < rows) AddCard();
@@ -132,8 +135,9 @@ namespace PerformativeMail.Client.UI
             {
                 if (ev is InputEventMouseButton { Pressed: true } button)
                 {
-                    if (button.ButtonIndex == MouseButton.Left) Click(output, 1);
-                    else if (button.ButtonIndex == MouseButton.Right) Click(output, -1);
+                    int slot = button.CtrlPressed ? 2 : button.ShiftPressed ? 1 : 0;
+                    if (button.ButtonIndex == MouseButton.Left) Click(output, 1, slot);
+                    else if (button.ButtonIndex == MouseButton.Right) Click(output, -1, slot);
                 }
             };
             var lines = new VBoxContainer { Name = "Lines", MouseFilter = MouseFilterEnum.Ignore };
