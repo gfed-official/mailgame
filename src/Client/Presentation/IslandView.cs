@@ -205,6 +205,12 @@ namespace PerformativeMail.Client.Presentation
                 batch.Add(mesh, rock, new Transform3D(Basis.Identity.Scaled(new Vector3(size, size * 0.5f, size * 0.8f)), centre + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * distance));
         }
 
+        /// <summary>
+        /// No rocks this near past the town's hedge (the f40acb7 playtest: the boulders over the hedge by the yard
+        /// look like the town's own, which a Pickaxe mines, and cannot be reached). Trees and bushes stay.
+        /// </summary>
+        private const float RocksOff = 15f;
+
         private static void Greenery(MeshBatch batch, WorldMap map)
         {
             const float cell = 7f;
@@ -223,13 +229,14 @@ namespace PerformativeMail.Client.Presentation
                     float scale = 0.9f + MeshKit.Noise3(seed * 5.3f) * 0.8f, yaw = roll * 0.7f;
                     int variant = (int)(MeshKit.Noise3(seed * 7.9f) * 2.99f);
                     var at = new Vector3(x, h - 0.05f, z);
+                    bool rocks = Outside(map, x, z) > RocksOff;
                     if (slope > 2.2f)
                     {
-                        if (roll < 30f) SceneryView.Boulder(batch, at, yaw, scale * 2.2f, variant);
+                        if (roll < 30f && rocks) SceneryView.Boulder(batch, at, yaw, scale * 2.2f, variant);
                     }
                     else if (roll < 46f) SceneryView.Tree(batch, at, yaw, scale * 1.15f, variant);
                     else if (roll < 60f) SceneryView.Bush(batch, at, yaw, scale * 1.2f, variant);
-                    else if (roll < 68f) SceneryView.Boulder(batch, at, yaw, scale * 1.4f, variant);
+                    else if (roll < 68f && rocks) SceneryView.Boulder(batch, at, yaw, scale * 1.4f, variant);
                 }
             }
         }
@@ -276,13 +283,13 @@ namespace PerformativeMail.Client.Presentation
                             else if (roll < 84f) SceneryView.Bush(batch, at, yaw, scale * 1.2f, variant);
                             break;
                         case Biome.Rocky:
-                            if (roll < 40f) SceneryView.Boulder(batch, at, yaw, scale * 2.0f, variant);
+                            if (roll < 40f && Outside(map, x, z) > RocksOff) SceneryView.Boulder(batch, at, yaw, scale * 2.0f, variant);
                             else if (roll < 46f) SceneryView.Tree(batch, at, yaw, scale, variant);
                             break;
                         case Biome.Grassland:
                             if (roll < 12f) SceneryView.Tree(batch, at, yaw, scale * 1.1f, variant);
                             else if (roll < 26f) SceneryView.Bush(batch, at, yaw, scale * 1.2f, variant);
-                            else if (roll < 29f) SceneryView.Boulder(batch, at, yaw, scale * 1.3f, variant);
+                            else if (roll < 29f && Outside(map, x, z) > RocksOff) SceneryView.Boulder(batch, at, yaw, scale * 1.3f, variant);
                             break;
                     }
                 }
