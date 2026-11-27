@@ -34,7 +34,7 @@ namespace PerformativeMail.App
             var hud = _screen.Hud;
             if (world.Global.Stamps == 0)
             {
-                if (_ptFrames == BootFrames) Check(client.CycleStamps() != 0, "the host's stamps key sent nothing");
+                if (_ptFrames == BootFrames) Check(client.ToggleStamp() != 0, "the host's stamp toggle sent nothing");
                 if (_ptFrames > BootFrames + PlaytestStepFrames) { Fail("the Cursed Mail stamp was not set in the Lobby"); return false; }
                 return true;
             }

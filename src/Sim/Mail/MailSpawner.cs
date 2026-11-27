@@ -228,7 +228,7 @@ namespace PerformativeMail.Sim.Mail
         private int SpawnBatch()
         {
             var mix = _content.MailMix;
-            if (!mix.Shares.TryGetValue(_shift, out var shares)) return 0;
+            if (!TrySharesFor(_shift, out var shares)) return 0;
             double shiftMult = 1.0 + mix.ShiftMultiplierPerShift * (_shift - 1);
             _batchStreets.Clear();
             int spawned = 0;
@@ -291,7 +291,7 @@ namespace PerformativeMail.Sim.Mail
         {
             var streets = new Dictionary<int, double>();
             var mix = _content.MailMix;
-            if (spawnValue <= 0 || !mix.Shares.TryGetValue(shift, out var shares)) return streets;
+            if (spawnValue <= 0 || !TrySharesFor(shift, out var shares)) return streets;
             int was = _shift;
             _shift = shift;
             double shiftMult = 1.0 + mix.ShiftMultiplierPerShift * (shift - 1);
@@ -309,6 +309,37 @@ namespace PerformativeMail.Sim.Mail
             }
             _shift = was;
             return streets;
+        }
+
+        /// <summary>Doc 01 §6 Heavy Load: each package kind's share goes to the next larger package kind; set by the world from its stamps.</summary>
+        public bool HeavyLoad { get; set; }
+
+        /// <summary>
+        /// The mix's shares for a shift, in its order; with <see cref="HeavyLoad"/> a package kind's (one that does not
+        /// stack) goes to the next larger package kind of the content, the largest keeping its own.
+        /// </summary>
+        private bool TrySharesFor(int shift, out IReadOnlyList<KeyValuePair<string, double>> shares)
+        {
+            if (!_content.MailMix.Shares.TryGetValue(shift, out shares!)) return false;
+            if (!HeavyLoad) return true;
+            var skewed = new List<KeyValuePair<string, double>>();
+            void Add(string id, double share)
+            {
+                for (int i = 0; i < skewed.Count; i++)
+                    if (skewed[i].Key == id) { skewed[i] = new KeyValuePair<string, double>(id, skewed[i].Value + share); return; }
+                skewed.Add(new KeyValuePair<string, double>(id, share));
+            }
+            foreach (var share in shares)
+            {
+                var kind = _content.MailKind(share.Key);
+                MailKindDef? larger = null;
+                if (kind.MaxStack == 1)
+                    foreach (var k in _content.MailKinds)
+                        if (k.MaxStack == 1 && k.GridW * k.GridH > kind.GridW * kind.GridH && (larger == null || k.GridW * k.GridH < larger.GridW * larger.GridH)) larger = k;
+                Add((larger ?? kind).Id, share.Value);
+            }
+            shares = skewed;
+            return true;
         }
 
         private bool HasDestination(MailKindDef kind)

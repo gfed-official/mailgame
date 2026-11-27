@@ -185,8 +185,7 @@ namespace PerformativeMail.Sim
             float oldMaxHp = _combat.PlayerHp;
             ReadTunables();
             Economy.Retune(Content.Balance);
-            _teamStats.Clear();
-            foreach (var perk in _teamPerks) _teamStats.Apply(perk);
+            RebuildTeamSheet();
             foreach (var p in _players)
             {
                 p.Stats.Clear();
@@ -367,7 +366,7 @@ namespace PerformativeMail.Sim
                 if (p.Away)
                 {
                     // Nobody steers them: they come to rest where they stood.
-                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p));
+                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult);
                     continue;
                 }
 
@@ -379,7 +378,7 @@ namespace PerformativeMail.Sim
                 while (budget > 0 && p.Inputs.Count > 0)
                 {
                     var input = p.Inputs.Dequeue();
-                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p));
+                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult);
                     p.HeldSlot = input.HeldSlot < p.Hotbar.Cols ? input.HeldSlot : (byte)0;
                     _attackRewind = RewindTicks(input);
                     HandleAttackInput(p, input);
@@ -411,7 +410,7 @@ namespace PerformativeMail.Sim
                     Backlog = (ushort)Math.Min(ushort.MaxValue, Spawner.BacklogCount),
                 });
             }
-            Economy.StepDelivery();
+            Economy.StepDelivery(TeamStat(Stat.ComplaintDecay, 1f));
         }
 
         // --- containers -----------------------------------------------------------------------

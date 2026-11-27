@@ -26,12 +26,18 @@ namespace PerformativeMail.Sim.Perks
         /// <summary>One more stack of a perk.</summary>
         public void Apply(PerkDef perk)
         {
-            foreach (var m in perk.Modifiers)
+            Apply(perk.Modifiers);
+            foreach (var flag in perk.Rules) _flags[(int)flag]++;
+        }
+
+        /// <summary>Modifiers from elsewhere than a perk: a Postage Stamp's (doc 01 §6).</summary>
+        public void Apply(System.Collections.Generic.IReadOnlyList<StatModifier> modifiers)
+        {
+            foreach (var m in modifiers)
             {
                 if (m.Op == ModifierOp.Mul) _mul[(int)m.Stat] *= m.Value;
                 else _add[(int)m.Stat] += m.Value;
             }
-            foreach (var flag in perk.Rules) _flags[(int)flag]++;
         }
 
         /// <summary>A perk of this sheet holds the flag.</summary>

@@ -345,7 +345,18 @@ namespace PerformativeMail.Client
         /// <summary>The external container being viewed, 0 if none.</summary>
         public uint OpenContainerId { get; internal set; }
 
-        public GlobalState Global { get; internal set; }
+        public GlobalState Global
+        {
+            get => _global;
+            internal set
+            {
+                byte was = _global.Stamps;
+                _global = value;
+                // Doc 01 §6: the stamps' numbers lie on the team's sheet with its perks.
+                if (value.Stamps != was) RebuildTeamSheet();
+            }
+        }
+        private GlobalState _global;
         /// <summary>The server tick <see cref="Global"/>'s phase clock was last read at.</summary>
         public uint GlobalTick { get; internal set; }
         /// <summary>Estimated current server tick (fractional), advanced locally between snapshots.</summary>
@@ -452,6 +463,16 @@ namespace PerformativeMail.Client
         /// <summary>A perk of the team's or of the local player's own holds the rule flag.</summary>
         public bool LocalHas(RuleFlag flag) => _teamStats.Has(flag) || _localStats.Has(flag);
 
+        /// <summary>The team's sheet anew: the run's stamps' modifiers, then its team perks (as SimWorld.RebuildTeamSheet).</summary>
+        private void RebuildTeamSheet()
+        {
+            _teamStats.Clear();
+            foreach (var s in Content.Stamps)
+                if ((_global.Stamps & (1 << s.Index)) != 0) _teamStats.Apply(s.Modifiers);
+            foreach (var perk in TeamPerks) _teamStats.Apply(perk);
+            TeamStatsChanged();
+        }
+
         /// <summary>A team perk of the run holds the rule flag.</summary>
         public bool TeamHas(RuleFlag flag) => _teamStats.Has(flag);
 
@@ -522,9 +543,7 @@ namespace PerformativeMail.Client
         internal void ContentReloaded()
         {
             LocalMaxHp = Content.Balance.GetFloat("playerHp");
-            _teamStats.Clear();
-            foreach (var perk in TeamPerks) _teamStats.Apply(perk);
-            TeamStatsChanged();
+            RebuildTeamSheet();
             _localStats.Clear();
             foreach (var perk in LocalPerks) _localStats.Apply(perk);
         }
@@ -565,8 +584,7 @@ namespace PerformativeMail.Client
         internal void ClearPerks()
         {
             TeamPerks.Clear();
-            _teamStats.Clear();
-            TeamStatsChanged();
+            RebuildTeamSheet();
             _localStats.Clear();
             foreach (var p in Players.Values) p.Perks.Clear();
             ClearDraft();

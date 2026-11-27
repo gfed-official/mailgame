@@ -42,12 +42,21 @@ namespace PerformativeMail.Net.Tests
             var a = ada.World!;
             Assert.Equal("Stamps: none", HudText.StampsTracker(a));
             Assert.EndsWith("[T] stamps", HudText.WorldKeys);
-            Assert.Equal(0u, bob.CycleStamps());
-            Assert.NotEqual(0u, ada.CycleStamps());
+            Assert.Equal(0u, bob.ToggleStamp());
+            Assert.False(bob.NextStamp());
+            Assert.Equal("[T] Cursed Mail ×1.15   ·   [Y] on", HudText.StampPick(a, ada.StampCursor, ada.StampTierOpen));
+            Assert.NotEqual(0u, ada.ToggleStamp());
             RunBoth(10);
             Assert.Equal((byte)1, server.World.Stamps);
+            Assert.Equal("[T] Cursed Mail ×1.15   ·   [Y] off", HudText.StampPick(a, ada.StampCursor, ada.StampTierOpen));
+            // Doc 01 §5.2: at Postal Rank 1 a tier 2 stamp is locked, on the plate and on the server.
+            while (content.Stamps[ada.StampCursor].Tier < 2) Assert.True(ada.NextStamp());
+            Assert.EndsWith("tier 2 from Postal Rank 6", HudText.StampPick(a, ada.StampCursor, ada.StampTierOpen));
+            Assert.Equal(0u, ada.ToggleStamp());
+            while (ada.StampCursor != 0) Assert.True(ada.NextStamp());
             Assert.Equal("Stamps: Cursed Mail   ·   score ×1.15", HudText.StampsTracker(a));
             Assert.Equal("Stamps: Cursed Mail   ·   score ×1.15", HudText.StampsTracker(bob.World!));
+            Assert.Equal("× 1.15 Cursed Mail", HudText.StampsMultLine(a));
 
             Assert.NotEqual(0u, ada.PressGo());
             RunBoth(10);

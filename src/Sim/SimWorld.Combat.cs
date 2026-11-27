@@ -97,6 +97,12 @@ namespace PerformativeMail.Sim
         private uint _raidWarnTick, _raidStartTick, _fleeEndTick;
         /// <summary>The raid under way or to come was asked for at the shift's start (<see cref="PlaytestFlags.RaidNow"/>).</summary>
         private bool _raidAtStart;
+        /// <summary>
+        /// Doc 01 §6 Double Raids: the end of the raid of the first minute of Delivery (0: none under way); whether this
+        /// Delivery had it; and the shift's own raid, to be scheduled once its raiders have fled.
+        /// </summary>
+        private uint _earlyRaidEndTick;
+        private bool _earlyRaidDone, _lateRaidDue;
         /// <summary>The shift whose budget and enemies the raid has: the running one, unless that has no raid of its own.</summary>
         private int _raidShift;
         private int _raidPulse;
@@ -992,6 +998,19 @@ namespace PerformativeMail.Sim
                 return;
             }
             if (waves.BudgetFor(Run.Shift) <= 0) return;
+            if (!_earlyRaidDone && Run.Phase == RunPhase.Delivery && HasStampRule(StampRule.DoubleRaids))
+            {
+                // Doc 01 §6 Double Raids: a raid in the first minute of Delivery too, its warning short, its pulses
+                // close enough to come within the minute; the shift's own raid is scheduled once it is over.
+                var b = Content.Balance;
+                _earlyRaidDone = true;
+                ChooseRaidEdges();
+                _raidAtStart = true;
+                _raidWarnTick = Tick + 1;
+                _raidStartTick = Tick + Math.Max(2, SimConstants.SecondsToTicks(b.GetDouble("doubleRaidWarnSeconds")));
+                _earlyRaidEndTick = Math.Min(Run.PhaseEndTick - 1, Tick + SimConstants.SecondsToTicks(b.GetDouble("doubleRaidSeconds")));
+                return;
+            }
             ChooseRaidEdges();
             uint length = Run.PhaseEndTick - Tick;
             uint window = Math.Min(SimConstants.SecondsToTicks(waves.RaidWindowSeconds), length - 1);
@@ -1009,8 +1028,23 @@ namespace PerformativeMail.Sim
 
         private void StepRaid()
         {
+            // Doc 01 §6 Double Raids: the first raid's raiders gone, the shift's own raid is scheduled as usual.
+            if (_lateRaidDue && Run.Phase == RunPhase.Delivery && (_enemies.Count == 0 || Tick >= _fleeEndTick))
+            {
+                _lateRaidDue = false;
+                _fleeEndTick = 0;
+                SetRaid(RaidState.None, 0);
+                ScheduleRaid();
+            }
             if (_raidStartTick == 0 || Run.Phase != RunPhase.Delivery) return;
             var waves = Content.Waves;
+            if (_earlyRaidEndTick != 0 && Tick >= _earlyRaidEndTick)
+            {
+                _earlyRaidEndTick = 0;
+                EndRaid();
+                _lateRaidDue = true;
+                return;
+            }
             if (Raid == RaidState.None && Tick >= _raidWarnTick) SetRaid(RaidState.Warning, _raidStartTick);
             if (Raid == RaidState.Warning && Tick >= _raidStartTick)
             {
@@ -1019,10 +1053,12 @@ namespace PerformativeMail.Sim
                 _raidCarry = 0;
                 _raidPulse = 0;
                 PlanRaid(waves);
-                SetRaid(RaidState.Active, Run.PhaseEndTick);
+                SetRaid(RaidState.Active, _earlyRaidEndTick != 0 ? _earlyRaidEndTick : Run.PhaseEndTick);
             }
             if (Raid != RaidState.Active) return;
             uint interval = Math.Max(1, SimConstants.SecondsToTicks(waves.PulseIntervalSeconds));
+            if (_earlyRaidEndTick != 0 && waves.Pulses > 0)
+                interval = Math.Max(1, Math.Min(interval, (_earlyRaidEndTick - _raidStartTick) / (uint)(waves.Pulses + 1)));
             while (_raidPulse < waves.Pulses && Tick >= _raidStartTick + (uint)_raidPulse * interval)
             {
                 SpawnPulse(waves, _raidPulse);
@@ -1072,7 +1108,7 @@ namespace PerformativeMail.Sim
             bool finale = pulse == waves.Pulses - 1;
             double budget = _raidRollBudget / waves.Pulses * (finale ? waves.FinalePulseMult : 1.0) + _raidCarry;
             var weights = waves.WeightsFor(_raidShift);
-            int megaPermille = (int)Math.Round((waves.MegaChanceBase + waves.MegaChancePerShift * Run.Shift) * 1000);
+            int megaPermille = (int)Math.Round((waves.MegaChanceBase + waves.MegaChancePerShift * Run.Shift) * TeamStat(Stat.MegaChance, 1f) * 1000);
             // Doc 05 §3.2: the last pulse of the last shift always brings a Mega.
             bool forceMega = finale && Run.Shift >= ShiftCount;
             int nth = 0;
@@ -1169,6 +1205,8 @@ namespace PerformativeMail.Sim
             ReturnAllBags();
             _raidWarnTick = _raidStartTick = _fleeEndTick = 0;
             _raidAtStart = false;
+            _earlyRaidEndTick = 0;
+            _lateRaidDue = false;
             SetRaid(RaidState.None, 0);
             foreach (var p in _players)
             {

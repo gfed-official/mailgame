@@ -260,7 +260,7 @@ namespace PerformativeMail.Sim
                 return;
             }
             float ratio = Content.Balance.GetFloat("npcSpeedRatio");
-            float speed = ratio * (v.Def.OnWater ? v.Def.WaterSpeed : PlayerMovement.OnRoad(Map, v.X, v.Z) ? v.Def.RoadSpeed : v.Def.OffRoadSpeed);
+            float speed = ratio * (v.Def.OnWater ? v.Def.WaterSpeed : PlayerMovement.OnRoad(Map, v.X, v.Z) ? v.Def.RoadSpeed * RoadMult : v.Def.OffRoadSpeed);
             float left = speed * SimConstants.TickDt;
             float reach = d.State == DriverState.Out ? Content.Balance.GetFloat("npcStopReach") : 0.05f;
             float goalX = d.Path[d.Path.Count - 1].X, goalZ = d.Path[d.Path.Count - 1].Z;

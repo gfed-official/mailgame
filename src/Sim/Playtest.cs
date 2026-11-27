@@ -34,12 +34,14 @@ namespace PerformativeMail.Sim
         /// For walls and the Slingshot when the nodes or the raiders' drops are out of reach (the f40acb7 playtest).
         /// </summary>
         Materials = 32,
+        /// <summary>Every tier of the Postage Stamps is open to this host, whatever their Postal Rank (doc 01 §5.2 locks 2 and 3 to ranks 6 and 12).</summary>
+        AllStamps = 64,
     }
 
     public static class PlaytestMask
     {
         /// <summary>Every flag there is. Not a member of the enum, so a log names the flags one by one.</summary>
-        public const PlaytestFlags All = PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages | PlaytestFlags.Materials;
+        public const PlaytestFlags All = PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages | PlaytestFlags.Materials | PlaytestFlags.AllStamps;
         /// <summary>What a player with <see cref="PlaytestFlags.Packages"/> is topped up to: a few shots, and the pockets stay mostly free.</summary>
         public const int PackageCount = 4;
         /// <summary>

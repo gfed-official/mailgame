@@ -146,8 +146,30 @@ namespace PerformativeMail.Client
         /// <summary>The host's keys in the Lobby.</summary>
         public static string WorldKeys => $"{WorldKey} world   ·   {SeedKey} new seed   ·   {StampsKey} stamps";
 
-        /// <summary>Picks the next set of Postage Stamps in the Lobby (host). Doc 09 §4 has none; T.</summary>
+        /// <summary>Points at the next Postage Stamp in the Lobby (host). Doc 09 §4 has none; T.</summary>
         public const string StampsKey = "[T]";
+        /// <summary>Puts the stamp pointed at on or off. Y.</summary>
+        public const string StampToggleKey = "[Y]";
+
+        /// <summary>
+        /// The host's pointer among the stamps (doc 09 §2.1 "toggle tiles with score multiplier and tier lock"):
+        /// "[T] Rush Hour ×1.1   ·   [Y] on", "[T] Double Raids ×1.25   ·   tier 2 from Postal Rank 6".
+        /// </summary>
+        public static string StampPick(ClientWorld world, int cursor, int tierOpen)
+        {
+            if (world.Content.Stamps.Count == 0) return "";
+            var s = world.Content.Stamps[cursor % world.Content.Stamps.Count];
+            bool on = (world.Global.Stamps & (1 << s.Index)) != 0;
+            string head = $"{StampsKey} {s.Name} ×{s.ScoreMult.ToString("0.##", CultureInfo.InvariantCulture)}";
+            if (on) return $"{head}   ·   {StampToggleKey} off";
+            if (s.Tier > tierOpen)
+            {
+                double[] ranks = world.Content.Balance.GetArray("stampTierRanks");
+                int rank = s.Tier - 1 < ranks.Length ? (int)ranks[s.Tier - 1] : 0;
+                return $"{head}   ·   tier {s.Tier.ToString(CultureInfo.InvariantCulture)} from Postal Rank {rank.ToString(CultureInfo.InvariantCulture)}";
+            }
+            return $"{head}   ·   {StampToggleKey} on";
+        }
 
         /// <summary>The word on cursed mail (doc 05 §6 "glowing purple label").</summary>
         public const string CursedWord = "Cursed";
@@ -476,6 +498,24 @@ namespace PerformativeMail.Client
         public static string Rank(MetaProfile profile, int xpPerRank) =>
             $"Postal Rank {profile.Rank(xpPerRank)}   ·   {profile.XpIntoRank(xpPerRank)} / {xpPerRank} XP";
 
+        /// <summary>
+        /// Doc 01 §6 / doc 09 §2.11: the stamps' multipliers, multiplied, on the Results' score line — "× 1.15 Cursed
+        /// Mail", or with several "× 1.27 (Cursed Mail 1.15 × Rush Hour 1.1)".
+        /// </summary>
+        public static string StampsMultLine(ClientWorld world)
+        {
+            var parts = new List<string>();
+            double mult = 1.0;
+            foreach (var s in world.Content.Stamps)
+                if ((world.Global.Stamps & (1 << s.Index)) != 0)
+                {
+                    parts.Add($"{s.Name} {s.ScoreMult.ToString("0.##", CultureInfo.InvariantCulture)}");
+                    mult *= s.ScoreMult;
+                }
+            string total = mult.ToString("0.##", CultureInfo.InvariantCulture);
+            return parts.Count == 0 ? "× the stamps" : parts.Count == 1 ? $"× {total} {parts[0].Substring(0, parts[0].LastIndexOf(' '))}" : $"× {total} ({string.Join(" × ", parts)})";
+        }
+
         public static List<string> ResultsLines(ClientWorld world, RunResults r)
         {
             var lines = new List<string>
@@ -483,7 +523,7 @@ namespace PerformativeMail.Client
                 ResultsHeadline(world.Content, r),
                 ResultsStamp(r, out _),
                 GradeLine(r.Deliveries, r.Deliveries + r.Misdeliveries),
-                $"{ShiftsLine(world.Content, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" ({Gold(r.TotalEarned)} × the stamps)" : "")}",
+                $"{ShiftsLine(world.Content, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" ({Gold(r.TotalEarned)} {StampsMultLine(world)})" : "")}",
                 $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}",
             };
             foreach (var p in r.Players)

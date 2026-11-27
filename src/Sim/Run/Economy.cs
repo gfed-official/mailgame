@@ -117,11 +117,15 @@ namespace PerformativeMail.Sim.Run
 
         public void AddComplaint(int points) => Complaint = Math.Clamp(Complaint + points, 0, _complaintMax);
 
-        /// <summary>One Delivery-phase tick: the meter decays 1 point every 1 / complaintDecayPerSecond seconds.</summary>
-        public void StepDelivery()
+        /// <summary>
+        /// One Delivery-phase tick: the meter decays 1 point every 1 / complaintDecayPerSecond seconds, over
+        /// <paramref name="decayMult"/> (doc 01 §6 Postal Audit: half as fast, every twice as many ticks).
+        /// </summary>
+        public void StepDelivery(float decayMult = 1f)
         {
-            if (_decayIntervalTicks == 0) return;
-            if (++_decayTimer < _decayIntervalTicks) return;
+            if (_decayIntervalTicks == 0 || decayMult <= 0f) return;
+            uint interval = decayMult == 1f ? _decayIntervalTicks : (uint)Math.Max(1, Math.Round(_decayIntervalTicks / (double)decayMult));
+            if (++_decayTimer < interval) return;
             _decayTimer = 0;
             if (Complaint > 0) Complaint--;
         }

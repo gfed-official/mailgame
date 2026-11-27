@@ -72,6 +72,16 @@ namespace PerformativeMail.Sim.Perks
         SorterFilterSlots,
         /// <summary>A sorter's pieces a second, as a share of its def's; base 1 (doc 10 §4.2 Postmaster's Eye).</summary>
         SorterThroughput,
+        /// <summary>Seconds of the Delivery phase, over the balance's for the shift (doc 01 §6 Rush Hour: −30).</summary>
+        DeliverySeconds,
+        /// <summary>The chance a raider comes as a Mega, as a share of the waves' (doc 01 §6 Megamail: ×2).</summary>
+        MegaChance,
+        /// <summary>How fast the complaint meter decays, as a share of the balance's (doc 01 §6 Postal Audit: ×0.5).</summary>
+        ComplaintDecay,
+        /// <summary>Players more than are here that the quota is reckoned for (doc 01 §6 Skeleton Crew: playerScale(n+2)).</summary>
+        QuotaPlayers,
+        /// <summary>A land vehicle's speed on a road, as a share of its def's (doc 01 §6 No Roads: dirt paths, ×0.6).</summary>
+        VehicleRoadSpeed,
     }
 
     /// <summary>

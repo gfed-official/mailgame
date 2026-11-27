@@ -95,10 +95,11 @@ namespace PerformativeMail.Sim.Players
         /// <summary>
         /// <paramref name="airJumps"/>: jumps the carrier may make off the ground (Bunny Hop's double jump: 1);
         /// <paramref name="bikeMult"/>: the speed of a vehicle pedalled on land, as a share (Bike Courier). Both are
-        /// the carrier's own stats, which the server and the carrier's client read alike.
+        /// the carrier's own stats, which the server and the carrier's client read alike. <paramref name="roadMult"/>: a
+        /// land vehicle's speed on a road, as a share (doc 01 §6 No Roads), the team's.
         /// </summary>
         public static void Step(ref PlayerMoveState s, in PlayerInput input, WorldMap map, float speedMult, in MoveConstants c,
-            ConstructField? constructs = null, int airJumps = 0, float bikeMult = 1f)
+            ConstructField? constructs = null, int airJumps = 0, float bikeMult = 1f, float roadMult = 1f)
         {
             const float dt = SimConstants.TickDt;
             s.Yaw = input.Yaw;
@@ -123,12 +124,12 @@ namespace PerformativeMail.Sim.Players
                     s.Becalmed = false;
                     var afoot = input;
                     afoot.Buttons &= ~InputButtons.Jump;
-                    Step(ref s, afoot, map, speedMult, c, constructs, airJumps, bikeMult);
+                    Step(ref s, afoot, map, speedMult, c, constructs, airJumps, bikeMult, roadMult);
                     // Held through getting off, the key is still down.
                     s.JumpHeld = input.Has(InputButtons.Jump);
                     return;
                 }
-                StepRide(ref s, input, map, vehicle, c, constructs, !vehicle.Fuelled && !vehicle.OnWater ? bikeMult : 1f);
+                StepRide(ref s, input, map, vehicle, c, constructs, !vehicle.Fuelled && !vehicle.OnWater ? bikeMult : 1f, roadMult);
                 return;
             }
 
@@ -224,13 +225,13 @@ namespace PerformativeMail.Sim.Players
         /// the pockets does not slow it, and the rider's breath comes back as if they stood.
         /// </summary>
         private static void StepRide(ref PlayerMoveState s, in PlayerInput input, WorldMap map, VehicleDef v, in MoveConstants c,
-            ConstructField? constructs, float topMult = 1f)
+            ConstructField? constructs, float topMult = 1f, float roadMult = 1f)
         {
             const float dt = SimConstants.TickDt;
             float mx = input.MoveX / 127f, mz = input.MoveZ / 127f;
             float len = MathF.Sqrt(mx * mx + mz * mz);
             if (len > 1f) { mx /= len; mz /= len; len = 1f; }
-            float top = (s.Becalmed ? 0f : v.OnWater ? v.WaterSpeed : OnRoad(map, s.X, s.Z) ? v.RoadSpeed : v.OffRoadSpeed) * topMult;
+            float top = (s.Becalmed ? 0f : v.OnWater ? v.WaterSpeed : OnRoad(map, s.X, s.Z) ? v.RoadSpeed * roadMult : v.OffRoadSpeed) * topMult;
 
             if (len > 0.01f)
             {

@@ -2723,6 +2723,31 @@ green; the base smoke passes rendered at 1280×720 (`--shots`).
         ~14 Larch Lane · ~9 Oak Street · …"
       `RuinTests.SharedBuild_…`, `PerkTests.ForecastDesk_…` (said within ⅔–3⁄2 of what came), `CodecTests`
 
+- [x] **The eight Postage Stamps** (doc 01 §6, no Brownout; design choice 161). Beside Cursed Mail: Rush Hour (tier 1,
+      ×1.10), Heavy Load (1, ×1.10), Double Raids (2, ×1.25), No Roads (2, ×1.15), Postal Audit (3, ×1.20), Megamail
+      (3, ×1.25), Skeleton Crew (3, ×1.30), all through the existing `StampDef`: a stamp now carries `"modifiers"` on
+      the closed `Stat` set, laid on the team's stat sheet under its perks (server and clients alike,
+      `RebuildTeamSheet`), and two more `StampRule`s.
+      - Rush Hour: `DeliverySeconds` −30 (never under 30 s). Skeleton Crew: `QuotaPlayers` +2 (the quota's
+        playerScale(n+2), and so the mail's value). Postal Audit: `ComplaintDecay` ×0.5. Megamail: `MegaChance` ×2.
+        No Roads: `VehicleRoadSpeed` ×0.6 — a land vehicle on a road (the carrier's ride in the shared movement step,
+        and the NPC drivers)
+      - Heavy Load (rule): each package kind's share of the mix goes to the next larger package kind (Small → Medium →
+        Large → Cargo, which keeps its own); letters and postcards as they were
+      - Double Raids (rule): a raid in the first 60 s of Delivery too — a 10 s warning, its pulses close enough to come
+        within the minute, its raiders fleeing at the minute's end — then the shift's own raid as before
+        (`doubleRaidSeconds`, `doubleRaidWarnSeconds`); a shift with no raid budget gets neither
+      - Tiers (doc 01 §5.2): tier 2 opens at Postal Rank 6, tier 3 at 12 (`stampTierRanks`), the host's rank; a stamp
+        on already may always come off. `--playtest-stamps` opens every tier for a playtesting host
+        (`PlaytestFlags.AllStamps`, protocol schema updated)
+      - The Lobby: the host's [T] points at the next stamp and [Y] puts it on or off; a plate under the stamps
+        reads "[T] Double Raids ×1.25 · tier 2 from Postal Rank 6" or "… · [Y] on" (it counted through every mask
+        before, 256 of them with eight)
+      - Results: "Score 1712 g (1240 g × 1.38 (Cursed Mail 1.15 × Rush Hour 1.1 × …))", the multipliers multiplied
+      Not built: Postal Audit's "Inspector at ≥ 50" — the Postal Inspector is a run event (doc 10), and run events
+      are not started in this batch. `StampTests` (content, tiers, each stamp), `CursedMailFlowTests` (the Lobby's
+      pointer and lock, the Results line), `CodecTests`
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4275,6 +4300,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     the perk (doc 12 M4's replay rule). It is a feed line, not a panel (ADR-0018); the Prep map's "mail forecast"
     of doc 01 §2.1 and Payday's forecast (doc 12 M4) are still to do.
 
+161. **Stamps on the stat sheet, and readings of doc 01 §6.** A stamp's numbers lie on the team's sheet like a team
+    perk's (stamps first, then perks, all multiplied), so a stamp needs no code of its own beyond a Stat that exists;
+    Heavy Load and Double Raids change rules and are `StampRule`s like Cursed Mail. "No Roads: roads are dirt paths:
+    vehicles 40 % slower off asphalt" is read as every road being dirt, so a land vehicle on a road goes at 60 % of
+    its road speed (a bike 8 → 4.8 m/s, a little under its 5 m/s on grass; the grass stays as it is). Double Raids'
+    first raid has the shift's whole budget, as its own raid does; its raiders run once the minute is up so the two
+    never overlap. Skeleton Crew raises the quota only (doc 01 §6 says "Quota uses playerScale(n+2)"), not the raids.
+    The tier lock follows doc 01 §5.2, which locks most stamps away from today's playtesters (Postal Rank 1–3):
+    `--playtest-stamps` is the way in for a playtest.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4306,7 +4341,8 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --world=island --seed=7           # host the seed's generated Small Island town instead of the test street
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
-# in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed, T through the Postage Stamps (Cursed Mail)
+# in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed,
+#   T points at the next of the eight Postage Stamps and Y puts it on or off (tier 2 from Postal Rank 6, tier 3 from 12)
 # in the Draft: 1-3 take a card, R (or the button) draws new cards of your own, once a run (twice from Postal Rank 4)
 # in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)
 # in a run: M puts up the map with the way to the house of the mail in your hand; Z / X / V toggle its Mail / Routes / Resources chips; at a depot's or port's console, M edits its route on the map
@@ -4330,6 +4366,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --playtest-package    four Small Packages for the mail cannon (RMB) when a shift starts and when back on your feet
 #   --playtest-wallet=N   runs start with N gold in the team's wallet (e.g. 500); asked in a run, topped up to it at once
 #   --playtest-materials  20 Logs and 40 Stone in your pockets when a shift's Prep or Delivery starts and when back on your feet
+#   --playtest-stamps     as host, every tier of the Postage Stamps is open whatever your Postal Rank
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-package --playtest-mailbox   # a guest: all three go together

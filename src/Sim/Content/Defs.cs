@@ -229,6 +229,10 @@ namespace PerformativeMail.Sim.Content
     {
         /// <summary>Doc 05 §6: some mail is cursed; worth more; misdelivered, a mini-raid at the mailbox.</summary>
         CursedMail,
+        /// <summary>Doc 01 §6 Heavy Load: each package kind's share of the mix goes to the next larger package kind.</summary>
+        HeavyLoad,
+        /// <summary>Doc 01 §6 Double Raids: a raid comes in the first 60 s of Delivery as well.</summary>
+        DoubleRaids,
     }
 
     /// <summary>A Postage Stamp (doc 01 §6, doc 08 §2.12): a difficulty modifier the host picks in the Lobby.</summary>
@@ -245,6 +249,8 @@ namespace PerformativeMail.Sim.Content
         /// <summary>Doc 01 §6: the run's score is its earnings times the product of its stamps'.</summary>
         public float ScoreMult { get; init; } = 1f;
         public IReadOnlyList<StampRule> Rules { get; init; } = Array.Empty<StampRule>();
+        /// <summary>What it does to the numbers (doc 01 §6: Rush Hour's −30 s, Megamail's ×2), on the team's stat sheet.</summary>
+        public IReadOnlyList<Perks.StatModifier> Modifiers { get; init; } = Array.Empty<Perks.StatModifier>();
         /// <summary>Cursed Mail: the part of the mail that is cursed, and what its value is multiplied by.</summary>
         public float CursedChance { get; init; }
         public float CursedValueMult { get; init; } = 1f;

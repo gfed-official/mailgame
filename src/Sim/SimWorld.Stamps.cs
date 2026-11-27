@@ -30,15 +30,26 @@ namespace PerformativeMail.Sim
             if (Run.Phase != RunPhase.Lobby) return OpResult.WrongPhase;
             if (p.Id != Run.Host) return OpResult.NotHost;
             if ((r.Count >> Content.Stamps.Count) != 0 || r.Count > byte.MaxValue) return OpResult.BadRequest;
+            // Doc 01 §5.2: a stamp of a tier the host's Postal Rank has not opened is not theirs to put on.
+            int tier = StampTierOpen(p);
+            foreach (var s in Content.Stamps)
+                if ((r.Count & (1 << s.Index)) != 0 && (Stamps & (1 << s.Index)) == 0 && s.Tier > tier) return OpResult.ShopLocked;
             SetStamps((byte)r.Count);
             return OpResult.Ok;
         }
+
+        /// <summary>
+        /// The highest tier of the Postage Stamps open to a host (doc 01 §5.2: tier 1 from the start, tier 2 from
+        /// Postal Rank 6, tier 3 from 12; <c>stampTierRanks</c> in the balance); every tier with --playtest-stamps.
+        /// </summary>
+        public int StampTierOpen(Player host) => StampRules.TierOpen(Content.Balance, host.Rank, (host.Playtest & PlaytestFlags.AllStamps) != 0);
 
         /// <summary>The run's stamps, as the host's request sets them (and tests).</summary>
         public void SetStamps(byte mask)
         {
             Stamps = mask;
             ApplyStamps();
+            RebuildTeamSheet();
         }
 
         /// <summary>The cursed part of the mail and its worth, for the spawner (a run's start and a change of the stamps).</summary>
@@ -47,6 +58,15 @@ namespace PerformativeMail.Sim
             var curse = CursedStamp();
             Spawner.CursedPermille = curse == null ? 0 : (int)MathF.Round(curse.CursedChance * 1000f);
             Spawner.CursedValueMult = curse?.CursedValueMult ?? 1f;
+            Spawner.HeavyLoad = HasStampRule(StampRule.HeavyLoad);
+        }
+
+        /// <summary>A stamp of the run has the rule.</summary>
+        public bool HasStampRule(StampRule rule)
+        {
+            foreach (var s in Content.Stamps)
+                if (HasStamp(s) && s.Has(rule)) return true;
+            return false;
         }
 
         /// <summary>The run's stamp with the Cursed Mail rule; null if none is on.</summary>

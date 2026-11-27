@@ -61,8 +61,17 @@ namespace PerformativeMail.Sim
             foreach (var viewer in info.Viewers) Events.Add(new ContainerStateEvent { Audience = viewer, State = grid.Snapshot() });
         }
 
+        /// <summary>A land vehicle's speed on a road, as a share (doc 01 §6 No Roads).</summary>
+        private float RoadMult => TeamStat(Stat.VehicleRoadSpeed, 1f);
+
+        /// <summary>A stat of the team as a whole, its stamps' and perks' (tests and tools).</summary>
+        public float TeamStatOf(Stat stat, float baseValue) => TeamStat(stat, baseValue);
+
         /// <summary>A stat of the team as a whole.</summary>
         private float TeamStat(Stat stat, float baseValue) => _teamStats.Resolve(stat, baseValue);
+
+        /// <summary>The head count the quota is reckoned for: those here and the stamps' more (doc 01 §6 Skeleton Crew: n + 2).</summary>
+        private int QuotaHeads(int present) => present + Math.Max(0, (int)MathF.Round(TeamStat(Stat.QuotaPlayers, 0f)));
 
         private int TeamQuota(int quota) => Math.Max(0, (int)Math.Round(TeamStat(Stat.Quota, quota)));
 
@@ -148,13 +157,26 @@ namespace PerformativeMail.Sim
         public int DistrictsEarly => Math.Max(0, (int)MathF.Round(TeamStat(Stat.DistrictsEarly, 0f)));
 
         /// <summary>
+        /// The team's sheet anew: the run's stamps' modifiers (doc 01 §6: Rush Hour's −30 s, Megamail's ×2, …), then
+        /// its team perks; and what the sheet sets that is kept. A change of the stamps and a run's start call it.
+        /// </summary>
+        private void RebuildTeamSheet()
+        {
+            _teamStats.Clear();
+            foreach (var s in Content.Stamps)
+                if (HasStamp(s)) _teamStats.Apply(s.Modifiers);
+            foreach (var perk in _teamPerks) _teamStats.Apply(perk);
+            ApplyTeamStats();
+        }
+
+        /// <summary>
         /// Doc 10 §4.3 Forecast Desk: as Prep begins, everybody is told about how much mail the coming Delivery brings
         /// each street, reckoned as Delivery will reckon its spawn (the quota of those here now, the team's perks).
         /// </summary>
         private void SendForecast()
         {
             if (!TeamHas(RuleFlag.ForecastDesk) || Map.Debug != null) return;
-            int quota = QuotaFormula.Quota(Content.Balance, Run.Shift, Math.Max(1, PresentCount));
+            int quota = QuotaFormula.Quota(Content.Balance, Run.Shift, QuotaHeads(Math.Max(1, PresentCount)));
             int value = (int)Math.Round(quota * Content.MailMix.SpawnOverhead * TeamStat(Stat.SpawnValue, 1f));
             Spawner.DistrictsEarly = DistrictsEarly;
             var e = new ForecastEvent { Shift = (byte)Run.Shift };
@@ -242,8 +264,7 @@ namespace PerformativeMail.Sim
         private void ClearPerks()
         {
             _teamPerks.Clear();
-            _teamStats.Clear();
-            ApplyTeamStats();
+            RebuildTeamSheet();
             foreach (var p in _players)
             {
                 p.Perks.Clear();

@@ -235,12 +235,14 @@ namespace PerformativeMail.Client.UI
         private Label _earnPop = null!;
         private Label _phase = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!;
         /// <summary>The Lobby's plates (doc 09 §2.2): the world and its seed, the kit, the host's keys for them.</summary>
-        private Label _world = null!, _kit = null!, _worldKeys = null!, _stamps = null!;
+        private Label _world = null!, _kit = null!, _worldKeys = null!, _stamps = null!, _stampPick = null!;
         /// <summary>The Lobby's Postage Stamps plate (doc 01 §6).</summary>
         public string StampsText => _stamps.Visible ? _stamps.Text : "";
         public string WorldText => _world.Visible ? _world.Text : "";
         public string KitText => _kit.Visible ? _kit.Text : "";
         public string WorldKeysText => _worldKeys.Visible ? _worldKeys.Text : "";
+        /// <summary>The host's pointer among the Postage Stamps in the Lobby ("[T] Rush Hour ×1.1 · [Y] on"); empty when hidden.</summary>
+        public string StampPickText => _stampPick.Visible ? _stampPick.Text : "";
         private DraftPanel _draft = null!;
         private GeneratingPanel _generating = null!;
         private MeterBar _repairBar = null!;
@@ -434,6 +436,7 @@ namespace PerformativeMail.Client.UI
             _kit = AddTracker("Kit", 2, new Color("f4a261"));
             _worldKeys = AddTracker("WorldKeys", 3, new Color("b8c4d0"));
             _stamps = AddTracker("Stamps", 4, Palette.Cursed);
+            _stampPick = AddTracker("StampPick", 5, Palette.Cursed);
 
             _hotbar = new GridView { Name = "Hotbar", ShowSlotNumbers = true, HotbarStyle = true, MouseFilter = MouseFilterEnum.Ignore };
             // The Slingshot's shots left as a badge on it (UI polish plan item 8).
@@ -544,13 +547,14 @@ namespace PerformativeMail.Client.UI
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
             bool lobby = global.Phase == RunPhase.Lobby;
             _world.Visible = _kit.Visible = _stamps.Visible = lobby;
-            _worldKeys.Visible = lobby && world.IsHost;
+            _worldKeys.Visible = _stampPick.Visible = lobby && world.IsHost;
             if (lobby)
             {
                 _world.Text = HudText.WorldTracker(world);
                 _kit.Text = HudText.KitTracker(world);
                 _worldKeys.Text = HudText.WorldKeys;
                 _stamps.Text = HudText.StampsTracker(world);
+                if (_client != null) _stampPick.Text = HudText.StampPick(world, _client.StampCursor, _client.StampTierOpen);
             }
             _perks.Text = HudText.PerkTracker(world);
             _perks.Visible = _perks.Text.Length > 0;

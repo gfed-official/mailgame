@@ -973,9 +973,29 @@ namespace PerformativeMail.Sim.Content
                             switch (rule)
                             {
                                 case "cursed_mail": rules.Add(StampRule.CursedMail); break;
-                                default: ctx.Error($"'{id}': unknown rule '{rule}' (known: cursed_mail)"); break;
+                                case "heavy_load": rules.Add(StampRule.HeavyLoad); break;
+                                case "double_raids": rules.Add(StampRule.DoubleRaids); break;
+                                default: ctx.Error($"'{id}': unknown rule '{rule}' (known: cursed_mail, heavy_load, double_raids)"); break;
                             }
                         }
+                        var stampMods = new List<StatModifier>();
+                        if (e.TryGetProperty("modifiers", out var smEl))
+                        {
+                            if (smEl.ValueKind != JsonValueKind.Array) ctx.Error($"'{id}': 'modifiers' must be an array");
+                            else
+                                foreach (var m in smEl.EnumerateArray())
+                                {
+                                    if (m.ValueKind != JsonValueKind.Object) { ctx.Error($"'{id}': modifiers must be objects"); continue; }
+                                    string statName = J.Str(ctx, m, "stat");
+                                    string op = J.Str(ctx, m, "op");
+                                    double value = J.Num(ctx, m, "value");
+                                    if (!Stats.TryParse(statName, out var stat)) { ctx.Error($"'{id}': unknown stat '{statName}'"); continue; }
+                                    if (op != "mul" && op != "add") { ctx.Error($"'{id}': modifier op must be 'mul' or 'add', not '{op}'"); continue; }
+                                    if (op == "mul" && value < 0) ctx.Error($"'{id}': the multiplier on {stat} must not be negative");
+                                    stampMods.Add(new StatModifier(stat, op == "mul" ? ModifierOp.Mul : ModifierOp.Add, (float)value));
+                                }
+                        }
+                        if (rules.Count == 0 && stampMods.Count == 0) ctx.Error($"'{id}': a stamp without a rule or a modifier does nothing");
                         float chance = 0f, valueMult = 1f;
                         if (e.TryGetProperty("params", out var ps) && ps.ValueKind == JsonValueKind.Object)
                         {
@@ -1001,6 +1021,7 @@ namespace PerformativeMail.Sim.Content
                             Tier = J.Int(ctx, e, "tier", 1),
                             ScoreMult = (float)J.Num(ctx, e, "scoreMult"),
                             Rules = rules,
+                            Modifiers = stampMods,
                             CursedChance = chance,
                             CursedValueMult = valueMult,
                             MiniRaid = raid,
@@ -1448,7 +1469,7 @@ namespace PerformativeMail.Sim.Content
             "enemyWindupSeconds", "enemyFleeSeconds", "enemyFleeSpeedMult", "lootDespawnSeconds", "lootPickupRange",
             "deathBagDespawnSeconds", "respawnProtectionSeconds", "respawnYardMetres", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
-            "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank", "personalPerkCap", "priorityMailChance", "priorityValueMult", "priorityMailSeconds",
+            "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank", "personalPerkCap", "priorityMailChance", "priorityValueMult", "priorityMailSeconds", "doubleRaidSeconds", "doubleRaidWarnSeconds", "stampTierRanks",
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
             "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
             "beltPushMultiplier", "beltPushSeconds", "pipeSpeed", "pipeSpacing", "pipeOutletRate", "pipeOutletCapacity",

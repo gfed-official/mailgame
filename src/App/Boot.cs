@@ -32,7 +32,8 @@ namespace PerformativeMail.App
     /// has four Small Packages for the mail cannon when a shift starts and when they are back on
     /// their feet), --playtest-wallet=N (runs start with N gold in the team's wallet; asked for in a run
     /// under way, the wallet is topped up to it at once), --playtest-materials (this player's pockets are topped up
-    /// to 20 Logs and 40 Stone when a shift's Prep or Delivery starts and when they are back on their feet). With --smoke they are not played with but checked:
+    /// to 20 Logs and 40 Stone when a shift's Prep or Delivery starts and when they are back on their feet),
+    /// --playtest-stamps (as host, every tier of the Postage Stamps is open whatever the Postal Rank). With --smoke they are not played with but checked:
     /// "--smoke --shift=2 --no-quota --raid --playtest-package" is the smoke of the raid playtest.
     /// </summary>
     public partial class Boot : Node
@@ -61,6 +62,7 @@ namespace PerformativeMail.App
                 else if (arg == "--raid") playtest |= PlaytestFlags.RaidNow;
                 else if (arg == "--playtest-package") playtest |= PlaytestFlags.Packages;
                 else if (arg == "--playtest-materials") playtest |= PlaytestFlags.Materials;
+                else if (arg == "--playtest-stamps") playtest |= PlaytestFlags.AllStamps;
                 else if (arg.StartsWith("--shift=", StringComparison.Ordinal) && int.TryParse(arg.Substring(8), out int n) && n >= 1 && n <= byte.MaxValue) startShift = n;
                 // Gold, as the HUD shows it ("500"); the sim's amounts are one gold a unit (design choice 124).
                 else if (arg.StartsWith("--playtest-wallet=", StringComparison.Ordinal)

@@ -166,7 +166,8 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Kit) && !UiOpen) _client.CycleKit();
             else if (ev.IsActionPressed(InputActions.World) && !UiOpen) _client.CycleWorld();
             else if (ev.IsActionPressed(InputActions.Seed) && !UiOpen) _client.NewSeed();
-            else if (ev.IsActionPressed(InputActions.Stamps) && !UiOpen) _client.CycleStamps();
+            else if (ev.IsActionPressed(InputActions.Stamps) && !UiOpen) _client.NextStamp();
+            else if (ev.IsActionPressed(InputActions.StampToggle) && !UiOpen) _client.ToggleStamp();
             else if (ev.IsActionPressed(InputActions.ReloadContent) && OS.IsDebugBuild()) ContentReloadAsked?.Invoke();
         }
 

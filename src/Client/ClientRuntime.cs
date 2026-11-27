@@ -385,16 +385,34 @@ namespace PerformativeMail.Client
         /// <summary>The next world, from the same seed.</summary>
         public uint CycleWorld() => ChooseWorld((WorldChoice + 1) % SimWorld.WorldChoices.Count, World?.Seed ?? 1);
 
+        /// <summary>The Postage Stamp the host's [T] points at in the Lobby (its index); [Y] puts it on or takes it off.</summary>
+        public int StampCursor { get; private set; }
+
+        /// <summary>Host, Lobby: the pointer to the next of the eight Postage Stamps (doc 01 §6); false if not the host's to pick now.</summary>
+        public bool NextStamp()
+        {
+            int n = _content.Stamps.Count;
+            if (!CanChooseWorld || n == 0) return false;
+            StampCursor = (StampCursor + 1) % n;
+            return true;
+        }
+
         /// <summary>
-        /// Host, Lobby: the next set of Postage Stamps (doc 01 §6), counting through every set of them
-        /// as a bit mask (none, the first, the second, both, …); 0 if not the host's to pick now.
+        /// Host, Lobby: the stamp at the pointer on, or off; 0 if not the host's to pick now, or a tier their Postal
+        /// Rank has not opened (doc 01 §5.2; the server asks the same).
         /// </summary>
-        public uint CycleStamps()
+        public uint ToggleStamp()
         {
             int n = _content.Stamps.Count;
             if (!CanChooseWorld || n == 0) return 0;
-            return Send(SimRequest.SetStamps(0, (World!.Global.Stamps + 1) % (1 << n)));
+            var stamp = _content.Stamps[StampCursor % n];
+            int mask = World!.Global.Stamps ^ (1 << stamp.Index);
+            if ((World.Global.Stamps & (1 << stamp.Index)) == 0 && stamp.Tier > StampTierOpen) return 0;
+            return Send(SimRequest.SetStamps(0, mask));
         }
+
+        /// <summary>The highest tier of the Postage Stamps this client's Postal Rank opens (every tier with --playtest-stamps).</summary>
+        public int StampTierOpen => StampRules.TierOpen(_content.Balance, Rank, (Playtest & PlaytestFlags.AllStamps) != 0);
 
         /// <summary>The same world from a seed drawn at random.</summary>
         public uint NewSeed() => ChooseWorld(Math.Max(0, WorldChoice), (uint)_seedDice.Next(1, int.MaxValue));
@@ -742,7 +760,7 @@ namespace PerformativeMail.Client
                 View = PlayerInput.ViewOf(world.ServerTick - EnemyInterpolationDelayTicks),
             };
             Input.Tapped = InputButtons.None;
-            PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult);
+            PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f));
             _pendingInputs.Add(input);
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);
             PredictAttacks(world, input);
@@ -1125,7 +1143,7 @@ namespace PerformativeMail.Client
             world.LocalHp = m.OwnHp;
             world.HasLocal = true;
             foreach (var input in _pendingInputs)
-                PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult);
+                PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f));
 
             // Going down or standing up again at the Post Office is the server's word, not a misprediction.
             if (!hadLocal || wasDead || world.Local.Dead) return;
