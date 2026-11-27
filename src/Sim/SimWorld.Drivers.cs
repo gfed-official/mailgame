@@ -260,7 +260,7 @@ namespace PerformativeMail.Sim
                 return;
             }
             float ratio = Content.Balance.GetFloat("npcSpeedRatio");
-            float speed = ratio * (v.Def.OnWater ? v.Def.WaterSpeed : PlayerMovement.OnRoad(Map, v.X, v.Z) ? v.Def.RoadSpeed * RoadMult : v.Def.OffRoadSpeed);
+            float speed = ratio * (v.Def.OnWater ? v.Def.WaterSpeed * BoatMult : PlayerMovement.OnRoad(Map, v.X, v.Z) ? v.Def.RoadSpeed * RoadMult : v.Def.OffRoadSpeed);
             // Doc 10 §6 Street Festival: the crowd lets a driver through at a crawl, as it does a carrier.
             if (!v.Def.OnWater && RoadClosure is var closure && PlayerMovement.Closed(closure.Rect, v.X, v.Z)) speed *= closure.Mult;
             float left = speed * SimConstants.TickDt;

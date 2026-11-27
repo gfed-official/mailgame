@@ -179,7 +179,7 @@ namespace PerformativeMail.Net.Tests
                 {
                     Shift = 1, Phase = RunPhase.Delivery, PhaseEndTick = 7200, Quota = 600, ShiftEarnings = -12, Wallet = -480,
                     Complaint = 17, Backlog = 3, Deliveries = 40, Misdeliveries = 2,
-                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true, PostOfficeHp = 2345, Stamps = 5, Events = 0x41, EventStreet = 3,
+                    Outcome = RunOutcome.QuotaMissed, Host = new EntityId(EntityClass.Player, 2), Raid = RaidState.Active, ClockStopped = true, QuotaWaived = true, PostOfficeHp = 2345, Stamps = 5, Events = 0x141, EventStreet = 3,
                 },
             };
             m.Players.Add(new PlayerSnap { Id = new EntityId(EntityClass.Player, 2), X = 12.3456f, Y = 1.204f, Z = 91.999f, Yaw = 65535, HeldSlot = 4, HeldTool = 17, Ready = true, Ride = 1, Heading = MathF.PI / 2f, Kit = 2 });

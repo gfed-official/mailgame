@@ -270,13 +270,15 @@ namespace PerformativeMail.Sim.Content
         MegaParcels,
         /// <summary>Bulk Drop: a Cargo item for every Business Dock open this shift, into the Intake.</summary>
         BulkDrop,
+        /// <summary>Sea Fog: no Balloon comes while it lies (its boats' slowness is a modifier); the client draws the fog.</summary>
+        SeaFog,
     }
 
     /// <summary>A run event (doc 10 §6; doc 01 §3.3): rolled at most one a shift from shift 2 on the waves' stream.</summary>
     public sealed class RunEventDef
     {
-        /// <summary>The run's live events go in one byte of the global block.</summary>
-        public const int MaxEvents = 8;
+        /// <summary>The run's live events go in sixteen bits of the global block.</summary>
+        public const int MaxEvents = 16;
 
         public string Id { get; init; } = "";
         public byte Index { get; init; }
@@ -291,6 +293,8 @@ namespace PerformativeMail.Sim.Content
         public bool OncePerRun { get; init; }
         /// <summary>Bulk Drop: only where a Business Dock is open this shift.</summary>
         public bool NeedsDock { get; init; }
+        /// <summary>The maps it may come on (doc 10 §6 Sea Fog: "Large Island"); empty for any.</summary>
+        public IReadOnlyList<string> Maps { get; init; } = Array.Empty<string>();
         public IReadOnlyList<RunEventRule> Rules { get; init; } = Array.Empty<RunEventRule>();
         /// <summary>What it does to the numbers while it is live, on the team's stat sheet (the Inspector's −10 %, Mega Migration's ×3).</summary>
         public IReadOnlyList<Perks.StatModifier> Modifiers { get; init; } = Array.Empty<Perks.StatModifier>();

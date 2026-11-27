@@ -352,7 +352,8 @@ namespace PerformativeMail.Client
             get => _global;
             internal set
             {
-                byte was = _global.Stamps, wasEvents = _global.Events;
+                byte was = _global.Stamps;
+                ushort wasEvents = _global.Events;
                 _global = value;
                 // Doc 01 §6: the stamps' numbers lie on the team's sheet with its perks; doc 10 §6: so do the live events'.
                 if (value.Stamps != was || value.Events != wasEvents) RebuildTeamSheet();

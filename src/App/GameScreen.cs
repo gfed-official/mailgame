@@ -231,7 +231,11 @@ namespace PerformativeMail.App
             if (world == null) return;
             _framesDrawn++;
             Camera.Target = Players.LocalView;
-            if (DriveAtmosphere) World.Atmosphere.TargetNight = NightFor(world.Raid);
+            if (DriveAtmosphere)
+            {
+                World.Atmosphere.TargetNight = NightFor(world.Raid);
+                World.Atmosphere.TargetFog = world.LiveRule(Sim.Content.RunEventRule.SeaFog) != null ? 1f : 0f;
+            }
             World.ShowDistricts(world.Global.Shift, world.DistrictsEarly);
             World.ShowSeeps(world.Constructs);
             bool open = InventoryOpen(world);

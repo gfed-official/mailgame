@@ -25,11 +25,11 @@ namespace PerformativeMail.Sim
         /// <summary>The event rolled for this shift, fired or still to come; null for none.</summary>
         public RunEventDef? ShiftEvent { get; private set; }
         /// <summary>The events live now, a bit per <see cref="RunEventDef.Index"/>.</summary>
-        public byte LiveEvents { get; private set; }
+        public ushort LiveEvents { get; private set; }
         /// <summary>Events called for the next shift (the Postal Inspector), a bit each.</summary>
-        private byte _comingEvents;
+        private ushort _comingEvents;
         /// <summary>Once-a-run events that have happened this run (Overtime).</summary>
-        private byte _eventsUsed;
+        private ushort _eventsUsed;
         /// <summary>A Delivery-triggered event's moment; 0 for none.</summary>
         private uint _eventFireTick;
         /// <summary>Street Festival's street (a street id) while it is live, else -1.</summary>
@@ -61,7 +61,7 @@ namespace PerformativeMail.Sim
             SetLiveEvents(0);
         }
 
-        private void SetLiveEvents(byte mask)
+        private void SetLiveEvents(ushort mask)
         {
             if (mask == LiveEvents) return;
             LiveEvents = mask;
@@ -79,7 +79,7 @@ namespace PerformativeMail.Sim
         {
             _eventFireTick = 0;
             _wildfireEndTick = 0;
-            byte coming = _comingEvents;
+            ushort coming = _comingEvents;
             _comingEvents = 0;
             SetLiveEvents(coming);
             foreach (var e in Content.RunEvents)
@@ -122,6 +122,7 @@ namespace PerformativeMail.Sim
             if (e.Trigger == RunEventTrigger.Complaint || e.Weight <= 0 || Run.Shift < e.MinShift) return false;
             if (e.OncePerRun && (_eventsUsed & (1 << e.Index)) != 0) return false;
             if (e.NeedsDock && OpenDocks().Count == 0) return false;
+            if (e.Maps.Count > 0 && !Contains(e.Maps, Map.Id)) return false;
             return true;
         }
 
@@ -177,8 +178,8 @@ namespace PerformativeMail.Sim
         private RunEventEvent FireEvent(RunEventDef e)
         {
             var rng = _eventRng ??= new RngStream(Settings.Seed, "waves.events");
-            if (e.OncePerRun) _eventsUsed |= (byte)(1 << e.Index);
-            SetLiveEvents((byte)(LiveEvents | (1 << e.Index)));
+            if (e.OncePerRun) _eventsUsed |= (ushort)(1 << e.Index);
+            SetLiveEvents((ushort)(LiveEvents | (1 << e.Index)));
             var ev = new RunEventEvent { Event = e.Index, Shift = (byte)Run.Shift, Stage = RunEventStage.Fired };
             if (e.Has(RunEventRule.StreetFestival))
             {
@@ -384,7 +385,7 @@ namespace PerformativeMail.Sim
                 if (e.Trigger != RunEventTrigger.Complaint) continue;
                 float threshold = TeamStat(Stat.InspectorComplaint, (float)e.Param("complaint"));
                 if (Economy.Complaint < threshold) continue;
-                _comingEvents |= (byte)(1 << e.Index);
+                _comingEvents |= (ushort)(1 << e.Index);
                 Events.Add(new RunEventEvent { Event = e.Index, Shift = (byte)Run.Shift, Stage = RunEventStage.Coming, Amount = Economy.Complaint });
             }
             return paid;

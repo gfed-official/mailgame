@@ -23,6 +23,11 @@ namespace PerformativeMail.Client.Presentation
 
         /// <summary>0 = golden hour, 1 = night. What it is heading for; <see cref="Night"/> follows.</summary>
         public float TargetNight;
+        /// <summary>0 = clear, 1 = doc 10 §6's Sea Fog. What it is heading for; <see cref="Fog"/> follows.</summary>
+        public float TargetFog;
+        public float Fog { get; private set; }
+        private static readonly Color SeaFogColour = new Color(0.78f, 0.80f, 0.84f);
+        private const float ClearDensity = 0.0045f, SeaFogDensity = 0.06f, FogBlendRate = 0.25f;
         public float Night { get; private set; }
         public DirectionalLight3D Sun { get; private set; } = null!;
 
@@ -78,8 +83,10 @@ namespace PerformativeMail.Client.Presentation
 
         public override void _Process(double delta)
         {
-            if (Mathf.IsEqualApprox(Night, TargetNight)) return;
+            if (Mathf.IsEqualApprox(Night, TargetNight) && Mathf.IsEqualApprox(Fog, TargetFog)) return;
             Night = Mathf.MoveToward(Night, TargetNight, BlendRate * (float)delta);
+            // The fog rolls in over four seconds.
+            Fog = Mathf.MoveToward(Fog, TargetFog, FogBlendRate * (float)delta);
             Apply();
         }
 
@@ -87,6 +94,7 @@ namespace PerformativeMail.Client.Presentation
         public void Snap()
         {
             Night = TargetNight;
+            Fog = TargetFog;
             Apply();
         }
 
@@ -100,7 +108,12 @@ namespace PerformativeMail.Client.Presentation
             Sun.LightEnergy = Mathf.Lerp(1.7f, 0.4f, n) * (1f - 0.6f * Mathf.Sin(n * Mathf.Pi));
             _environment.AmbientLightColor = DayAmbient.Lerp(NightAmbient, n);
             _environment.AmbientLightEnergy = Mathf.Lerp(0.6f, 0.55f, n);
-            _environment.FogLightColor = DayFog.Lerp(NightFog, n);
+            float f = Mathf.SmoothStep(0f, 1f, Fog);
+            _environment.FogLightColor = DayFog.Lerp(NightFog, n).Lerp(SeaFogColour.Lerp(NightFog, n * 0.8f), f);
+            _environment.FogDensity = Mathf.Lerp(ClearDensity, SeaFogDensity, f);
+            _environment.FogSkyAffect = Mathf.Lerp(0.15f, 0.9f, f);
+            // Its own grey, not the sky's colour behind it.
+            _environment.FogAerialPerspective = Mathf.Lerp(0.4f, 0f, f);
             _environment.FogLightEnergy = Mathf.Lerp(1.0f, 0.8f, n);
             _sky.SetShaderParameter("night", n);
         }

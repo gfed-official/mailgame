@@ -21,12 +21,12 @@ namespace PerformativeMail.App
         {
             public readonly string Name;
             public readonly Vector3 Eye, Target;
-            public readonly float Night;
-            public View(string name, Vector3 eye, Vector3 target, float night) { Name = name; Eye = eye; Target = target; Night = night; }
+            public readonly float Night, Fog;
+            public View(string name, Vector3 eye, Vector3 target, float night, float fog = 0f) { Name = name; Eye = eye; Target = target; Night = night; Fog = fog; }
         }
 
         public string Dir = "";
-        /// <summary>Extra views: "name:ex,ey,ez:tx,ty,tz[:night]" separated by ';'.</summary>
+        /// <summary>Extra views: "name:ex,ey,ez:tx,ty,tz[:night[:fog]]" separated by ';' (night and fog 0..1).</summary>
         public string? Extra;
 
         /// <summary>The host's world, where the cast is spawned; null for a guest, who gets no cast.</summary>
@@ -99,7 +99,8 @@ namespace PerformativeMail.App
                     string[] parts = spec.Split(':');
                     if (parts.Length < 3 || !Parse(parts[1], out var eye) || !Parse(parts[2], out var target)) continue;
                     float night = parts.Length > 3 && float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float n) ? n : 0f;
-                    _views.Add(new View(parts[0], eye, target, night));
+                    float fog = parts.Length > 4 && float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float f) ? f : 0f;
+                    _views.Add(new View(parts[0], eye, target, night, fog));
                 }
                 return;
             }
@@ -153,6 +154,7 @@ namespace PerformativeMail.App
                 _camera.Current = true;
                 _camera.LookAtFromPosition(view.Eye, view.Target, Vector3.Up);
                 _screen.World.Atmosphere.TargetNight = view.Night;
+                _screen.World.Atmosphere.TargetFog = view.Fog;
                 _screen.World.Atmosphere.Snap();
             }
             // A cast view's eye and target are relative to the cast, which is walking.

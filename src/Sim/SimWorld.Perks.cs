@@ -63,6 +63,8 @@ namespace PerformativeMail.Sim
 
         /// <summary>A land vehicle's speed on a road, as a share (doc 01 §6 No Roads).</summary>
         private float RoadMult => TeamStat(Stat.VehicleRoadSpeed, 1f);
+        /// <summary>A boat's speed on the water as a share, the team's (doc 10 §6 Sea Fog).</summary>
+        private float BoatMult => TeamStat(Stat.BoatSpeed, 1f);
 
         /// <summary>A stat of the team as a whole, its stamps' and perks' (tests and tools).</summary>
         public float TeamStatOf(Stat stat, float baseValue) => TeamStat(stat, baseValue);

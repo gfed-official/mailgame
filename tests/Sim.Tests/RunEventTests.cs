@@ -65,11 +65,16 @@ namespace PerformativeMail.Sim.Tests
             world.Events.OfType<RunEventEvent>().Last(e => e.Event == Db.RunEvent(id).Index && e.Stage == RunEventStage.Fired);
 
         [Fact]
-        public void TheContent_HasTheEventsOfDoc10_NoPowerSurge_SeaFogLeftForTheLargeIsland()
+        public void TheContent_HasTheEventsOfDoc10_NoPowerSurge_SeaFogOnTheLargeIslandOnly()
         {
-            Assert.Equal(new[] { "festival", "inspector", "lost_parcels", "wildfire", "overtime", "delivery_bonus", "mega_migration", "bulk_drop" },
+            Assert.Equal(new[] { "festival", "inspector", "lost_parcels", "wildfire", "overtime", "delivery_bonus", "mega_migration", "bulk_drop", "fog" },
                 Db.RunEvents.Select(e => e.Id));
-            Assert.DoesNotContain(Db.RunEvents, e => e.Id == "power_surge" || e.Id == "fog");
+            Assert.DoesNotContain(Db.RunEvents, e => e.Id == "power_surge");
+            var fog = Db.RunEvent("fog");
+            Assert.Equal(RunEventTrigger.DeliveryStart, fog.Trigger);
+            Assert.Equal(new[] { "large_island" }, fog.Maps);
+            Assert.True(fog.Has(RunEventRule.SeaFog));
+            Assert.Contains(fog.Modifiers, m => m.Stat == Stat.BoatSpeed && m.Op == ModifierOp.Mul && m.Value == 0.7f);
             Assert.Equal(4, Db.RunEvent("wildfire").MinShift);
             Assert.Equal(3, Db.RunEvent("mega_migration").MinShift);
             Assert.Equal(RunEventTrigger.Complaint, Db.RunEvent("inspector").Trigger);

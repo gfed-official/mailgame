@@ -86,6 +86,8 @@ namespace PerformativeMail.Sim.Perks
         DeliveryEarnings,
         /// <summary>The complaint at Payday that calls the Postal Inspector, over its event's (doc 01 §6 Postal Audit: 75 → 50).</summary>
         InspectorComplaint,
+        /// <summary>A boat's speed on the water, ridden or crewed, as a share of its def's (doc 10 §6 Sea Fog: −30 %); base 1.</summary>
+        BoatSpeed,
     }
 
     /// <summary>

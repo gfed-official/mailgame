@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m4.5;Summary:+u8 n,{u16 dest,u16 count};Global:+mode in the flags (practice 4, daily 8),u16 dailyDay;" +
+            "m4.6;Summary:+u8 n,{u16 dest,u16 count};Global:+mode in the flags (practice 4, daily 8),u16 dailyDay,u16 events;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages,materials,allStamps;" +
             "Inputs:u8 n,u16 ack,u16 enemyAck,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -445,7 +445,7 @@ namespace PerformativeMail.Sim.Net
             w.U8((byte)g.Outcome); w.U32(g.Host.Value); w.U8((byte)g.Raid); w.U8((byte)g.RaidEdgeA); w.U8((byte)g.RaidEdgeB); w.U8((byte)((g.ClockStopped ? 1 : 0) | (g.QuotaWaived ? 2 : 0) | (g.Mode == RunMode.Practice ? 4 : 0) | (g.Mode == RunMode.Daily ? 8 : 0)));
             w.U16(g.PostOfficeHp);
             w.U8(g.Stamps);
-            w.U8(g.Events);
+            w.U16(g.Events);
             w.U8(g.EventStreet);
             w.U16(g.DailyDay);
         }
@@ -460,7 +460,7 @@ namespace PerformativeMail.Sim.Net
             }, r.U8());
             g.PostOfficeHp = r.U16();
             g.Stamps = r.U8();
-            g.Events = r.U8();
+            g.Events = r.U16();
             g.EventStreet = r.U8();
             g.DailyDay = r.U16();
             return g;

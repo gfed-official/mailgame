@@ -3073,6 +3073,23 @@ top left? It takes up a lot of screen real estate."
       letters for its boxes, about one address's share); tests that took every destination for a house now skip the
       bank (`WorldGeneratorTests`) or address mail by `DestinationDef.MailAddress` (`MapFlowTests`). Looked at rendered
 
+### 7d. M4 — the Sea Fog run event (doc 10 §6), 2026-11-27
+
+- [x] **Sea Fog** (`content/events/events.json` "fog"; design choice 172). "Random Delivery start (Large Island) · Boat
+      speed −30%, Balloons do not spawn": rolled like the other events, as Delivery starts, only where the map is one
+      its new `"maps"` names (`RunEventDef.Maps`, `MayCome`; on the test street and the Small Island it never comes,
+      even forced). Its modifier `BoatSpeed ×0.7` is a new team stat (`Stat.BoatSpeed`): a boat's top speed on the
+      water, ridden (`PlayerMovement.Step`'s `boatMult`, predicted alike on the client) or crewed by a depot's driver.
+      Its rule `sea_fog` keeps every airborne raider out of the raid's pulses while it lies (`SpawnRaidPulse`; a led
+      Balloon is skipped). On screen the fog rolls in over four seconds: grey, thick (density 0.0045 → 0.06), over
+      the sky too (`Atmosphere.TargetFog`, driven by the live rule); the tracker row and banner are the events' own.
+      `--event=fog` forces it on a Large Island; `--lookdev-views` takes a fifth part, the fog 0..1. The live events'
+      mask is sixteen bits now (`RunEventDef.MaxEvents` 16; the global block's `u16 events`, protocol `m4.6`): Sea Fog
+      is the ninth event
+- `SeaFogTests` (3: only on the Large Island, live from Delivery's start with BoatSpeed 0.7; a Rowboat rows 2.1 m/s
+      against 3; a shift-5 raid with no Balloon among 10+ raiders), `RunEventTests` (the content), `CodecTests` (an
+      event past the eighth's bit round-trips), `ContentValidatorTests`. Looked at rendered (the ferry's view in the fog)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4733,6 +4750,13 @@ See "Commands" at the bottom (filled in as the tooling lands).
     address it takes a house's share, the box still to be sorted. (c) Numbered past its street's last house, as a dock
     is (choice 169's fix), so its label is never a house's.
 
+172. **Sea Fog, where doc 10 is short.** (a) "Boat speed −30%" is every boat's on the water, the team's and the depots'
+    drivers', as a stat on the team's sheet like the other events' numbers; a land vehicle is untouched. (b) "Balloons
+    do not spawn" is every airborne raider (the Balloon is the only one), for the shift the fog lies, raid pulses and
+    led raiders alike; one already up stays. (c) "(Large Island)" as data: an event may name the maps it comes on, so
+    the rule is not tied to an id in code. (d) The fog is drawn as a thick grey environment fog on every client, not a
+    gameplay sight limit; the edge markers and world labels still show through it.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4794,7 +4818,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --playtest-materials  20 Logs and 40 Stone in your pockets when a shift's Prep or Delivery starts and when back on your feet
 #   --playtest-stamps     as host, every tier of the Postage Stamps, the whole perk pool and the Large Island are open whatever your Postal Rank
 #                         (--playtest-unlocks says the same)
-#   --event=ID            as host, the run event ID of content/events (festival, lost_parcels, wildfire, …) comes in every shift it may
+#   --event=ID            as host, the run event ID of content/events (festival, lost_parcels, wildfire, fog on a Large Island, …) comes in every shift it may
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-package --playtest-mailbox   # a guest: all three go together

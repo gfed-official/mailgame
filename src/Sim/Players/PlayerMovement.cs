@@ -98,9 +98,10 @@ namespace PerformativeMail.Sim.Players
         /// the carrier's own stats, which the server and the carrier's client read alike. <paramref name="roadMult"/>: a
         /// land vehicle's speed on a road, as a share (doc 01 §6 No Roads), the team's. <paramref name="closed"/>: tiles a land
         /// vehicle only crawls over, at <paramref name="closedMult"/> of its speed (doc 10 §6 Street Festival's street).
+        /// <paramref name="boatMult"/>: a boat's speed on the water, as a share (doc 10 §6 Sea Fog), the team's.
         /// </summary>
         public static void Step(ref PlayerMoveState s, in PlayerInput input, WorldMap map, float speedMult, in MoveConstants c,
-            ConstructField? constructs = null, int airJumps = 0, float bikeMult = 1f, float roadMult = 1f, TileRect closed = default, float closedMult = 1f)
+            ConstructField? constructs = null, int airJumps = 0, float bikeMult = 1f, float roadMult = 1f, TileRect closed = default, float closedMult = 1f, float boatMult = 1f)
         {
             const float dt = SimConstants.TickDt;
             s.Yaw = input.Yaw;
@@ -125,12 +126,13 @@ namespace PerformativeMail.Sim.Players
                     s.Becalmed = false;
                     var afoot = input;
                     afoot.Buttons &= ~InputButtons.Jump;
-                    Step(ref s, afoot, map, speedMult, c, constructs, airJumps, bikeMult, roadMult, closed, closedMult);
+                    Step(ref s, afoot, map, speedMult, c, constructs, airJumps, bikeMult, roadMult, closed, closedMult, boatMult);
                     // Held through getting off, the key is still down.
                     s.JumpHeld = input.Has(InputButtons.Jump);
                     return;
                 }
-                StepRide(ref s, input, map, vehicle, c, constructs, !vehicle.Fuelled && !vehicle.OnWater ? bikeMult : 1f, roadMult, closed, closedMult);
+                // A boat's top speed is the team's on the water (doc 10 §6 Sea Fog); a pedalled bike's the carrier's.
+                StepRide(ref s, input, map, vehicle, c, constructs, vehicle.OnWater ? boatMult : !vehicle.Fuelled ? bikeMult : 1f, roadMult, closed, closedMult);
                 return;
             }
 

@@ -32,5 +32,9 @@
   { "id": "bulk_drop", "name": "Bulk Drop", "trigger": "delivery_start", "needsDock": true,
     "description": "A Cargo item for every open Business Dock arrives at the Intake at once, worth half again.",
     "rules": ["bulk_drop"], "kinds": ["cargo"],
-    "params": { "valueMult": 1.5 } }
+    "params": { "valueMult": 1.5 } },
+  { "id": "fog", "name": "Sea Fog", "trigger": "delivery_start", "maps": ["large_island"],
+    "description": "A fog comes in off the sea: boats go 30% slower and no Balloon finds its way in this shift.",
+    "modifiers": [ { "stat": "BoatSpeed", "op": "mul", "value": 0.7 } ],
+    "rules": ["sea_fog"] }
 ]

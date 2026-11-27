@@ -821,7 +821,7 @@ namespace PerformativeMail.Client
                 View = PlayerInput.ViewOf(world.ServerTick - EnemyInterpolationDelayTicks),
             };
             Input.Tapped = InputButtons.None;
-            PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f), world.RoadClosure.Rect, world.RoadClosure.Mult);
+            PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f), world.RoadClosure.Rect, world.RoadClosure.Mult, world.LocalStat(Stat.BoatSpeed, 1f));
             _pendingInputs.Add(input);
             if (_pendingInputs.Count > MaxPendingInputs) _pendingInputs.RemoveAt(0);
             PredictAttacks(world, input);
@@ -1204,7 +1204,7 @@ namespace PerformativeMail.Client
             world.LocalHp = m.OwnHp;
             world.HasLocal = true;
             foreach (var input in _pendingInputs)
-                PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f), world.RoadClosure.Rect, world.RoadClosure.Mult);
+                PlayerMovement.Step(ref world.Local, input, world.Map, world.LocalSpeedMult, _move, world.Constructs, world.LocalAirJumps, world.LocalBikeMult, world.LocalStat(Stat.VehicleRoadSpeed, 1f), world.RoadClosure.Rect, world.RoadClosure.Mult, world.LocalStat(Stat.BoatSpeed, 1f));
 
             // Going down or standing up again at the Post Office is the server's word, not a misprediction.
             if (!hadLocal || wasDead || world.Local.Dead) return;

@@ -79,7 +79,7 @@ namespace PerformativeMail.Sim
         /// <summary>Doc 01 §6: the run's Postage Stamps, a bit per <see cref="Content.StampDef.Index"/>.</summary>
         public byte Stamps;
         /// <summary>Doc 10 §6: the run events live now, a bit per <see cref="Content.RunEventDef.Index"/>.</summary>
-        public byte Events;
+        public ushort Events;
         /// <summary>Street Festival's street while it is live (a street id), else 0.</summary>
         public byte EventStreet;
         /// <summary>The run's kind (doc 09 §6 practice, doc 01 §5.3 Daily Seed).</summary>
@@ -389,7 +389,7 @@ namespace PerformativeMail.Sim
                 if (p.Away)
                 {
                     // Nobody steers them: they come to rest where they stood.
-                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult, closure.Rect, closure.Mult);
+                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult, closure.Rect, closure.Mult, BoatMult);
                     continue;
                 }
 
@@ -401,7 +401,7 @@ namespace PerformativeMail.Sim
                 while (budget > 0 && p.Inputs.Count > 0)
                 {
                     var input = p.Inputs.Dequeue();
-                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult, closure.Rect, closure.Mult);
+                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p), RoadMult, closure.Rect, closure.Mult, BoatMult);
                     p.HeldSlot = input.HeldSlot < p.Hotbar.Cols ? input.HeldSlot : (byte)0;
                     _attackRewind = RewindTicks(input);
                     HandleAttackInput(p, input);

@@ -1121,18 +1121,24 @@ namespace PerformativeMail.Sim
             int nth = 0;
             var leads = pulse < _raidLeads.Count ? _raidLeads[pulse] : null;
             int lead = 0;
+            // Doc 10 §6 Sea Fog: no Balloon finds its way in while it lies.
+            bool fog = LiveRuleOn(RunEventRule.SeaFog);
             while (_enemies.Count < waves.MaxAlive)
             {
                 EnemyDef def;
                 bool led = leads != null && lead < leads.Count;
-                if (led) def = leads![lead];
+                if (led)
+                {
+                    def = leads![lead];
+                    if (fog && def.Airborne) { lead++; continue; }
+                }
                 else
                 {
                     _affordable.Clear();
                     int total = 0;
                     foreach (var w in weights)
                     {
-                        if (w.Key.Cost > budget) continue;
+                        if (w.Key.Cost > budget || (fog && w.Key.Airborne)) continue;
                         // Doc 05 §3.2 "Tank … (max 1)": no more of it than the raid's cap.
                         if (_raidSpawnedOf.TryGetValue(w.Key, out int sent) && sent >= waves.MaxFor(_raidShift, w.Key)) continue;
                         _affordable.Add(w);

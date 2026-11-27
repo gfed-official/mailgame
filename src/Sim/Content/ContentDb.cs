@@ -1477,7 +1477,8 @@ namespace PerformativeMail.Sim.Content
                                 case "neighbourhood_watch": rules.Add(RunEventRule.NeighbourhoodWatch); break;
                                 case "mega_parcels": rules.Add(RunEventRule.MegaParcels); break;
                                 case "bulk_drop": rules.Add(RunEventRule.BulkDrop); break;
-                                default: ctx.Error($"'{id}': unknown rule '{rule}' (known: street_festival, lost_parcels, wildfire, overtime, neighbourhood_watch, mega_parcels, bulk_drop)"); break;
+                                case "sea_fog": rules.Add(RunEventRule.SeaFog); break;
+                                default: ctx.Error($"'{id}': unknown rule '{rule}' (known: street_festival, lost_parcels, wildfire, overtime, neighbourhood_watch, mega_parcels, bulk_drop, sea_fog)"); break;
                             }
                         }
                         var mods = new List<StatModifier>();
@@ -1528,6 +1529,7 @@ namespace PerformativeMail.Sim.Content
                             Weight = J.Int(ctx, e, "weight", 1),
                             OncePerRun = J.Bool(ctx, e, "oncePerRun", false),
                             NeedsDock = J.Bool(ctx, e, "needsDock", false),
+                            Maps = J.StrArray(ctx, e, "maps", optional: true),
                             Rules = rules,
                             Modifiers = mods,
                             Params = ps,
