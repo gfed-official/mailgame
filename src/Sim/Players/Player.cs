@@ -68,6 +68,8 @@ namespace PerformativeMail.Sim.Players
         public List<PerkDef>? Offer;
         /// <summary>The starting kit chosen in the Lobby (doc 03 §4.4); the content's default until then.</summary>
         public Content.KitDef? Kit;
+        /// <summary>The look the others see (doc 10 §8): uniform index | cap index &lt;&lt; 4 (SetLook).</summary>
+        public byte Look;
         /// <summary>This run's personal kit items are in the pockets already.</summary>
         public bool KitGiven;
         /// <summary>The shift this player wants runs to start at (<c>--shift=N</c>), 0 = the first as always.</summary>

@@ -167,6 +167,7 @@ namespace PerformativeMail.App
             PingWheel.Setup(session.Ping);
             Hud.Profile = session.Profile;
             Hud.Tips = session.Tips;
+            Hud.Looks = session.Looks;
             Hud.Setup(client, session.Interaction, session.Feed);
             // Bars over raiders and constructs keep off the HUD's plates (the e5be644 playtest's N10).
             Enemies.Camera = Camera;
@@ -209,6 +210,7 @@ namespace PerformativeMail.App
             _input.SeedCopied += () => { if (client.World != null) session.Feed.Add(HudText.SeedCopied(client.World)); };
             _input.SeedPasted += line => session.Feed.Add(line);
             _input.HelpPressed += () => Help(client);
+            _input.LookPressed += kind => session.Looks.Next(kind);
             AddChild(_input);
             session.InputSource = _input.Sample;
         }

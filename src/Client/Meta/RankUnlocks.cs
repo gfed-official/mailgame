@@ -44,6 +44,8 @@ namespace PerformativeMail.Client.Meta
                 if (open <= rank) u.PerkPools.Add(category.ToString().ToLowerInvariant());
             }
             u.Rerolls = content.Balance.GetInt("rerollsPerRun") + (rank >= content.Balance.GetInt("rerollSecondRank") ? 1 : 0);
+            // Doc 01 §5.2 "15+: cosmetics every rank" (doc 10 §8); those of achievements are the profile's (Looks).
+            u.Cosmetics.AddRange(Looks.Open(content, rank, Array.Empty<string>()));
             return u;
         }
 
@@ -52,6 +54,16 @@ namespace PerformativeMail.Client.Meta
         /// (doc 09 §2.11 "unlock reveals"): "the Sea kit", "Postage Stamps tier 2", "facility perks in the Draft",
         /// "a second Draft reroll".
         /// </summary>
+        /// <summary>Every uniform, then every cap.</summary>
+        public static IEnumerable<CosmeticDef> Cosmetics(ContentDb content)
+        {
+            foreach (var c in content.Uniforms) yield return c;
+            foreach (var c in content.Caps) yield return c;
+        }
+
+        /// <summary>"the Post Red uniform", "the Gold cap".</summary>
+        public static string CosmeticName(CosmeticDef c) => $"the {c.Name} {(c.Kind == CosmeticKind.Uniform ? "uniform" : "cap")}";
+
         public static List<string> Revealed(ContentDb content, int before, int after)
         {
             var was = For(content, before);
@@ -64,6 +76,8 @@ namespace PerformativeMail.Client.Meta
             foreach (string pool in now.PerkPools)
                 if (!was.PerkPools.Contains(pool)) words.Add($"{pool} perks in the Draft");
             if (now.Rerolls > was.Rerolls) words.Add(now.Rerolls == 2 ? "a second Draft reroll" : $"{now.Rerolls} Draft rerolls");
+            foreach (var c in Cosmetics(content))
+                if (now.Cosmetics.Contains(c.Id) && !was.Cosmetics.Contains(c.Id)) words.Add(CosmeticName(c));
             return words;
         }
     }

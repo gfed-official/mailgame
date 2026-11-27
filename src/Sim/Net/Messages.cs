@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m4.6;Summary:+u8 n,{u16 dest,u16 count};Global:+mode in the flags (practice 4, daily 8),u16 dailyDay,u16 events;" +
+            "m4.7;Player:+u8 look with the kit;Summary:+u8 n,{u16 dest,u16 count};Global:+mode in the flags (practice 4, daily 8),u16 dailyDay,u16 events;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages,materials,allStamps;" +
             "Inputs:u8 n,u16 ack,u16 enemyAck,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -490,6 +490,8 @@ namespace PerformativeMail.Sim.Net
         public float Heading;
         /// <summary>The starting kit picked in the Lobby, an index into ContentDb.Kits.</summary>
         public byte Kit;
+        /// <summary>The carrier's look (doc 10 §8): uniform index | cap index &lt;&lt; 4.</summary>
+        public byte Look;
     }
 
     /// <summary>One enemy in a snapshot: 9 bytes (doc 06 §4; 40 of them at 10 Hz stay inside the budget).</summary>
@@ -551,14 +553,14 @@ namespace PerformativeMail.Sim.Net
         {
             Id = p.Id.Value, X = ToCm(p.X), Y = (short)ToCm(p.Y), Z = ToCm(p.Z), Yaw = p.Yaw, HeldSlot = p.HeldSlot, HeldTool = p.HeldTool,
             Flags = (byte)((p.Ready ? PlayerReady : 0) | (p.Protected ? PlayerProtected : 0) | (p.Away ? PlayerAway : 0)),
-            Hp = p.Hp, Ride = p.Ride, Heading = ToAngle(p.Heading), Kit = p.Kit,
+            Hp = p.Hp, Ride = p.Ride, Heading = ToAngle(p.Heading), Kit = p.Kit, Look = p.Look,
         };
 
         public static PlayerSnap Of(in PlayerQ q) => new PlayerSnap
         {
             Id = new EntityId(q.Id), X = q.X / 100f, Y = q.Y / 100f, Z = q.Z / 100f, Yaw = q.Yaw, HeldSlot = q.HeldSlot, HeldTool = q.HeldTool,
             Ready = (q.Flags & PlayerReady) != 0, Protected = (q.Flags & PlayerProtected) != 0, Away = (q.Flags & PlayerAway) != 0,
-            Hp = q.Hp, Ride = q.Ride, Heading = q.Heading / 256f * TwoPi, Kit = q.Kit,
+            Hp = q.Hp, Ride = q.Ride, Heading = q.Heading / 256f * TwoPi, Kit = q.Kit, Look = q.Look,
         };
 
         public static EnemyQ Quantise(in EnemySnap e) => new EnemyQ

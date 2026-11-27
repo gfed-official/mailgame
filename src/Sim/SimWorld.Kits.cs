@@ -28,6 +28,20 @@ namespace PerformativeMail.Sim
             return OpResult.Ok;
         }
 
+        /// <summary>
+        /// Doc 10 §8: the look a carrier shows the others, a uniform and a cap of the content's. What the player's profile
+        /// has opened is the client's to know (the server never sees a profile), so only the indices are checked.
+        /// </summary>
+        private OpResult SetLookOp(Player p, in SimRequest r)
+        {
+            // A guest may join in Prep (doc 06 §5) and bring its look along.
+            if (Run.Phase != RunPhase.Lobby && Run.Phase != RunPhase.Prep) return OpResult.WrongPhase;
+            int uniform = r.Count & 0x0F, cap = r.Count >> 4 & 0x0F;
+            if (r.Count > 0xFF || uniform >= Content.Uniforms.Count || cap >= Content.Caps.Count) return OpResult.BadRequest;
+            p.Look = (byte)r.Count;
+            return OpResult.Ok;
+        }
+
         private void GiveKits()
         {
             foreach (var p in _players) p.KitGiven = false;

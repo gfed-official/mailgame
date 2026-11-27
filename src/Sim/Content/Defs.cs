@@ -363,6 +363,35 @@ namespace PerformativeMail.Sim.Content
         }
     }
 
+    /// <summary>What a cosmetic tints (doc 10 §8): the uniform's jacket, or the cap.</summary>
+    public enum CosmeticKind : byte { Uniform = 0, Cap = 1 }
+
+    /// <summary>
+    /// A cosmetic of doc 10 §8, a tint with no gameplay effect: a uniform colour or a cap colour. The first of each kind
+    /// is the default, open to all (its colour empty: the team colour, or a shade darker for the cap). The others open at
+    /// a Postal Rank (doc 01 §5.2 "15+ every rank") or with an achievement (<see cref="Achievements"/>).
+    /// </summary>
+    public sealed class CosmeticDef
+    {
+        /// <summary>The achievements that open cosmetics (doc 10 §8): first Victory, Victory with 3 stamps, 1000 lifetime deliveries, a zero-misdelivery run.</summary>
+        public const string FirstVictory = "first_victory", StampedVictory = "stamped_victory", Deliveries1000 = "deliveries_1000", CleanRun = "clean_run";
+        public static readonly string[] Achievements = { FirstVictory, StampedVictory, Deliveries1000, CleanRun };
+        /// <summary>How many of a kind the wire carries (four bits each).</summary>
+        public const int MaxPerKind = 16;
+
+        public string Id { get; init; } = "";
+        public CosmeticKind Kind { get; init; }
+        /// <summary>Its place among its kind, 0 the default; what the wire carries.</summary>
+        public byte Index { get; init; }
+        public string Name { get; init; } = "";
+        /// <summary>"rrggbb"; empty for the default's colour.</summary>
+        public string Colour { get; init; } = "";
+        /// <summary>The Postal Rank that opens it; 0 when only its achievement does.</summary>
+        public int Rank { get; init; }
+        /// <summary>The achievement that opens it; empty for none.</summary>
+        public string Achievement { get; init; } = "";
+    }
+
     public sealed class KitDef
     {
         public string Id { get; init; } = "";

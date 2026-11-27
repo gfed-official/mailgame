@@ -36,12 +36,20 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>What stands over the head right now; empty for the local player, who has no tag.</summary>
         public string NameTagText => _nameTag?.Text ?? "";
 
-        public void Setup(string playerName, int slot, bool local)
+        /// <summary>The look the body is drawn in (doc 10 §8): uniform index | cap index &lt;&lt; 4.</summary>
+        public byte Look { get; private set; }
+
+        public void Setup(string playerName, int slot, bool local, byte look = 0, Sim.Content.ContentDb? content = null)
         {
             Bodiless = local;
+            Look = look;
             if (local) return;
 
-            _model = Characters.Carrier(Palette.PlayerColour(slot));
+            // The uniform's tint, else the colour of the carrier's place in the team; the cap's, else a shade darker.
+            int uniform = look & 0x0F, cap = look >> 4 & 0x0F;
+            var jacket = content != null && uniform > 0 && uniform < content.Uniforms.Count ? new Color(content.Uniforms[uniform].Colour) : Palette.PlayerColour(slot);
+            Color? capColour = content != null && cap > 0 && cap < content.Caps.Count ? new Color(content.Caps[cap].Colour) : null;
+            _model = Characters.Carrier(jacket, capColour);
             AddChild(_model);
             // Yaw 0 faces −Z (the sim's convention and Godot's): the letter is held out in front.
             _held = WeaponModels.Letter();

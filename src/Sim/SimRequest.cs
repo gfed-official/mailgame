@@ -90,6 +90,8 @@ namespace PerformativeMail.Sim
         RebuildRuin = 28,
         /// <summary>Doc 01 §6: the host sets the run's Postage Stamps in the Lobby, a bit mask of their indices (<see cref="SimRequest.Count"/>).</summary>
         SetStamps = 29,
+        /// <summary>Lobby or Prep: the carrier's look (doc 10 §8), uniform index | cap index &lt;&lt; 4 in <see cref="SimRequest.Count"/>.</summary>
+        SetLook = 30,
     }
 
     /// <summary>What a ping says (doc 09 §2.6: a click, or the wheel's "Deliver here", "Build here", "Danger", "Need materials").</summary>
@@ -201,6 +203,9 @@ namespace PerformativeMail.Sim
 
         public static SimRequest SetStamps(uint reqId, int mask) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetStamps, Count = (ushort)mask };
+
+        public static SimRequest SetLook(uint reqId, int uniform, int cap) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetLook, Count = (ushort)(uniform & 0x0F | (cap & 0x0F) << 4) };
 
         public static SimRequest SetKit(uint reqId, int kit) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetKit, Count = (ushort)kit };

@@ -3136,7 +3136,7 @@ the Draft, Payday, a four-row inventory, the Large Island, an apartment block, t
 Next in the docs' order: Cargo by boat to the far town's dock (the Motor Boat route of doc 11 §4), the map's outline of
 the incoming district (doc 01 §2.1 "Preview"), then M5.
 
-### 8. M4 — onboarding tips and the replay acceptance test (doc 12 M4; doc 09 §6), 2026-11-27
+### 8. M4 — onboarding tips, the replay acceptance test, cosmetics, the Results keys (doc 12 M4; doc 09 §6, §2.11; doc 10 §8), 2026-11-27
 
 The 24cbd0a playtest was still running when this batch began (its results directory had no report yet); the build was
 green at 24cbd0a (Sim.Tests 716, Net.Tests 245, `tools/smoke.sh` SMOKE OK ×3, BOT OK ×2), so M4 went on meanwhile.
@@ -3171,6 +3171,22 @@ green at 24cbd0a (Sim.Tests 716, Net.Tests 245, `tools/smoke.sh` SMOKE OK ×3, B
       kind, address, value, shifts, flags, due tick: 340–600 items a run) and every offer (three Drafts and the reroll)
       are the same; another seed gives another schedule. It found no non-determinism (the sim's sets and maps iterate in
       insertion order, never by hash; the daily date comes from `SimSettings.UtcNow`).
+
+- [x] **Cosmetics** (doc 10 §8, doc 01 §5.2 rank 15+; `Looks`, design choice 174). Tints with no new art and no
+      gameplay effect, in `content/cosmetics/cosmetics.json`: 8 uniform colours (Post Red, Royal Blue, Forest Green,
+      Mustard, Plum, Charcoal, Stamp Violet, Coral) and 6 cap colours (Red, Navy, Green, Spotless White, Gold, Black)
+      after the defaults (the team colour of the carrier's place, a cap a shade darker). One opens at each Postal Rank
+      from 15 (uniform 15, cap 16, … up to 25), four by the doc's achievements: first Victory (the Gold cap), Victory with 3
+      stamps (Stamp Violet), 1000 lifetime deliveries (Charcoal), a zero-misdelivery run (Spotless White). In the Lobby
+      U steps the uniform and J the cap through what is open; the Lobby's "Look: Royal Blue, Gold cap   ·   [U] [J]"
+      plate says what is worn (at rank 1, when more come). The profile keeps them (`"cosmetics": {"uniform", "cap"}`,
+      `"achievements"`, `unlocks.cosmetics`); the client sends its look to every server it joins (`SetLook`, Lobby or
+      Prep), and the others see it: the carrier's jacket and cap are drawn in it (the body drawn anew when it changes).
+      The Results' "Unlocked:" line names a rank's cosmetic and an achievement's ("the Gold cap for first Victory").
+      Protocol m4.7 (the look rides in the snapshot with the kit). `CosmeticTests` (content, opening by rank and
+      achievement, the profile file, the achievements of a run, two clients: the look from the profile on joining,
+      the keys, Lobby only); the smoke checks the Lobby's look line and that a guest's Post Red and Gold cap reach the
+      host and its drawing (shot `nametag`).
 
 ## How to build and check
 
@@ -4849,6 +4865,16 @@ See "Commands" at the bottom (filled in as the tooling lands).
     list is the profile's `tipsDone` (doc 08 §3.8 has no field for it); what a carrier does counts even while no tip is
     shown. (e) The Lobby's "How to play" card is the Payday / Results card's plate on H, not a new kind of panel.
 
+174. **Cosmetics, where doc 10 §8 and doc 01 §5.2 are short.** (a) Tints only: a uniform colours the jacket, a cap
+    the cap; the default uniform stays the colour of the carrier's place in the team, so a team of defaults still tells
+    its carriers apart. Truck liveries, mailbox skins and emotes wait (they need art or animation). (b) "15+ every
+    rank": one cosmetic a rank from 15 to 25, uniform and cap by turns; the other four come from the doc's four
+    achievements, one each. (c) "Zero-misdelivery run": three shifts or more played, some mail delivered and no
+    misdelivery by anybody in the team, whatever the outcome (a one-shift run without a mistake is too cheap); "Victory
+    with 3 stamps": three or more stamps on; a practice run earns none. (d) The server never sees a profile (doc 07
+    §7.1), so it checks only that the look's indices exist; what is open is the client's to know, as with the rank.
+    (e) The look is picked in the Lobby (U / J) and sent again on joining, in the Lobby or Prep.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4885,6 +4911,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   T points at the next of the eight Postage Stamps and Y puts it on or off (tier 2 from Postal Rank 6, tier 3 from 12),
 #   P chooses the practice run (test street, 2 shifts, no raid, no XP) and O today's Daily Seed; each again leaves it;
 #   Ctrl+V pastes a seed string ("PM1-SMALL-7F3A9C21-CM.DR", as C copies it at Results) with its stamps
+# in the Lobby U and J step your uniform and cap through the cosmetics your rank and achievements have opened
 # in the Lobby H puts the "How to play" card up or down; in a first run's shift 1, H puts the shown tip away
 # in the Draft: 1-3 take a card, R (or the button) draws new cards of your own, once a run (twice from Postal Rank 4)
 # in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)

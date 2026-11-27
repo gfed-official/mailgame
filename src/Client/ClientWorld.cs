@@ -34,6 +34,10 @@ namespace PerformativeMail.Client
         public byte HeldTool { get; private set; }
         /// <summary>The starting kit picked in the Lobby, an index into ContentDb.Kits.</summary>
         public byte Kit { get; private set; }
+        /// <summary>The look picked in the Lobby (doc 10 §8): uniform index | cap index &lt;&lt; 4.</summary>
+        public byte Look { get; private set; }
+        public int Uniform => Look & 0x0F;
+        public int Cap => Look >> 4 & 0x0F;
         /// <summary>Ready flag of the Lobby and Prep, from the newest snapshot.</summary>
         public bool Ready { get; internal set; }
         public bool HasSamples => _count > 0;
@@ -87,6 +91,7 @@ namespace PerformativeMail.Client
             HeldSlot = snap.HeldSlot;
             HeldTool = snap.HeldTool;
             Kit = snap.Kit;
+            Look = snap.Look;
             Ready = snap.Ready;
             Protected = snap.Protected;
             Away = snap.Away;

@@ -321,6 +321,10 @@ namespace PerformativeMail.App
                         // At Postal Rank 1 the Land kit is the one open: the hint names it, K finds no other.
                         Check(hud.HintText.Contains($"{HudText.KitKey} kit: Land", StringComparison.Ordinal), $"in the Lobby the HUD hint does not name the kit: \"{hud.HintText}\"");
                         Check(client.CycleKit() == 0, "at rank 1 the kit key asked for another kit than Land");
+                        // Doc 10 §8: the look's line; at rank 1 only the defaults are open, and it says when more come.
+                        Check(hud.LookText == HudText.LookTracker(world.Content, _session.Looks) && hud.LookText.StartsWith("Look: Team colour, Matching cap", StringComparison.Ordinal),
+                            $"in the Lobby the look's line reads \"{hud.LookText}\"");
+                        Check(!_session.Looks.Next(PerformativeMail.Sim.Content.CosmeticKind.Uniform), "at rank 1 the uniform key found another uniform than the team colour");
                         Check(_mailArrived == 0 && server.Intake.EntryCount == 0, "mail arrived before the run started");
                         // As if the screen were still drawing a new world: the Generating phase waits a few frames for it.
                         var drawn = client.WorldDrawn;
@@ -475,6 +479,8 @@ namespace PerformativeMail.App
         // --- ENet (doc 06 §2): a second client joins the host's socket, a stale build is turned away ---
 
         private const string RemoteName = "Remote";
+        /// <summary>The guest's look: Post Red (uniform 1) and the Gold cap (cap 5).</summary>
+        private const int GuestUniform = 1, GuestCap = 5;
         private const int RemoteStartShift = 3;
         private const int RemoteWalkTicks = 30;
         private const ulong RemoteTimeoutMsec = 10000;
@@ -694,6 +700,8 @@ namespace PerformativeMail.App
                     Check(_session.Feed.Entries.Any(e => e.Text == $"{RemoteName} is back"), "the feed does not say the guest is back");
                     Check(_remote.ContainerDesyncs == 0 && _remote.BadPackets == 0, $"returned client: {_remote.ContainerDesyncs} desyncs, {_remote.BadPackets} bad packets");
                     GD.Print($"[smoke] away: {RemoteName} dropped in {world.Global.Phase}, stood as \"{RemoteName} (away)\", came back as {_awayId}");
+                    // Doc 10 §8: the guest wears the Post Red uniform and the Gold cap (its profile is the test's), for all to see.
+                    _remote.Send(SimRequest.SetLook(0, GuestUniform, GuestCap));
                     _remoteStep = 7;
                     _remoteWalked = 0;
                     break;
@@ -710,6 +718,9 @@ namespace PerformativeMail.App
                     truth.Move.Z = world.Local.Z - MathF.Cos(yaw) * NameTagMetres;
                     if (++_remoteWalked < 30) break;
                     CheckNameTag();
+                    byte look = (byte)(GuestUniform | GuestCap << 4);
+                    Check(world.Players[_awayId].Look == look && _screen.Players.LookOf(_awayId) == look,
+                        $"the guest's look is {world.Players[_awayId].Look:x2} at the host, drawn in {_screen.Players.LookOf(_awayId):x2}, not {look:x2}");
                     Shot("nametag");
                     _remoteStep = 8;
                     _remoteWalked = 0;

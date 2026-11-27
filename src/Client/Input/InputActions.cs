@@ -50,6 +50,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string Practice = "practice", Daily = "daily";
         /// <summary>The Lobby's "How to play" card, and in a run the onboarding tip put away (doc 09 §6). Doc 09 §4 has no key for it; H.</summary>
         public const string Help = "help";
+        /// <summary>Lobby: the next uniform and the next cap open to the profile (doc 10 §8). Doc 09 §4 has no keys for them; U and J.</summary>
+        public const string UniformLook = "look_uniform", CapLook = "look_cap";
         /// <summary>The map overlay (doc 09 §4: M).</summary>
         public const string Map = "map";
         /// <summary>The map's filter chips while it is up (doc 09 §2.6 has no keys for them): Z Mail, X Routes, V Resources.</summary>
@@ -90,6 +92,8 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Practice, Key.P);
             BindKey(Daily, Key.O);
             BindKey(Help, Key.H);
+            BindKey(UniformLook, Key.U);
+            BindKey(CapLook, Key.J);
             BindKey(ReloadContent, Key.F6);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);

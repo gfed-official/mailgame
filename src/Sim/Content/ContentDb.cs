@@ -38,6 +38,10 @@ namespace PerformativeMail.Sim.Content
         public IReadOnlyList<KitDef> Kits { get; private set; } = Array.Empty<KitDef>();
         /// <summary>The kit a player has until they choose another: Land, open from rank 1.</summary>
         public KitDef DefaultKit => Kits[0];
+        /// <summary>The uniform colours (doc 10 §8), the default first.</summary>
+        public IReadOnlyList<CosmeticDef> Uniforms { get; private set; } = Array.Empty<CosmeticDef>();
+        /// <summary>The cap colours (doc 10 §8), the default first.</summary>
+        public IReadOnlyList<CosmeticDef> Caps { get; private set; } = Array.Empty<CosmeticDef>();
         /// <summary>The Postage Stamps (doc 01 §6, doc 08 §2.12), at most <see cref="StampDef.MaxStamps"/>; a run's are a bit mask of their indices.</summary>
         public IReadOnlyList<StampDef> Stamps { get; private set; } = Array.Empty<StampDef>();
         /// <summary>The run events (doc 10 §6), at most <see cref="RunEventDef.MaxEvents"/>; the live ones are a bit mask of their indices.</summary>
@@ -963,6 +967,51 @@ namespace PerformativeMail.Sim.Content
                 }
                 if (list.Count == 0) errors.Add("kits: no starting kit (doc 03 §4.4 needs the default Land kit)");
                 db.Kits = list;
+            }
+
+            // --- cosmetics (doc 10 §8) -----------------------------------------------------------
+            {
+                var uniforms = new List<CosmeticDef>();
+                var caps = new List<CosmeticDef>();
+                var ids = new Dictionary<string, CosmeticDef>();
+                foreach (string file in source.ListJson("cosmetics"))
+                {
+                    var ctx = new JsonCtx(file, errors);
+                    foreach (var e in ReadArray(ctx, Read(file)))
+                    {
+                        string id = J.Str(ctx, e, "id");
+                        string kindText = J.Str(ctx, e, "kind");
+                        if (kindText != "uniform" && kindText != "cap") { ctx.Error($"'{id}': kind must be 'uniform' or 'cap'"); continue; }
+                        var kind = kindText == "uniform" ? CosmeticKind.Uniform : CosmeticKind.Cap;
+                        var list = kind == CosmeticKind.Uniform ? uniforms : caps;
+                        var def = new CosmeticDef
+                        {
+                            Id = id,
+                            Kind = kind,
+                            Index = (byte)list.Count,
+                            Name = J.Str(ctx, e, "name"),
+                            Colour = J.Str(ctx, e, "colour", ""),
+                            Rank = J.Int(ctx, e, "rank", 0),
+                            Achievement = J.Str(ctx, e, "achievement", ""),
+                        };
+                        if (def.Colour.Length > 0 && (def.Colour.Length != 6 || !uint.TryParse(def.Colour, System.Globalization.NumberStyles.HexNumber, null, out _)))
+                            ctx.Error($"'{id}': colour must be six hex digits (rrggbb)");
+                        if (list.Count == 0 && (def.Rank != 1 || def.Colour.Length > 0 || def.Achievement.Length > 0))
+                            ctx.Error($"'{id}': the first {kindText} is the default: rank 1, no colour, no achievement");
+                        if (list.Count > 0 && def.Colour.Length == 0) ctx.Error($"'{id}': only the default may have no colour");
+                        if (def.Achievement.Length > 0 && Array.IndexOf(CosmeticDef.Achievements, def.Achievement) < 0)
+                            ctx.Error($"'{id}': unknown achievement '{def.Achievement}' ({string.Join(", ", CosmeticDef.Achievements)})");
+                        if (def.Rank < 0 || (def.Rank == 0 && def.Achievement.Length == 0)) ctx.Error($"'{id}': opened by nothing (a rank >= 1 or an achievement)");
+                        if (list.Count >= CosmeticDef.MaxPerKind) { ctx.Error($"'{id}': more than {CosmeticDef.MaxPerKind} {kindText}s"); continue; }
+                        if (!AddUnique(ctx, ids, id, def)) continue;
+                        list.Add(def);
+                    }
+                }
+                // Content without cosmetics (a test's) has the defaults alone.
+                if (uniforms.Count == 0) uniforms.Add(new CosmeticDef { Id = "uniform_team", Kind = CosmeticKind.Uniform, Name = "Team colour", Rank = 1 });
+                if (caps.Count == 0) caps.Add(new CosmeticDef { Id = "cap_match", Kind = CosmeticKind.Cap, Name = "Matching", Rank = 1 });
+                db.Uniforms = uniforms;
+                db.Caps = caps;
             }
 
             // --- postage stamps (doc 01 §6, doc 08 §2.12) ---------------------------------------

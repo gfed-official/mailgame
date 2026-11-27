@@ -266,6 +266,11 @@ namespace PerformativeMail.Client.UI
         /// <summary>The live run events' tracker row (doc 10 §6), else empty.</summary>
         public string EventTrackerText => _event.Visible ? _event.Text : "";
         /// <summary>The Lobby's plates (doc 09 §2.2): the world and its seed, the kit, the host's keys for them.</summary>
+        private Label _look = null!;
+        /// <summary>The look's Lobby line (doc 10 §8), else empty.</summary>
+        public string LookText => _look.Visible ? _look.Text : "";
+        /// <summary>The cosmetics picked in the Lobby; without them the Lobby shows no look line.</summary>
+        public Looks? Looks;
         private Label _world = null!, _kit = null!, _worldKeys = null!, _stamps = null!, _stampPick = null!, _modeKeys = null!;
         /// <summary>The Lobby's Postage Stamps plate (doc 01 §6).</summary>
         public string StampsText => _stamps.Visible ? _stamps.Text : "";
@@ -479,6 +484,7 @@ namespace PerformativeMail.Client.UI
             // In the Lobby, where the shift's plates are empty.
             _world = AddTracker("World", 1, new Color("7fd1b9"));
             _kit = AddTracker("Kit", 2, new Color("f4a261"));
+            _look = AddTracker("Look", 2, new Color("e9765e"));
             _worldKeys = AddTracker("WorldKeys", 3, new Color("b8c4d0"));
             _stamps = AddTracker("Stamps", 4, Palette.Cursed);
             _stampPick = AddTracker("StampPick", 5, Palette.Cursed);
@@ -592,6 +598,8 @@ namespace PerformativeMail.Client.UI
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
             bool lobby = global.Phase == RunPhase.Lobby;
             _world.Visible = _kit.Visible = _stamps.Visible = lobby;
+            _look.Visible = lobby && Looks != null;
+            if (_look.Visible) _look.Text = HudText.LookTracker(world.Content, Looks!);
             _worldKeys.Visible = _stampPick.Visible = _modeKeys.Visible = lobby && world.IsHost;
             if (lobby)
             {

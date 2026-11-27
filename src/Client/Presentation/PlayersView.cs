@@ -41,6 +41,9 @@ namespace PerformativeMail.Client.Presentation
         /// <summary>The name tag over a player's head as drawn right now; empty without one.</summary>
         public string NameTagOf(EntityId id) => _views.TryGetValue(id, out var view) ? view.NameTagText : "";
 
+        /// <summary>The look a carrier's body is drawn in (doc 10 §8); 0 for none drawn.</summary>
+        public byte LookOf(EntityId id) => _views.TryGetValue(id, out var view) ? view.Look : (byte)0;
+
         private void Sync(double delta)
         {
             var world = _client?.World;
@@ -50,7 +53,8 @@ namespace PerformativeMail.Client.Presentation
             {
                 bool local = player.Id == world.LocalId;
                 // Ids are used again (nit 11): the view of one who left is not the next one's.
-                if (_views.TryGetValue(player.Id, out var view) && view.Carrier != player)
+                // So is the body of one who picked another look in the Lobby (doc 10 §8): drawn anew in it.
+                if (_views.TryGetValue(player.Id, out var view) && (view.Carrier != player || (!local && view.Look != player.Look)))
                 {
                     RemoveChild(view);
                     view.QueueFree();
@@ -60,7 +64,7 @@ namespace PerformativeMail.Client.Presentation
                 if (view == null)
                 {
                     view = new PlayerView { Name = $"Player{player.Id.Counter}", Carrier = player };
-                    view.Setup(player.Name, player.Slot, local);
+                    view.Setup(player.Name, player.Slot, local, player.Look, world.Content);
                     AddChild(view);
                     _views[player.Id] = view;
                     if (local)

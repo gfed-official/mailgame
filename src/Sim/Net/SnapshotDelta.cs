@@ -8,7 +8,7 @@ namespace PerformativeMail.Sim.Net
         public uint Id;
         public int X, Y, Z;
         public ushort Yaw;
-        public byte HeldSlot, HeldTool, Flags, Hp, Ride, Heading, Kit;
+        public byte HeldSlot, HeldTool, Flags, Hp, Ride, Heading, Kit, Look;
     }
 
     /// <summary>An enemy of a snapshot as the wire carries it: 2 cm steps, its kind, mega and state packed in a byte.</summary>
@@ -54,7 +54,8 @@ namespace PerformativeMail.Sim.Net
                 if (p.Flags != o.Flags) mask |= PFlags;
                 if (p.Hp != o.Hp) mask |= PHp;
                 if (p.Ride != o.Ride || p.Heading != o.Heading) mask |= PRide;
-                if (p.Kit != o.Kit) mask |= PKit;
+                // The look rides with the kit: both are the Lobby's and change seldom.
+                if (p.Kit != o.Kit || p.Look != o.Look) mask |= PKit;
             }
             else mask = PPosFull | PYaw | PHeld | PFlags | PHp | PRide | PKit;
             w.U32(p.Id);
@@ -66,7 +67,7 @@ namespace PerformativeMail.Sim.Net
             if ((mask & PFlags) != 0) w.U8(p.Flags);
             if ((mask & PHp) != 0) w.U8(p.Hp);
             if ((mask & PRide) != 0) { w.U8(p.Ride); w.U8(p.Heading); }
-            if ((mask & PKit) != 0) w.U8(p.Kit);
+            if ((mask & PKit) != 0) { w.U8(p.Kit); w.U8(p.Look); }
         }
 
         /// <summary>Reads one player; false when it is a delta against a baseline without it (the snapshot cannot be decoded).</summary>
@@ -86,7 +87,7 @@ namespace PerformativeMail.Sim.Net
             if ((mask & PFlags) != 0) p.Flags = r.U8();
             if ((mask & PHp) != 0) p.Hp = r.U8();
             if ((mask & PRide) != 0) { p.Ride = r.U8(); p.Heading = r.U8(); }
-            if ((mask & PKit) != 0) p.Kit = r.U8();
+            if ((mask & PKit) != 0) { p.Kit = r.U8(); p.Look = r.U8(); }
             return known || whole;
         }
 

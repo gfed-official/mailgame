@@ -28,6 +28,8 @@ namespace PerformativeMail.Client.InputHandling
         public event Action<string>? SeedPasted;
         /// <summary>The help key (H): the Lobby's "How to play" card, or the onboarding tip put away.</summary>
         public event Action? HelpPressed;
+        /// <summary>The Lobby's look keys (U uniform, J cap; doc 10 §8).</summary>
+        public event Action<PerformativeMail.Sim.Content.CosmeticKind>? LookPressed;
         /// <summary>A chip's key while the map is up (Z, X, V).</summary>
         public event Action<MapChip>? MapChipPressed;
         /// <summary>True while the map is up: Esc puts it down first.</summary>
@@ -188,6 +190,8 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Practice) && !UiOpen) _client.TogglePractice();
             else if (ev.IsActionPressed(InputActions.Daily) && !UiOpen) _client.ToggleDaily();
             else if (ev.IsActionPressed(InputActions.Help)) HelpPressed?.Invoke();
+            else if (ev.IsActionPressed(InputActions.UniformLook) && !UiOpen) LookPressed?.Invoke(PerformativeMail.Sim.Content.CosmeticKind.Uniform);
+            else if (ev.IsActionPressed(InputActions.CapLook) && !UiOpen) LookPressed?.Invoke(PerformativeMail.Sim.Content.CosmeticKind.Cap);
             else if (ev.IsActionPressed(InputActions.ReloadContent) && OS.IsDebugBuild()) ContentReloadAsked?.Invoke();
         }
 

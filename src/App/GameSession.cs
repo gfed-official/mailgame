@@ -36,6 +36,8 @@ namespace PerformativeMail.App
         public ProfileTracker Profile { get; private set; } = null!;
         /// <summary>The onboarding tips of a first run (doc 09 §6).</summary>
         public TipTracker Tips { get; private set; } = null!;
+        /// <summary>The cosmetics worn and picked in the Lobby (doc 10 §8).</summary>
+        public Looks Looks { get; private set; } = null!;
         /// <summary><c>--playtest-tips</c>: the tips as on a first run, whatever the profile has done.</summary>
         public bool ForceTips;
         /// <summary>Host: the UDP port remote clients join on, 0 when the host does not listen.</summary>
@@ -150,6 +152,7 @@ namespace PerformativeMail.App
             Client.RequestCompleted += Feed.OnRequest;
             Profile = new ProfileTracker(Client, profile, store);
             Tips = new TipTracker(Client, Profile, ForceTips);
+            Looks = new Looks(Client, Profile);
         }
 
         public override void _Process(double delta)

@@ -1,0 +1,21 @@
+[
+  { "id": "uniform_team", "kind": "uniform", "name": "Team colour", "colour": "", "rank": 1,
+    "description": "The colour of your place in the team (the default)." },
+  { "id": "uniform_post_red", "kind": "uniform", "name": "Post Red", "colour": "c8323a", "rank": 15 },
+  { "id": "uniform_royal_blue", "kind": "uniform", "name": "Royal Blue", "colour": "2f5fc4", "rank": 17 },
+  { "id": "uniform_forest", "kind": "uniform", "name": "Forest Green", "colour": "2f7a46", "rank": 19 },
+  { "id": "uniform_mustard", "kind": "uniform", "name": "Mustard", "colour": "d1a12c", "rank": 21 },
+  { "id": "uniform_plum", "kind": "uniform", "name": "Plum", "colour": "7a3f86", "rank": 23 },
+  { "id": "uniform_charcoal", "kind": "uniform", "name": "Charcoal", "colour": "3c4046", "achievement": "deliveries_1000" },
+  { "id": "uniform_stamp_violet", "kind": "uniform", "name": "Stamp Violet", "colour": "8f6ad8", "achievement": "stamped_victory" },
+  { "id": "uniform_coral", "kind": "uniform", "name": "Coral", "colour": "e9765e", "rank": 25 },
+
+  { "id": "cap_match", "kind": "cap", "name": "Matching", "colour": "", "rank": 1,
+    "description": "A shade darker than the uniform (the default)." },
+  { "id": "cap_red", "kind": "cap", "name": "Red", "colour": "b02a30", "rank": 16 },
+  { "id": "cap_navy", "kind": "cap", "name": "Navy", "colour": "23304f", "rank": 18 },
+  { "id": "cap_green", "kind": "cap", "name": "Green", "colour": "3e8a3e", "rank": 20 },
+  { "id": "cap_white", "kind": "cap", "name": "Spotless White", "colour": "eef0f2", "achievement": "clean_run" },
+  { "id": "cap_gold", "kind": "cap", "name": "Gold", "colour": "e2b23a", "achievement": "first_victory" },
+  { "id": "cap_black", "kind": "cap", "name": "Black", "colour": "1d1e22", "rank": 22 }
+]

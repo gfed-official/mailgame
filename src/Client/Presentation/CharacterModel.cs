@@ -148,7 +148,8 @@ namespace PerformativeMail.Client.Presentation
         private static readonly Color ArcherGreen = new Color("3f5a34");
 
         /// <summary>A mail carrier: jacket and cap in the player's colour, satchel on the hip.</summary>
-        public static CharacterModel Carrier(Color colour)
+        /// <param name="capColour">The cap's (doc 10 §8 cosmetics); null for a shade darker than the uniform.</param>
+        public static CharacterModel Carrier(Color colour, Color? capColour = null)
         {
             var m = new CharacterModel { Name = "Carrier", Height = 1.86f };
             var jacket = MeshKit.Mat(colour, 0.8f);
@@ -157,7 +158,7 @@ namespace PerformativeMail.Client.Presentation
             Humanoid(m, jacket, jacket, trousers, skin, MeshKit.Mat(new Color("2a2422"), 0.6f), shoulder: 0.31f, torsoRadius: 0.25f, limb: 0.085f);
 
             // The cap: a low crown and a brim over the eyes.
-            var cap = MeshKit.Mat(colour.Darkened(0.35f), 0.7f);
+            var cap = MeshKit.Mat(capColour ?? colour.Darkened(0.35f), 0.7f);
             m.Part(m.Trunk, MeshKit.Sphere(0.215f), cap, new Vector3(0f, 1.74f, 0.01f), scale: new Vector3(1f, 0.62f, 1f));
             m.Part(m.Trunk, MeshKit.RoundedBox(new Vector3(0.3f, 0.035f, 0.2f), 0.017f), cap, new Vector3(0f, 1.71f, -0.24f), new Vector3(-8f, 0f, 0f));
             m.Part(m.Trunk, MeshKit.Sphere(0.03f, 10), MeshKit.Mat(new Color("f2c14e"), 0.4f, 0.6f), new Vector3(0f, 1.78f, -0.2f));

@@ -185,6 +185,23 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>The Lobby's kit plate: "Kit: Land · [K]".</summary>
+        /// <summary>The Lobby's keys for the uniform and the cap (doc 10 §8). Doc 09 §4 has none; U and J.</summary>
+        public const string UniformKey = "[U]", CapKey = "[J]";
+
+        /// <summary>"Look: Royal Blue, Gold cap   ·   [U] [J]"; with nothing but the defaults open, when more come.</summary>
+        public static string LookTracker(ContentDb content, Meta.Looks looks)
+        {
+            var u = looks.Uniform;
+            var c = looks.Cap;
+            string worn = $"Look: {u.Name}, {c.Name} cap";
+            string keys = (looks.OpenCount(CosmeticKind.Uniform) > 1 ? " " + UniformKey : "") + (looks.OpenCount(CosmeticKind.Cap) > 1 ? " " + CapKey : "");
+            if (keys.Length > 0) return worn + "   ·  " + keys;
+            int first = int.MaxValue;
+            foreach (var d in Meta.RankUnlocks.Cosmetics(content))
+                if (d.Rank > 1) first = Math.Min(first, d.Rank);
+            return first == int.MaxValue ? worn : $"{worn}   ·   more from Postal Rank {first}";
+        }
+
         public static string KitTracker(ClientWorld world) => $"Kit: {LocalKit(world).Name}   ·   {KitKey}";
 
         /// <summary>The host's keys in the Lobby.</summary>

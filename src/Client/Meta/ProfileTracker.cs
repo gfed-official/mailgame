@@ -41,7 +41,10 @@ namespace PerformativeMail.Client.Meta
             _store = store;
             _clock = clock ?? (() => DateTime.Now);
             client.EventReceived += OnEvent;
-            Profile.Unlocks = RankUnlocks.For(client.Content, Profile.Rank(client.Content.Balance.GetInt("rankXpPerRank")));
+            int rank = Profile.Rank(client.Content.Balance.GetInt("rankXpPerRank"));
+            Profile.Unlocks = RankUnlocks.For(client.Content, rank);
+            Profile.Unlocks.Cosmetics.Clear();
+            Profile.Unlocks.Cosmetics.AddRange(Looks.Open(client.Content, rank, Profile.Achievements));
         }
 
         /// <summary>
@@ -123,8 +126,18 @@ namespace PerformativeMail.Client.Meta
                 Date = _clock().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             });
             int after = Profile.Rank(perRank);
+            var unlocked = RankUnlocks.Revealed(world.Content, before, after);
+            // Doc 10 §8's achievements, each with the cosmetic it opens (design choice 174).
+            foreach (string id in Looks.Earned(results, world.Global.Mode, world.Global.Stamps, Profile))
+            {
+                Profile.Achievements.Add(id);
+                foreach (var c in RankUnlocks.Cosmetics(world.Content))
+                    if (c.Achievement == id && !(c.Rank > 0 && after >= c.Rank)) unlocked.Add($"{RankUnlocks.CosmeticName(c)} for {Looks.AchievementName(id)}");
+            }
             Profile.Unlocks = RankUnlocks.For(world.Content, after);
-            LastGain = new ProfileGain { Xp = xp, RankBefore = before, RankAfter = after, Unlocked = RankUnlocks.Revealed(world.Content, before, after) };
+            Profile.Unlocks.Cosmetics.Clear();
+            Profile.Unlocks.Cosmetics.AddRange(Looks.Open(world.Content, after, Profile.Achievements));
+            LastGain = new ProfileGain { Xp = xp, RankBefore = before, RankAfter = after, Unlocked = unlocked };
         }
 
         /// <summary>A failed save must not stop the game: the profile stays in memory and the next save tries again.</summary>

@@ -39,6 +39,10 @@ namespace PerformativeMail.Client.Meta
         public readonly List<RecentRun> RecentRuns = new List<RecentRun>();
         /// <summary>The onboarding tips (doc 09 §6) done or put away, never shown again (<see cref="TipTracker"/>; design choice 173).</summary>
         public readonly List<string> TipsDone = new List<string>();
+        /// <summary>The achievements earned (doc 10 §8, <see cref="Looks"/>); each opens a cosmetic.</summary>
+        public readonly List<string> Achievements = new List<string>();
+        /// <summary>The uniform and the cap worn (doc 08 §3.8 "cosmetics"), content ids; empty for the defaults.</summary>
+        public string Uniform = "", Cap = "";
 
         public static MetaProfile Create(string displayName) =>
             new MetaProfile { ProfileId = "local:" + Guid.NewGuid().ToString("N"), DisplayName = displayName };
@@ -89,7 +93,12 @@ namespace PerformativeMail.Client.Meta
                 w.WriteNumber("rerolls", Unlocks.Rerolls);
                 w.WriteEndObject();
                 w.WriteStartObject("cosmetics");
+                w.WriteString("uniform", Uniform);
+                w.WriteString("cap", Cap);
                 w.WriteEndObject();
+                w.WriteStartArray("achievements");
+                foreach (string id in Achievements) w.WriteStringValue(id);
+                w.WriteEndArray();
                 w.WriteStartObject("stats");
                 w.WriteNumber("runs", Runs);
                 w.WriteNumber("wins", Wins);
@@ -171,6 +180,12 @@ namespace PerformativeMail.Client.Meta
                     }
                 }
                 Strs(root, "tipsDone", profile.TipsDone);
+                Strs(root, "achievements", profile.Achievements);
+                if (root.TryGetProperty("cosmetics", out var worn) && worn.ValueKind == JsonValueKind.Object)
+                {
+                    profile.Uniform = Str(worn, "uniform");
+                    profile.Cap = Str(worn, "cap");
+                }
                 return profile;
             }
         }
