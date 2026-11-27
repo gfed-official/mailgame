@@ -3,7 +3,7 @@
 # deliver -> wallet -> ... -> results), the raid playtest (--shift=2 --no-quota --raid
 # --playtest-package), and the debug world (--debug-world).
 # Exits 0 only if the game printed "SMOKE OK" each time and leaked nothing on its way out, and then
-# a bot played the generated Small Island town (doc 02) of the same seed to "BOT OK".
+# a bot played the generated Small Island town (doc 02) of the same seed to "BOT OK", and one the Large Island.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -124,3 +124,16 @@ grep -q "^BOT OK$" "$work/log-island" || { echo "smoke: the bot on the generated
 grep -q "on Small Island #$SEED" "$work/log-island" || { echo "smoke: the bot did not play on the generated town" >&2; exit 1; }
 grep -q "leaked at exit" "$work/log-island" && { echo "smoke: objects leaked at exit (island bot)" >&2; exit 1; }
 echo "island OK"
+
+# The Large Island (doc 02 §1, doc 12 M4): twenty seeds validate (the 100-seed run is LargeIslandTests), and a bot
+# plays a seed's island over loopback, the client building it — inlet, towns, ferry lane — from the seed.
+"$DOTNET" tools/SeedViewer/bin/Debug/net8.0/SeedViewer.dll 1-20 --large > "$work/seeds-large" || { cat "$work/seeds-large"; echo "smoke: a seed made no valid Large Island" >&2; exit 1; }
+set +e
+timeout 120 "$GODOT" --headless --path . -- --bot --solo --world=large "--seed=$SEED" --quit-after=25 "--profile=$work/profile-large.json" 2>&1 | tee "$work/log-large"
+status=${PIPESTATUS[0]}
+set -e
+[ "$status" -eq 0 ] || { echo "smoke: the bot on the Large Island exited with $status" >&2; exit "$status"; }
+grep -q "^BOT OK$" "$work/log-large" || { echo "smoke: the bot on the Large Island did not finish OK" >&2; exit 1; }
+grep -q "on Large Island #$SEED" "$work/log-large" || { echo "smoke: the bot did not play on the Large Island" >&2; exit 1; }
+grep -q "leaked at exit" "$work/log-large" && { echo "smoke: objects leaked at exit (Large Island bot)" >&2; exit 1; }
+echo "large island OK"

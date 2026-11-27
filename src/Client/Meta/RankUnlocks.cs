@@ -32,8 +32,9 @@ namespace PerformativeMail.Client.Meta
             var u = new ProfileUnlocks();
             foreach (var kit in content.Kits)
                 if (kit.Rank <= rank) u.Kits.Add(kit.Id);
-            // The Large Island of rank 3 does not exist yet; the Small Island is everybody's.
+            // The Small Island is everybody's; the Large Island from rank 3 (doc 01 §5.2).
             u.Archetypes.Add(WorldGenerator.SmallIsland);
+            if (rank >= Sim.SimWorld.WorldRank(content, LargeIslandGenerator.LargeIsland)) u.Archetypes.Add(LargeIslandGenerator.LargeIsland);
             u.StampTiers = Sim.Run.StampRules.TierOpen(content.Balance, rank, false);
             foreach (var category in PoolOrder)
             {
@@ -58,6 +59,7 @@ namespace PerformativeMail.Client.Meta
             var words = new List<string>();
             foreach (var kit in content.Kits)
                 if (now.Kits.Contains(kit.Id) && !was.Kits.Contains(kit.Id)) words.Add($"the {kit.Name} kit");
+            if (now.Archetypes.Contains(LargeIslandGenerator.LargeIsland) && !was.Archetypes.Contains(LargeIslandGenerator.LargeIsland)) words.Add("the Large Island");
             for (int t = was.StampTiers + 1; t <= now.StampTiers; t++) words.Add($"Postage Stamps tier {t}");
             foreach (string pool in now.PerkPools)
                 if (!was.PerkPools.Contains(pool)) words.Add($"{pool} perks in the Draft");

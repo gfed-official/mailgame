@@ -176,27 +176,33 @@ namespace PerformativeMail.Sim.World
         }
 
         /// <summary>True if every node can be reached from every other.</summary>
-        public bool Connected()
+        public bool Connected() => Components() <= 1;
+
+        /// <summary>How many networks the streets make: 1 when every node can be reached from every other (0 with none).</summary>
+        public int Components()
         {
-            if (_nodes.Count == 0) return true;
             var seen = new bool[_nodes.Count];
             var stack = new Stack<int>();
-            stack.Push(0);
-            seen[0] = true;
-            int reached = 1;
-            while (stack.Count > 0)
+            int parts = 0;
+            for (int start = 0; start < _nodes.Count; start++)
             {
-                int n = stack.Pop();
-                foreach (int e in _adjacent[n])
+                if (seen[start]) continue;
+                parts++;
+                seen[start] = true;
+                stack.Push(start);
+                while (stack.Count > 0)
                 {
-                    int m = _edges[e].A == n ? _edges[e].B : _edges[e].A;
-                    if (seen[m]) continue;
-                    seen[m] = true;
-                    reached++;
-                    stack.Push(m);
+                    int n = stack.Pop();
+                    foreach (int e in _adjacent[n])
+                    {
+                        int m = _edges[e].A == n ? _edges[e].B : _edges[e].A;
+                        if (seen[m]) continue;
+                        seen[m] = true;
+                        stack.Push(m);
+                    }
                 }
             }
-            return reached == _nodes.Count;
+            return parts;
         }
 
         /// <summary>The nearest point on any edge to a point, with the edge's index and how far off it is; -1 with no edges.</summary>

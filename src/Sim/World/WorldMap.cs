@@ -103,6 +103,18 @@ namespace PerformativeMail.Sim.World
         }
     }
 
+    /// <summary>
+    /// Doc 02 §3.8: where no walk joins two towns (an inlet cuts the island in two), a ferry lane is marked between the
+    /// two nearest beaches, from the shore that can be walked to from the Post Office (A) to the far one (B). Rowed by
+    /// the team's ferry boat or any boat; nothing runs it on its own.
+    /// </summary>
+    public readonly struct FerryLane
+    {
+        public readonly float AX, AZ, BX, BZ;
+        public FerryLane(float ax, float az, float bx, float bz) { AX = ax; AZ = az; BX = bx; BZ = bz; }
+        public float Length => MathF.Sqrt((BX - AX) * (BX - AX) + (BZ - AZ) * (BZ - AZ));
+    }
+
     /// <summary>A storage container that stands in the map from the start (playtest nit 9: a chest by the Post Office).</summary>
     public sealed class MapChestDef
     {
@@ -139,6 +151,9 @@ namespace PerformativeMail.Sim.World
         /// ground where an Oil Pump draws oil. Nothing grows on them.
         /// </summary>
         public IReadOnlyList<(int X, int Z)> OilSeeps { get; init; } = Array.Empty<(int, int)>();
+
+        /// <summary>Doc 02 §3.8's ferry lanes, where an inlet leaves no walk between towns; none on most maps.</summary>
+        public IReadOnlyList<FerryLane> FerryLanes { get; init; } = Array.Empty<FerryLane>();
 
         public bool IsSeep(int tx, int tz)
         {
@@ -327,6 +342,11 @@ namespace PerformativeMail.Sim.World
             // The sand piles grow from the land's hash: water laid down after does not move them.
             LandHash = h.Value;
             foreach (var (sx, sz) in OilSeeps) { h.Add(sx); h.Add(sz); }
+            foreach (var lane in FerryLanes)
+            {
+                h.Add((int)MathF.Round(lane.AX * 100f)); h.Add((int)MathF.Round(lane.AZ * 100f));
+                h.Add((int)MathF.Round(lane.BX * 100f)); h.Add((int)MathF.Round(lane.BZ * 100f));
+            }
             foreach (var d in Destinations)
             {
                 if (!d.IsDock) continue;

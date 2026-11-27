@@ -135,6 +135,7 @@ namespace PerformativeMail.Sim
             ClearConstructs();
             ClearVehicles();
             GiveKits();
+            MoorFerries();
             BuildShowcase();
             foreach (var p in _players)
             {

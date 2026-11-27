@@ -2979,6 +2979,58 @@ top left? It takes up a lot of screen real estate."
 - For Mail Lead to file: **an ADR-0018 placement amendment** — the wallet moves from the top right to the top left
       with the timer (Evan's call here; ADR-0018 already had the timer top-left)
 
+### 7a. M4 — the Large Island (doc 12 M4; doc 02 §1, §3.1–§3.8, §3.11–§3.12; doc 01 §2.1, §5.2), 2026-11-27
+
+- [x] **The Large Island map** (`LargeIslandGenerator`, design choice 169). Two or three towns on the south coast of an
+      island of 500 × 500 tiles (1000 m; `IslandTerrain.Shape`: size, radius, the grid's own water, a channel north),
+      west of one another: the Post Office's, a medium town of two streets (main and north, 66–74 tiles), east, its
+      main street leaving the map (the raiders' first way in, as on the Small Island); an inlet of the sea (12–16
+      tiles of water, shelving two tiles in from beach banks, deep between, on into the harbour basin) west of it; then
+      either a large town of three streets (74–82 tiles), or a medium one of two (64–72) with a small one of a single
+      street (46–52) 40–48 tiles down a long dirt road further west. The towns are ≥ 150 m apart centre to centre.
+      Districts: 1 is the 10–12 houses nearest the Post Office, 2 the rest of its town, 3–5 the other towns' in
+      distance order (the second town split evenly into two or three, the third town 5), so a crossing is in play from
+      shift 3 (doc 02 §3.7). Districts of 8–18 houses, 56–76 houses in all (mean 63 over 100 seeds; doc 01 §2.1 "end
+      nearer 60–70"), else the draw is made again (eight attempts). Each of the first two towns has a Business Dock on
+      its beach over deep water, open from shift 4 (doc 02 §3.5 "Yes on Large Island"); four oil seeps, two by the
+      inlet's banks (doc 02 §3.2 marsh). The client builds it from the seed like the Small Island: the ground leaves the
+      inlet open (`WorldView.AddGround` a row at a time where water runs through a chunk), the basin is drawn wherever
+      the map has water (`IslandView.Basin`: the bed, quay walls along every land/water edge, sea walls at the map's
+      edge, one sheet of water), the north hedge breaks for the inlet, the islets stand out past a 1000 m coast.
+      **The Lobby:** `SimWorld.WorldChoices` is now test street, Small Island, Large Island; the host's [V] steps
+      onto it from Postal Rank 3 (`largeIslandRank` in balance.json; `SimWorld.WorldOpen`, the server answers
+      `RankTooLow` below it), or with `--playtest-unlocks`; `--world=large` hosts it straight away. The seed string is
+      "PM1-LARGE-0000002A" (pasting one below rank 3: "Not pasted: the Large Island needs Postal Rank 3"); the world
+      plate "Large Island · PM1-LARGE-…". `MetaProfile.unlocks.archetypes` lists "large_island" from rank 3, and the
+      Results card reveals "Unlocked: … the Large Island" at the rise. The Daily Seed stays the Small Island.
+      `SeedViewer --large` (ferry lanes and docks in the line, ',' ';' water and '-' lanes on the map)
+- [x] **Ferry lanes and reachability** (doc 02 §3.8, §3.12; doc 12 M4 acceptance). Half the seeds' inlets run right
+      through the island (the terrain's channel on north to the sea); the others end 8–11 tiles short of the north
+      edge and a dirt road leads round the head from the PO town's north street to the next town's. Where no walk
+      joins a town to the Post Office's, `FerryLanes.Mark` parts the ground into what can be walked between and joins
+      each ground holding destinations to the reached ones by the nearest two shore tiles with only water between
+      (ties to street end to street end: the main streets run down to the water) — `WorldMap.FerryLanes`, in the world
+      hash. `WorldGenerator.Validate` now asks every mailbox be walked to from the pad or from the far end of a lane
+      whose near end is walked to, and the streets to be one network per shore (`RoutingGraph.Components`). Never a
+      soft lock: whatever the kit, a run on a ferry map starts with the team's Rowboat moored at each lane's near end
+      (`SimWorld.MoorFerries`; Rowboats are in the shop from shift 2, Piers need no blueprint). The raiders come in only
+      where they can walk to the Post Office (`SpawnEdges`: a street mouth beyond the inlet is no way in; one flood
+      from the pad, `TilePathfinder.Reach`, instead of a search per edge tile). The map draws each lane dashed, "FERRY"
+      by it. **100 seeds validate** (`LargeIslandTests`: every destination walked to or ferried, ≥ 1 Business Dock,
+      unique labels, the districts' towns, lanes only where needed and over water only, the raiders' ways in walkable,
+      both crossings and both town counts among them; generated in parallel, ~8 s)
+- [x] Fixed on the way: a Business Dock took its number past its street *segment's* houses, so on Small Island seeds 15
+      and 132 it shared a house's label ("14 Heron Bend" twice); it now numbers past the whole street's
+      (`WorldGenerator`, `WorldGeneratorTests.NoTwoDestinations_ShareALabel`). Scenery's "is it free" check looked at
+      every prop placed so far (850 ms on a three-town island); it asks a grid of 4 m cells now, the same answers
+      (the Small Island's props unchanged)
+- `LargeIslandTests` (5: determinism, the 100 seeds, the 1000 m island and its cut inlet, a ferry crossed by the
+      moored Rowboat to a far mailbox, a run in the PO town), `WorldChoiceTests` (the rank gate at 1, 2, 3 and with the
+      flag; the seed string), `ProfileTests` (the unlocks and the reveal at rank 3, the refused paste), `RunModeTests`;
+      the smoke: the Lobby refuses a pasted Large Island at rank 1, `tools/smoke.sh` validates Large Island seeds 1–20
+      and a bot plays one to "BOT OK"; looked at rendered (`--lookdev` on Large Island #1: the ferry's view across the
+      inlet, the inlet from above, the island)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4595,7 +4647,8 @@ See "Commands" at the bottom (filled in as the tooling lands).
     table could disagree with them. So the unlocks are computed from the rank and the content, and the profile's
     "unlocks" block is written as a record for whoever reads the file; the game never reads it back to decide anything
     (the rank does), so an edited file opens nothing. The Large Island (rank 3) and cosmetics (15+) are not built, so
-    they are neither listed nor revealed; a rank-3 rise reveals nothing yet.
+    they are neither listed nor revealed; a rank-3 rise reveals nothing yet. (Since 7a the Large Island is listed from rank 3
+    and revealed at the rise.)
 
 168. **The top plate in the top left (Evan, 2026-11-27), superseding choice 55's top centre.** One small plate in the
     corner rather than four loose elements, so the world behind cannot be read into the numbers (nit 14 still holds);
@@ -4605,6 +4658,21 @@ See "Commands" at the bottom (filled in as the tooling lands).
     540 px beside the top-right trackers, and shrinks rather than wrapping. The panels still hang from under the plate
     even where they would clear it sideways (the Draft's three cards reach x 260 at 720p), one rule for all of them.
     ADR-0018 placed the timer top left; the wallet's move from the top right is Evan's call, noted for an amendment.
+
+169. **The Large Island, where doc 02 leaves room.** (a) As with the Small Island (choice 84) the island is the doc's
+    size (1000 m) and the playable grid is the towns' frame in its south (330–520 × 132 m), not the whole island: the
+    sim's map is flat and walled at its edge, and the towns, the inlet and the road are what is played. (b) The towns
+    lie west of one another along the south coast, the Post Office's east, so that its main street keeps the east edge
+    as the raiders' first way in; "water inlets or ridges" — the sim has no heights, so the second town is parted by an
+    inlet and a third by a long road (80–96 m of dirt path). (c) "Dirt paths between towns" are 2 tiles wide like the
+    streets (the doc says 1), so that vehicles and the routing graph use them unchanged; a road takes the district of
+    the town it leads to. (d) Ferry lanes are marked, not run: nothing ferries on its own; the team's Rowboat at each
+    lane's near end is how "never a soft lock" holds for a Land-kit team with no gold, and one boat is enough to come
+    back with. (e) The two docks open from shift 4 like the Small Island's, not with their towns, so Cargo does not
+    come before the team has had a Payday to buy a boat or truck. (f) No Arcade weighting is applied: there is no random
+    archetype draw in the Lobby (the host picks with [V]); doc 02's 62.5 / 37.5 % would weigh such a draw, which
+    nothing asks for yet. The Daily Seed stays the Small Island so that it is everybody's. (g) The seed string's tag is
+    "LARGE" (`SeedStrings.Tag`: the map id's first word).
 
 ## Commands
 
@@ -4617,7 +4685,7 @@ All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes o
 ~/.dotnet/dotnet test tests/Net.Tests -nodeReuse:false --filter "Acceptance|ChestFuzz" --logger "console;verbosity=detailed"
 
 tools/validate-content.sh [CONTENT_DIR] [--quiet]   # ContentValidator: "content OK …" / "error: …" lines, exit 0 / 1
-~/.dotnet/dotnet tools/SeedViewer/bin/Debug/net8.0/SeedViewer.dll 1-20 [--map] [--island]   # the generated town of each seed: figures, the town in letters, the island by biome
+~/.dotnet/dotnet tools/SeedViewer/bin/Debug/net8.0/SeedViewer.dll 1-20 [--large] [--map] [--island]   # the generated town of each seed: figures, the town in letters, the island by biome (--large: the Large Island)
 
 tools/smoke.sh [seed]            # build + three Godot headless smokes (the full run, the raid playtest, the debug world); exit 0 and "SMOKE OK" three times
 ~/.local/bin/godot --headless --path . -- --smoke --seed=1      # the smoke alone (build first)
@@ -4635,9 +4703,10 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --headless --path . -- --smoke --debug-world  # its smoke alone ("SMOKE OK")
 xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-driver opengl3 -- --debug-world --solo --shots=/tmp/dbg   # a PNG per bookmark, "SHOTS OK"
 ~/.local/bin/godot --path . -- --world=island --seed=7           # host the seed's generated Small Island town instead of the test street
+~/.local/bin/godot --path . -- --world=large --seed=7            # host the seed's Large Island (two or three towns, an inlet, maybe a ferry lane)
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
-# in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed,
+# in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds (the Large Island from Postal Rank 3), N draws a new seed,
 #   T points at the next of the eight Postage Stamps and Y puts it on or off (tier 2 from Postal Rank 6, tier 3 from 12),
 #   P chooses the practice run (test street, 2 shifts, no raid, no XP) and O today's Daily Seed; each again leaves it;
 #   Ctrl+V pastes a seed string ("PM1-SMALL-7F3A9C21-CM.DR", as C copies it at Results) with its stamps
@@ -4664,7 +4733,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --playtest-package    four Small Packages for the mail cannon (RMB) when a shift starts and when back on your feet
 #   --playtest-wallet=N   runs start with N gold in the team's wallet (e.g. 500); asked in a run, topped up to it at once
 #   --playtest-materials  20 Logs and 40 Stone in your pockets when a shift's Prep or Delivery starts and when back on your feet
-#   --playtest-stamps     as host, every tier of the Postage Stamps and the whole perk pool are open whatever your Postal Rank
+#   --playtest-stamps     as host, every tier of the Postage Stamps, the whole perk pool and the Large Island are open whatever your Postal Rank
 #                         (--playtest-unlocks says the same)
 #   --event=ID            as host, the run event ID of content/events (festival, lost_parcels, wildfire, …) comes in every shift it may
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on

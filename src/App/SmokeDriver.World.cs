@@ -22,6 +22,7 @@ namespace PerformativeMail.App
         private ulong _worldHashStreet;
         private string _worldIslandText = "", _worldDailyText = "";
         private byte _worldStamps;
+        private bool _worldLargeRefused;
 
         private void StepWorld()
         {
@@ -108,6 +109,13 @@ namespace PerformativeMail.App
                         $"in practice the server has seed {server.Settings.Seed}, stamps {server.Stamps}, {server.ShiftCount} shifts");
                     Check(hud.WorldText == "Practice · 2 shifts, no raid, no XP" && hud.ModeKeysText.StartsWith("[P] leave practice", StringComparison.Ordinal),
                         $"in practice the plates read \"{hud.WorldText}\", \"{hud.ModeKeysText}\"");
+                    // Doc 01 §5.2: the Large Island is rank 3's; a fresh profile's host cannot paste one (nor step onto it with [V]).
+                    if (!client.WorldOpen(LargeIslandGenerator.LargeIsland))
+                    {
+                        string refused = client.PasteSeed("PM1-LARGE-00000007");
+                        Check(refused == "Not pasted: the Large Island needs Postal Rank 3", $"pasting a Large Island at rank 1 says \"{refused}\"");
+                        _worldLargeRefused = true;
+                    }
                     // Doc 01 §5.3: back by the run's own seed string, pasted, with its stamps.
                     string text = SeedStrings.Format(server.Content, "test_street", _worldSeed, _worldStamps);
                     string line = client.PasteSeed(text.ToLowerInvariant());
@@ -121,7 +129,7 @@ namespace PerformativeMail.App
                     if (world.Map.Id != "test_street" || world.Global.Mode != RunMode.Normal || world.Global.Stamps != _worldStamps || !settled) break;
                     Check(world.Seed == _worldSeed && server.Settings.Seed == _worldSeed && world.Map.MapHash == _worldHashStreet, $"back on the test street the seed is {world.Seed}");
                     Check(server.Stamps == _worldStamps && world.Global.Stamps == _worldStamps, $"after the paste the stamps are {server.Stamps}, not {_worldStamps}");
-                    GD.Print($"[smoke] world: Test Street, then Small Island (\"{_worldIslandText}\" after a new seed), the Daily Seed (\"{_worldDailyText}\"), practice, drawn anew each time, and back to the test street by its pasted seed string");
+                    GD.Print($"[smoke] world: Test Street, then Small Island (\"{_worldIslandText}\" after a new seed), the Daily Seed (\"{_worldDailyText}\"), practice, drawn anew each time, and back to the test street by its pasted seed string{(_worldLargeRefused ? "; the Large Island refused below Postal Rank 3" : "")}");
                     StartInventory();
                     break;
                 }

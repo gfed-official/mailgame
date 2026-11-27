@@ -117,8 +117,8 @@ namespace PerformativeMail.Sim.World
 
             var districts = new List<DistrictDef>(map.Districts);
             districts.Sort((a, b) => a.UnlockShift != b.UnlockShift ? a.UnlockShift.CompareTo(b.UnlockShift) : a.Id.CompareTo(b.Id));
-            var scratch = new TilePathfinder.Scratch();
-            var path = new List<(float X, float Z)>();
+            // What can be walked to the pad, once: a way in must be (a street beyond a Large Island's inlet is none).
+            var reach = TilePathfinder.Reach(map, padX, padZ);
             foreach (var d in districts)
             {
                 if (d.UnlockShift <= 1) continue;
@@ -131,7 +131,7 @@ namespace PerformativeMail.Sim.World
                 }
                 if (n == 0) continue;
                 cx /= n; cz /= n;
-                if (!Mouth(map, cx, cz, padX, padZ, scratch, path, out float mx, out float mz, out float inX, out float inZ, out bool street)) continue;
+                if (!Mouth(map, cx, cz, padX, padZ, reach, out float mx, out float mz, out float inX, out float inZ, out bool street)) continue;
                 bool shared = false;
                 foreach (var e in edges)
                     if (Dist(e.X, e.Z, mx, mz) < ShareDistance) { shared = true; break; }
@@ -147,8 +147,7 @@ namespace PerformativeMail.Sim.World
         /// towards from the pad, at a street that leaves the map near there, else at the nearest
         /// open tile of that edge from which the pad can be walked to.
         /// </summary>
-        private static bool Mouth(WorldMap map, float cx, float cz, float padX, float padZ, TilePathfinder.Scratch scratch,
-            List<(float X, float Z)> path, out float x, out float z, out float inX, out float inZ, out bool street)
+        private static bool Mouth(WorldMap map, float cx, float cz, float padX, float padZ, bool[] reach, out float x, out float z, out float inX, out float inZ, out bool street)
         {
             x = z = inX = inZ = 0f;
             street = false;
@@ -180,6 +179,8 @@ namespace PerformativeMail.Sim.World
                     if (d > best) continue;
                     float mx = node.X + inX * MouthInset, mz = node.Z + inZ * MouthInset;
                     if (Dist(mx, mz, padX, padZ) < MinPadDistance) continue;
+                    // A street beyond an inlet the raiders cannot walk over (a Large Island's ferry lane) is no way in.
+                    if (!Reached(map, reach, mx, mz)) continue;
                     best = d; x = mx; z = mz; street = true;
                 }
                 if (street) return true;
@@ -192,12 +193,18 @@ namespace PerformativeMail.Sim.World
                     var tile = map.GetTile(tx, tz);
                     if (tile == TileType.Building || tile == TileType.Beach || map.IsNavBlocked(tx, tz)) continue;
                     if (Dist(mx, mz, padX, padZ) < MinPadDistance) continue;
-                    if (!TilePathfinder.Find(map, mx, mz, padX, padZ, path, scratch)) continue;
+                    if (!Reached(map, reach, mx, mz)) continue;
                     x = mx; z = mz;
                     return true;
                 }
             }
             return false;
+        }
+
+        private static bool Reached(WorldMap map, bool[] reach, float x, float z)
+        {
+            int tx = (int)MathF.Floor(x / SimConstants.TileSize), tz = (int)MathF.Floor(z / SimConstants.TileSize);
+            return map.InBounds(tx, tz) && reach[tz * map.Cols + tx];
         }
 
         private static SpawnEdge Make(WorldMap map, int index, float x, float z, float inX, float inZ, float half, int unlock, string street)

@@ -382,8 +382,20 @@ namespace PerformativeMail.Client
         public uint ChooseWorld(int choice, uint seed) =>
             CanChooseWorld && choice >= 0 && choice < SimWorld.WorldChoices.Count ? Send(SimRequest.SetWorld(0, choice, seed)) : 0;
 
-        /// <summary>The next world, from the same seed.</summary>
-        public uint CycleWorld() => ChooseWorld((WorldChoice + 1) % SimWorld.WorldChoices.Count, World?.Seed ?? 1);
+        /// <summary>The next world the host's Postal Rank has opened, from the same seed.</summary>
+        public uint CycleWorld()
+        {
+            int n = SimWorld.WorldChoices.Count;
+            for (int step = 1; step < n; step++)
+            {
+                int choice = (Math.Max(0, WorldChoice) + step) % n;
+                if (WorldOpen(SimWorld.WorldChoices[choice])) return ChooseWorld(choice, World?.Seed ?? 1);
+            }
+            return 0;
+        }
+
+        /// <summary>This client's Postal Rank has opened the world (every one with --playtest-unlocks).</summary>
+        public bool WorldOpen(string mapId) => SimWorld.WorldOpen(_content, mapId, Rank, (Playtest & PlaytestFlags.AllUnlocks) != 0);
 
         /// <summary>The Postage Stamp the host's [T] points at in the Lobby (its index); [Y] puts it on or takes it off.</summary>
         public int StampCursor { get; private set; }
@@ -437,6 +449,9 @@ namespace PerformativeMail.Client
             if (!CanChooseWorld) return "Only the host chooses the seed, in the Lobby";
             if (!SeedStrings.TryParse(_content, text, out int choice, out uint seed, out byte stamps, out string error))
                 return $"Not pasted: {error}";
+            string mapId = SimWorld.WorldChoices[choice];
+            if (!WorldOpen(mapId))
+                return $"Not pasted: the {HudText.ArchetypeName(mapId)} needs Postal Rank {SimWorld.WorldRank(_content, mapId)}";
             double[] ranks = _content.Balance.GetArray("stampTierRanks");
             foreach (var s in _content.Stamps)
                 if ((stamps & (1 << s.Index)) != 0 && s.Tier > StampTierOpen)
@@ -1013,7 +1028,7 @@ namespace PerformativeMail.Client
         private WorldMap? BuildMap(string mapId, uint seed)
         {
             if (!WorldGenerator.Generates(mapId)) return _content.Maps.TryGetValue(mapId, out var file) ? file : null;
-            try { return WorldGenerator.Generate(_content, seed); }
+            try { return WorldGenerator.Resolve(_content, mapId, seed); }
             catch (InvalidOperationException) { return null; }
         }
 

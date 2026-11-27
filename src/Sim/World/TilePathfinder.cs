@@ -73,6 +73,39 @@ namespace PerformativeMail.Sim.World
             return true;
         }
 
+        /// <summary>
+        /// Every tile a walk from the point reaches, by <see cref="Find"/>'s rules (no constructs): what a search from any
+        /// open tile back to the point would find, for many such questions at the cost of one search.
+        /// </summary>
+        public static bool[] Reach(WorldMap map, float fromX, float fromZ)
+        {
+            const float tile = SimConstants.TileSize;
+            int cols = map.Cols;
+            var reached = new bool[map.Cols * map.Rows];
+            int sx = (int)MathF.Floor(fromX / tile), sz = (int)MathF.Floor(fromZ / tile);
+            if (map.IsSolid(sx, sz)) return reached;
+            var queue = new Queue<int>();
+            int start = sz * cols + sx;
+            reached[start] = true;
+            queue.Enqueue(start);
+            while (queue.Count > 0)
+            {
+                int cur = queue.Dequeue();
+                int cx = cur % cols, cz = cur / cols;
+                foreach (var (dx, dz) in Steps)
+                {
+                    int nx = cx + dx, nz = cz + dz;
+                    if (Blocked(map, null, nx, nz, false, false)) continue;
+                    if (dx != 0 && dz != 0 && (Blocked(map, null, cx + dx, cz, false, false) || Blocked(map, null, cx, cz + dz, false, false))) continue;
+                    int next = nz * cols + nx;
+                    if (reached[next]) continue;
+                    reached[next] = true;
+                    queue.Enqueue(next);
+                }
+            }
+            return reached;
+        }
+
         private static bool Blocked(WorldMap map, ConstructField? constructs, int tx, int tz, bool carrier, bool jumper) =>
             map.IsNavBlocked(tx, tz) || (constructs != null && constructs.Blocks(tx, tz, carrier, jumper));
     }

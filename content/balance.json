@@ -12,6 +12,7 @@
   "draftRareWeightPerShift": 5,
   "rerollsPerRun": 1,
   "rerollSecondRank": 4,
+  "largeIslandRank": 3,
   "personalPerkCap": 5,
   "priorityMailChance": 0.10,
   "priorityValueMult": 3,

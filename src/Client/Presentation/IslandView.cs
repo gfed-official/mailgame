@@ -62,45 +62,96 @@ namespace PerformativeMail.Client.Presentation
         public const float BasinLevel = -0.45f;
 
         /// <summary>
-        /// The map's water along its south edge: a stone quay where the land ends, sand under the
-        /// shallow water and a darker bed under the deep, and the water over them (design choice 111).
+        /// The map's water — along its south edge, and a Large Island's inlet through it: a stone quay wherever the land
+        /// meets it, sand under the shallow water and a darker bed under the deep, a sea wall where it meets the map's
+        /// edge, and the water over them (design choice 111).
         /// </summary>
         public static void Basin(Node3D parent, WorldMap map)
         {
-            float land = map.LandRows * Tile;
-            if (land >= map.DepthM) return;
-            float width = map.WidthM, depth = map.DepthM - land;
+            if (!map.HasWater) return;
             var sand = MeshKit.Mat(new Color("b9a57a"), 0.95f);
             var deep = MeshKit.Mat(new Color("3c5560"), 0.95f);
             var stone = MeshKit.Mat(new Color("8d8a82"), 0.9f);
             var cap = MeshKit.Mat(new Color("b5b0a3"), 0.85f);
+            int top = map.Rows, left = map.Cols, right = 0;
             // The bed a run of a row at a time.
-            for (int tz = map.LandRows; tz < map.Rows; tz++)
+            for (int tz = 0; tz < map.Rows; tz++)
                 for (int tx = 0; tx < map.Cols;)
                 {
                     bool shallow = map.IsShallowWater(tx, tz);
                     int end = tx + 1;
                     while (end < map.Cols && map.IsShallowWater(end, tz) == shallow && map.IsWater(end, tz) == map.IsWater(tx, tz)) end++;
                     if (map.IsWater(tx, tz))
+                    {
                         parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3((end - tx) * Tile, 0.2f, Tile)), shallow ? sand : deep,
                             new Vector3((tx + end) * 0.5f * Tile, shallow ? -1.5f : -3.2f, (tz + 0.5f) * Tile)));
+                        top = Mathf.Min(top, tz);
+                        left = Mathf.Min(left, tx);
+                        right = Mathf.Max(right, end);
+                    }
                     tx = end;
                 }
-            // The quay along the land, its coping level with the ground.
-            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(width, 3.2f, 0.5f)), stone, new Vector3(width * 0.5f, -1.65f, land + 0.25f), name: "Quay"));
-            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(width, 0.12f, 0.6f)), cap, new Vector3(width * 0.5f, 0.0f, land + 0.3f), name: "QuayCoping"));
-            // The far side and the ends: a sea wall the basin is closed by.
-            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(width + 1f, 4f, 0.6f)), stone, new Vector3(width * 0.5f, -1.4f, map.DepthM + 0.3f)));
-            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.6f, 4f, depth)), stone, new Vector3(-0.3f, -1.4f, land + depth * 0.5f)));
-            parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.6f, 4f, depth)), stone, new Vector3(width + 0.3f, -1.4f, land + depth * 0.5f)));
+            // The quay along the land, its coping level with the ground: a run of tile edges at a time, along x then along z.
+            for (int tz = 0; tz <= map.Rows; tz++)
+                for (int tx = 0; tx < map.Cols;)
+                {
+                    int side = Shore(map, tx, tz - 1, tx, tz);
+                    int end = tx + 1;
+                    while (end < map.Cols && Shore(map, end, tz - 1, end, tz) == side) end++;
+                    if (side != 0)
+                    {
+                        float len = (end - tx) * Tile, cx = (tx + end) * 0.5f * Tile, z = tz * Tile + side * 0.25f;
+                        parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(len, 3.2f, 0.5f)), stone, new Vector3(cx, -1.65f, z), name: "Quay"));
+                        parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(len, 0.12f, 0.6f)), cap, new Vector3(cx, 0.0f, tz * Tile + side * 0.3f), name: "QuayCoping"));
+                    }
+                    tx = end;
+                }
+            for (int tx = 0; tx <= map.Cols; tx++)
+                for (int tz = 0; tz < map.Rows;)
+                {
+                    int side = Shore(map, tx - 1, tz, tx, tz);
+                    int end = tz + 1;
+                    while (end < map.Rows && Shore(map, tx - 1, end, tx, end) == side) end++;
+                    if (side != 0)
+                    {
+                        float len = (end - tz) * Tile, cz = (tz + end) * 0.5f * Tile, x = tx * Tile + side * 0.25f;
+                        parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.5f, 3.2f, len)), stone, new Vector3(x, -1.65f, cz), name: "Quay"));
+                        parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.6f, 0.12f, len)), cap, new Vector3(tx * Tile + side * 0.3f, 0.0f, cz), name: "QuayCoping"));
+                    }
+                    tz = end;
+                }
+            // Where the water meets the map's edge: a sea wall the basin is closed by.
+            for (int tx = 0; tx < map.Cols; tx++)
+            {
+                if (map.IsWater(tx, map.Rows - 1)) parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(Tile + 0.02f, 4f, 0.6f)), stone, new Vector3((tx + 0.5f) * Tile, -1.4f, map.DepthM + 0.3f)));
+                if (map.IsWater(tx, 0)) parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(Tile + 0.02f, 4f, 0.6f)), stone, new Vector3((tx + 0.5f) * Tile, -1.4f, -0.3f)));
+            }
+            for (int tz = 0; tz < map.Rows; tz++)
+            {
+                if (map.IsWater(0, tz)) parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.6f, 4f, Tile + 0.02f)), stone, new Vector3(-0.3f, -1.4f, (tz + 0.5f) * Tile)));
+                if (map.IsWater(map.Cols - 1, tz)) parent.AddChild(MeshKit.Instance(MeshKit.Box(new Vector3(0.6f, 4f, Tile + 0.02f)), stone, new Vector3(map.WidthM + 0.3f, -1.4f, (tz + 0.5f) * Tile)));
+            }
+            // One sheet of water over all of it, under the ground (which covers it where there is land).
+            float x0 = left * Tile, x1 = right * Tile, z0 = top * Tile;
             parent.AddChild(new MeshInstance3D
             {
                 Name = "BasinWater",
-                Mesh = new PlaneMesh { Size = new Vector2(width, depth) },
+                Mesh = new PlaneMesh { Size = new Vector2(x1 - x0, map.DepthM - z0) },
                 MaterialOverride = Shaders.Water(),
-                Position = new Vector3(width * 0.5f, BasinLevel, land + depth * 0.5f),
+                Position = new Vector3((x0 + x1) * 0.5f, BasinLevel, (z0 + map.DepthM) * 0.5f),
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             });
+        }
+
+        /// <summary>
+        /// Between two side-by-side tiles (a above or west of b): +1 if a is land and b water (the quay stands on b's side),
+        /// −1 if a is water and b land, 0 if neither; off the map counts as neither.
+        /// </summary>
+        private static int Shore(WorldMap map, int ax, int az, int bx, int bz)
+        {
+            if (!map.InBounds(ax, az) || !map.InBounds(bx, bz)) return 0;
+            bool aw = map.IsWater(ax, az), bw = map.IsWater(bx, bz);
+            return aw == bw ? 0 : aw ? -1 : 1;
         }
 
         /// <summary>Where the sea stands: under a generated town by the island's level, else the test street's.</summary>
@@ -200,9 +251,11 @@ namespace PerformativeMail.Client.Presentation
             var mesh = MeshKit.Blob(1f, 0.22f, 1.4f, 41, new Vector3(1f, 0.5f, 1f), 10);
             IslandCentre(map, out float cx, out float cz);
             var centre = new Vector3(cx, SeaLevel, cz);
+            // Out past the island's coast: a Large Island is 1000 m across, not 600.
+            float reach = map.Terrain is IslandTerrain t ? t.Cols / (float)IslandTerrain.Size : 1f;
             (float Angle, float Distance, float Size)[] islets = { (0.5f, 330f, 60f), (1.9f, 420f, 90f), (2.8f, 300f, 45f), (4.1f, 380f, 70f), (5.3f, 460f, 110f) };
             foreach (var (angle, distance, size) in islets)
-                batch.Add(mesh, rock, new Transform3D(Basis.Identity.Scaled(new Vector3(size, size * 0.5f, size * 0.8f)), centre + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * distance));
+                batch.Add(mesh, rock, new Transform3D(Basis.Identity.Scaled(new Vector3(size, size * 0.5f, size * 0.8f)), centre + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * distance * reach));
         }
 
         /// <summary>
@@ -314,7 +367,14 @@ namespace PerformativeMail.Client.Presentation
                 }
             }
             const float off = 0.75f;
-            Run(new Vector3(-off, 0f, -off), new Vector3(map.WidthM, 0f, -off));
+            // Along the north edge, broken where an inlet runs out through it to the sea (a Large Island's).
+            for (int tx = 0; tx < map.Cols; )
+            {
+                int end = tx + 1;
+                while (end < map.Cols && map.IsWater(end, 0) == map.IsWater(tx, 0)) end++;
+                if (!map.IsWater(tx, 0)) Run(new Vector3(tx == 0 ? -off : tx * Tile + off, 0f, -off), new Vector3(end == map.Cols ? map.WidthM : end * Tile - off, 0f, -off));
+                tx = end;
+            }
             Run(new Vector3(-off, 0f, map.DepthM + off), new Vector3(map.WidthM, 0f, map.DepthM + off));
             // The west side, with gaps where streets leave: a striped barrier closes each (the district beyond is not open yet).
             float z = -off;

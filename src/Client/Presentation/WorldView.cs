@@ -269,16 +269,43 @@ namespace PerformativeMail.Client.Presentation
                 for (float x = 0f; x < map.WidthM; x += GroundChunk)
                 {
                     float w = Mathf.Min(GroundChunk, map.WidthM - x), d = Mathf.Min(GroundChunk, depth - z);
-                    AddChild(new MeshInstance3D
+                    int tx0 = (int)(x / Tile), tx1 = (int)Mathf.Ceil((x + w) / Tile), tz0 = (int)(z / Tile), tz1 = (int)Mathf.Ceil((z + d) / Tile);
+                    if (!AnyWater(map, tx0, tx1, tz0, tz1))
                     {
-                        Name = $"Ground{x:0}_{z:0}",
-                        Mesh = new PlaneMesh { Size = new Vector2(w, d) },
-                        MaterialOverride = material,
-                        Position = new Vector3(x + w * 0.5f, 0f, z + d * 0.5f),
-                        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                    });
+                        AddGroundPlane(material, x, z, w, d);
+                        continue;
+                    }
+                    // A Large Island's inlet runs through the chunk: its land a row at a time, the water left to the basin.
+                    for (int tz = tz0; tz < tz1; tz++)
+                        for (int tx = tx0; tx < tx1; )
+                        {
+                            int end = tx + 1;
+                            while (end < tx1 && map.IsWater(end, tz) == map.IsWater(tx, tz)) end++;
+                            if (!map.IsWater(tx, tz)) AddGroundPlane(material, tx * Tile, tz * Tile, (end - tx) * Tile, Tile);
+                            tx = end;
+                        }
                 }
             }
+        }
+
+        private static bool AnyWater(WorldMap map, int tx0, int tx1, int tz0, int tz1)
+        {
+            for (int tz = tz0; tz < tz1; tz++)
+                for (int tx = tx0; tx < tx1; tx++)
+                    if (map.IsWater(tx, tz)) return true;
+            return false;
+        }
+
+        private void AddGroundPlane(ShaderMaterial material, float x, float z, float w, float d)
+        {
+            AddChild(new MeshInstance3D
+            {
+                Name = $"Ground{x:0}_{z:0}",
+                Mesh = new PlaneMesh { Size = new Vector2(w, d) },
+                MaterialOverride = material,
+                Position = new Vector3(x + w * 0.5f, 0f, z + d * 0.5f),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
         }
 
         private void AddHouseNumber(DestinationDef dest)

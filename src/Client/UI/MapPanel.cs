@@ -73,6 +73,8 @@ namespace PerformativeMail.Client.UI
         /// <summary>The raiders' ways in marked at the last draw, and whether the raid comes by each.</summary>
         public IReadOnlyList<(SpawnEdge Edge, bool Raid)> EdgesDrawn => _edges;
         private List<(SpawnEdge Edge, bool Raid)> _edges = new List<(SpawnEdge, bool)>();
+        /// <summary>How many ferry lanes the map drew the last time it was drawn.</summary>
+        public int FerriesDrawn { get; private set; }
         /// <summary>Where the map itself was drawn on the screen, in pixels.</summary>
         public Rect2 MapRect { get; private set; }
         /// <summary>The highest the HUD's lines along the bottom reach (the event feed): the panel ends above it.</summary>
@@ -524,6 +526,18 @@ namespace PerformativeMail.Client.UI
                 if (Guide.Carried.Contains(d.Address)) DrawArc(b, scale * 3.4f, 0f, Mathf.Tau, 24, Colors.White, 2f);
                 if (numbers || d.IsDock) DrawString(font, b + new Vector2(-20f, 4f), d.IsDock ? "DOCK" : d.Address.Number.ToString(), HorizontalAlignment.Center, 40f, 10, d.IsDock ? Colors.White : new Color(0.1f, 0.1f, 0.12f));
             }
+            // Doc 02 §3.8's ferry lanes: a dashed white line over the inlet, "FERRY" by it.
+            foreach (var lane in map.FerryLanes)
+            {
+                Vector2 a = At(lane.AX, lane.AZ), b = At(lane.BX, lane.BZ);
+                DrawDashedLine(a, b, Colors.White, 2.5f, 6f);
+                DrawCircle(a, 3.5f, Colors.White);
+                DrawCircle(b, 3.5f, Colors.White);
+                var label = (a + b) * 0.5f + new Vector2(-40f, -8f);
+                DrawStringOutline(font, label, HudText.FerryLabel, HorizontalAlignment.Center, 80f, 11, 3, new Color(0f, 0f, 0f, 0.85f));
+                DrawString(font, label, HudText.FerryLabel, HorizontalAlignment.Center, 80f, 11, Colors.White);
+            }
+            FerriesDrawn = map.FerryLanes.Count;
             // Oil seeps: black drops where a pump may stand.
             foreach (var (sx, sz) in map.OilSeeps)
                 DrawCircle(At((sx + 0.5f) * SimConstants.TileSize, (sz + 0.5f) * SimConstants.TileSize), Mathf.Max(3f, scale * 1.2f), new Color(0.06f, 0.05f, 0.04f));

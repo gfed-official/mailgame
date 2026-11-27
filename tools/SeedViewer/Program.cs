@@ -10,10 +10,11 @@ namespace PerformativeMail.Tools.SeedViewer
 {
     /// <summary>
     /// The SeedViewer of doc 12 M1: what the generator makes of a seed, without starting the game.
-    ///   SeedViewer [SEED[-LAST]] [--map] [--island] [--content=DIR]
+    ///   SeedViewer [SEED[-LAST]] [--large] [--map] [--island] [--content=DIR]
+    /// (--large: the Large Island of the seed rather than the Small Island)
     /// One line of figures per seed (size, houses, districts and their houses, streets, nodes,
     /// the world hash) and with --map the town drawn in letters, a character a tile:
-    /// '@' a raiders' way in, '=' street, '#' house, '.' lot, 'P' Post Office, 'y' its yard, '~' beach, 'T' tree,
+    /// '@' a raiders' way in, '=' street, '#' house, '.' lot, 'P' Post Office, 'y' its yard, '~' beach, ',' shallow and ';' deep water, '-' a ferry lane, 'T' tree,
     /// 'o' boulder, '*' bush, 's' sand pile, ' ' grass; the digit of a house's district on its
     /// mailbox. With --island the whole island, a character for 4 × 4 tiles, by its biome:
     /// '#' deep water, '~' shallow, ':' beach, '.' grassland, 'T' forest, '^' rocky, 'H' the town.
@@ -28,22 +29,23 @@ namespace PerformativeMail.Tools.SeedViewer
         public static int Run(string[] args, string workingDir, TextWriter output, TextWriter errors)
         {
             uint first = 1, last = 1;
-            bool drawMap = false, drawIsland = false;
+            bool drawMap = false, drawIsland = false, large = false;
             string? contentDir = null;
             foreach (string arg in args)
             {
                 if (arg == "--map") drawMap = true;
+                else if (arg == "--large") large = true;
                 else if (arg == "--island") drawIsland = true;
                 else if (arg.StartsWith("--content=", StringComparison.Ordinal)) contentDir = arg.Substring(10);
                 else if (arg == "--help" || arg == "-h")
                 {
-                    output.WriteLine("usage: SeedViewer [SEED[-LAST]] [--map] [--island] [--content=DIR]");
+                    output.WriteLine("usage: SeedViewer [SEED[-LAST]] [--large] [--map] [--island] [--content=DIR]");
                     return ExitOk;
                 }
                 else if (!arg.StartsWith('-') && TryRange(arg, out first, out last)) { }
                 else
                 {
-                    errors.WriteLine($"SeedViewer: unexpected argument '{arg}' (usage: SeedViewer [SEED[-LAST]] [--map] [--island] [--content=DIR])");
+                    errors.WriteLine($"SeedViewer: unexpected argument '{arg}' (usage: SeedViewer [SEED[-LAST]] [--large] [--map] [--island] [--content=DIR])");
                     return ExitUsage;
                 }
             }
@@ -65,7 +67,7 @@ namespace PerformativeMail.Tools.SeedViewer
             for (uint seed = first; ; seed++)
             {
                 WorldMap map;
-                try { map = WorldGenerator.Generate(content, seed); }
+                try { map = large ? LargeIslandGenerator.Generate(content, seed) : WorldGenerator.Generate(content, seed); }
                 catch (InvalidOperationException e)
                 {
                     errors.WriteLine($"seed {seed}: {e.Message}");
@@ -110,8 +112,10 @@ namespace PerformativeMail.Tools.SeedViewer
                     $", island {t.Cols}x{t.Rows} land {100.0 * land / t.Biomes.Length:F0}% (forest {Share(Biome.Forest)}% rocky {Share(Biome.Rocky)}% beach {Share(Biome.Beach)}%), top {t.MaxHeightCm / 100.0:F1} m, town at {t.TownX},{t.TownZ} (flat {t.Site.Flat / 10}% levelled {t.Site.Levelling} cm, {t.Site.Coast * 2} m from the sea, {t.Site.FromCentre * 2} m off the middle)");
             }
             string edges = string.Join(" ", map.SpawnEdges.Select(e => $"{e.Direction}@{e.UnlockShift}"));
+            int docks = map.Destinations.Count(d => d.IsDock);
+            string ferries = map.FerryLanes.Count == 0 ? "" : string.Create(CultureInfo.InvariantCulture, $", ferry lanes {string.Join(" ", map.FerryLanes.Select(l => $"{l.Length:F0} m ({l.AX:F0},{l.AZ:F0} to {l.BX:F0},{l.BZ:F0})"))}");
             return string.Create(CultureInfo.InvariantCulture,
-                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count} houses, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}), routes {map.Routes.Nodes.Count} nodes {map.Routes.Edges.Count} edges {map.Routes.TotalLength:F0} m, raiders from {edges}{island}, worldHash {map.MapHash:x16}");
+                $"seed {seed}: {map.Cols}x{map.Rows} tiles, {map.Destinations.Count - docks} houses, {docks} docks, {map.Districts.Count} districts ({districts}), {names} streets, {nodes} nodes (trees {Of(PropKind.Tree)}, boulders {Of(PropKind.Boulder)}, bushes {Of(PropKind.Bush)}, sand {Of(PropKind.SandPile)}), routes {map.Routes.Nodes.Count} nodes {map.Routes.Edges.Count} edges {map.Routes.TotalLength:F0} m{ferries}, raiders from {edges}{island}, worldHash {map.MapHash:x16}");
         }
 
         public static string Draw(WorldMap map)
@@ -126,6 +130,8 @@ namespace PerformativeMail.Tools.SeedViewer
                         TileType.Lot => '.',
                         TileType.Yard => 'y',
                         TileType.Beach => '~',
+                        TileType.Water => ',',
+                        TileType.DeepWater => ';',
                         _ => ' ',
                     };
             foreach (var solid in map.PostOffice.Solid)
@@ -143,6 +149,13 @@ namespace PerformativeMail.Tools.SeedViewer
                 int x = (int)(d.MailboxX / 2f), z = (int)(d.MailboxZ / 2f);
                 if (map.InBounds(x, z)) grid[z, x] = (char)('0' + d.Address.District % 10);
             }
+            // Ferry lanes: '-' over the water.
+            foreach (var lane in map.FerryLanes)
+                for (int k = 0; k <= 40; k++)
+                {
+                    int x = (int)((lane.AX + (lane.BX - lane.AX) * k / 40f) / 2f), z = (int)((lane.AZ + (lane.BZ - lane.AZ) * k / 40f) / 2f);
+                    if (map.InBounds(x, z) && map.IsWater(x, z)) grid[z, x] = '-';
+                }
             // The raiders' ways in: '@'.
             foreach (var e in map.SpawnEdges)
             {

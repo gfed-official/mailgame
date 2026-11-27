@@ -153,7 +153,34 @@ namespace PerformativeMail.Sim.World
         /// eight radii in turn leave less than 30 % of the land buildable or no deep water within
         /// 200 m of the pad.
         /// </summary>
-        public static IslandTerrain? Generate(uint seed, string suffix, int townCols, int townRows, int beachRows, int padTx, int padTz, out string? problem)
+        public static IslandTerrain? Generate(uint seed, string suffix, int townCols, int townRows, int beachRows, int padTx, int padTz, out string? problem) =>
+            Generate(seed, suffix, townCols, townRows, beachRows, padTx, padTz, Shape.Small, out problem);
+
+        /// <summary>
+        /// What the island is like beyond its town grid: how big, how wide its land, and the water the grid
+        /// holds itself (a Large Island's inlet, doc 02 §1 "towns separated by water inlets").
+        /// </summary>
+        public sealed class Shape
+        {
+            /// <summary>The island's tiles a side.</summary>
+            public int Size { get; init; } = IslandTerrain.Size;
+            /// <summary>The land's radius in tiles at the first attempt, and how much each further attempt adds.</summary>
+            public int Radius { get; init; } = 134;
+            public int RadiusStep { get; init; } = 6;
+            /// <summary>
+            /// The grid's own tiles, if it has water or beaches of its own beyond its last rows (null: the Small Island's
+            /// grid, all land with its beach along the foot): water is cut below the sea there, a beach is beach.
+            /// </summary>
+            public Func<int, int, TileType>? GridTile { get; init; }
+            /// <summary>Grid columns [X0, X1) whose water runs on north of the grid to the sea (an inlet cutting the island in two); null for none.</summary>
+            public (int X0, int X1)? NorthChannel { get; init; }
+
+            /// <summary>The Small Island: 300 × 300 tiles, its town grid all land.</summary>
+            public static readonly Shape Small = new Shape();
+        }
+
+        /// <inheritdoc cref="Generate(uint, string, int, int, int, int, int, out string?)"/>
+        public static IslandTerrain? Generate(uint seed, string suffix, int townCols, int townRows, int beachRows, int padTx, int padTz, Shape shape, out string? problem)
         {
             var heightRng = new RngStream(seed, "heightmap" + suffix);
             var biomeRng = new RngStream(seed, "biomes" + suffix);
@@ -161,8 +188,8 @@ namespace PerformativeMail.Sim.World
             problem = null;
             for (int attempt = 0; attempt < MaxAttempts; attempt++)
             {
-                var t = new IslandTerrain { Cols = Size, Rows = Size, TownCols = townCols, TownRows = townRows };
-                t.Radius = 134 + attempt * 6;
+                var t = new IslandTerrain { Cols = shape.Size, Rows = shape.Size, TownCols = townCols, TownRows = townRows, _shape = shape };
+                t.Radius = shape.Radius + attempt * shape.RadiusStep;
                 var natural = t.Natural(heightSeed, coastSeed);
                 t.PlaceTown(natural);
                 t.Heights(natural);
@@ -172,6 +199,11 @@ namespace PerformativeMail.Sim.World
             }
             return null;
         }
+
+        private Shape _shape = Shape.Small;
+
+        /// <summary>How deep the grid's own water is cut, centimetres under the sea: shallow and deep (doc 02 §3.2, 2 m).</summary>
+        private const int GridShallowCm = 100, GridDeepCm = 300;
 
         /// <summary>The natural ground: noise hills under a radial falloff with a noisy coast.</summary>
         private int[] Natural(uint heightSeed, uint coastSeed)
@@ -299,6 +331,21 @@ namespace PerformativeMail.Sim.World
                         int bay = TownLevelCm - 60 * (row + 1);
                         if (bay < y) y = (bay * side + y * (1024 - side)) / 1024;
                     }
+                    // The grid's own water (a Large Island's inlet) under the sea, and its channel on north to the coast.
+                    if (_shape.GridTile != null && InTown(ix, iz))
+                    {
+                        var tile = _shape.GridTile(ix - TownX, iz - TownZ);
+                        if (tile == TileType.Water) y = -GridShallowCm;
+                        else if (tile == TileType.DeepWater) y = -GridDeepCm;
+                    }
+                    else if (_shape.NorthChannel is { } ch && iz < TownZ)
+                    {
+                        int c0 = TownX + ch.X0, c1 = TownX + ch.X1;
+                        // Shelving in over 3 tiles each side, deep in the middle; the banks fall to it over 6.
+                        int inside = Math.Min(ix - c0, c1 - 1 - ix);
+                        if (inside >= 0) y = inside < 2 ? -GridShallowCm : -GridDeepCm;
+                        else if (inside > -6) y = Math.Min(y, TownLevelCm * (-inside) / 6);
+                    }
                     h[iz * Cols + ix] = Math.Clamp(y, -600, 3000);
                 }
             }
@@ -327,6 +374,10 @@ namespace PerformativeMail.Sim.World
             for (int i = 0; i < n; i++) { HeightCm[i] = (short)h[i]; max = Math.Max(max, h[i]); }
             MaxHeightCm = max;
         }
+
+        /// <summary>A beach tile of the town's grid: its last rows, or the grid's own beaches where it says.</summary>
+        private bool GridBeach(int ix, int iz, int beachRows) =>
+            _shape.GridTile != null ? _shape.GridTile(ix - TownX, iz - TownZ) == TileType.Beach : iz >= TownZ + TownRows - beachRows;
 
         private bool InTown(int ix, int iz) => ix >= TownX && iz >= TownZ && ix < TownX + TownCols && iz < TownZ + TownRows;
 
@@ -369,7 +420,7 @@ namespace PerformativeMail.Sim.World
                     Biome b;
                     bool town = InTown(ix, iz);
                     if (h <= 0) b = -h < DeepCm ? Biome.ShallowWater : Biome.DeepWater;
-                    else if (town ? iz >= TownZ + TownRows - beachRows : toWater[i] <= 3) b = Biome.Beach;
+                    else if (town ? GridBeach(ix, iz, beachRows) : toWater[i] <= 3) b = Biome.Beach;
                     // A hill the town was levelled out of keeps its stony ground.
                     else if (natural[i] > rockyAbove || (!town && SlopeCm(ix, iz) > RockySlopeCm)) b = Biome.Rocky;
                     else

@@ -106,7 +106,14 @@ namespace PerformativeMail.Client
         public static string ShareString(ClientWorld world) => SeedStrings.Format(world.Content, world.Map.Id, world.Seed, world.Global.Stamps);
 
         /// <summary>The world's name for the Lobby: "Small Island", or a map file's own name.</summary>
-        public static string WorldName(WorldMap map) => map.Id == WorldGenerator.SmallIsland ? "Small Island" : map.Name;
+        public static string WorldName(WorldMap map) => WorldGenerator.Generates(map.Id) ? ArchetypeName(map.Id) : map.Name;
+
+        /// <summary>The word over a ferry lane on the map (doc 02 §3.8).</summary>
+        public const string FerryLabel = "FERRY";
+
+        /// <summary>"Small Island", "Large Island" (doc 02 §1).</summary>
+        public static string ArchetypeName(string mapId) =>
+            mapId == WorldGenerator.SmallIsland ? "Small Island" : mapId == LargeIslandGenerator.LargeIsland ? "Large Island" : mapId;
 
         /// <summary>
         /// The Lobby's world plate: "Small Island · PM1-SMALL-0000002A"; for the practice run (doc 09 §6) "Practice · 2

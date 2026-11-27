@@ -86,6 +86,7 @@ namespace PerformativeMail.Sim.Content
         public PerkDef Perk(string id) => _perksById[id];
         public ShopItemDef ShopItem(string id) => _shopById[id];
         public VehicleDef Vehicle(string id) => _vehiclesById[id];
+        public bool TryVehicle(string id, out VehicleDef vehicle) => _vehiclesById.TryGetValue(id, out vehicle!);
         public KitDef Kit(string id) => _kitsById[id];
         public StampDef Stamp(string id) => _stampsById[id];
         public ShopItemDef? FindShopItem(string id) => _shopById.TryGetValue(id, out var d) ? d : null;
@@ -1586,7 +1587,7 @@ namespace PerformativeMail.Sim.Content
             "enemyWindupSeconds", "enemyFleeSeconds", "enemyFleeSpeedMult", "lootDespawnSeconds", "lootPickupRange",
             "deathBagDespawnSeconds", "respawnProtectionSeconds", "respawnYardMetres", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
-            "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank", "personalPerkCap", "priorityMailChance", "priorityValueMult", "priorityMailSeconds", "doubleRaidSeconds", "doubleRaidWarnSeconds", "stampTierRanks", "practiceSeed", "practiceShifts",
+            "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank", "personalPerkCap", "priorityMailChance", "priorityValueMult", "priorityMailSeconds", "doubleRaidSeconds", "doubleRaidWarnSeconds", "stampTierRanks", "practiceSeed", "practiceShifts", "largeIslandRank",
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
             "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
             "beltPushMultiplier", "beltPushSeconds", "pipeSpeed", "pipeSpacing", "pipeOutletRate", "pipeOutletCapacity",

@@ -48,6 +48,24 @@ namespace PerformativeMail.Sim
             Events.Add(new KitGivenEvent { Player = p.Id, Kit = kit.Index, Team = false });
         }
 
+        /// <summary>
+        /// Doc 02 §3.8: "the Sea kit / pier + rowboat are always available so this is never a soft lock". Whatever the
+        /// kit, a ferry lane has the team's Rowboat moored at its near end when a run starts (design choice 169).
+        /// </summary>
+        private void MoorFerries()
+        {
+            if (Map.FerryLanes.Count == 0 || !Content.TryVehicle(FerryBoat, out var boat)) return;
+            foreach (var lane in Map.FerryLanes)
+            {
+                // Out on the water a tile and a half from the near shore, along the lane, facing across.
+                float len = MathF.Max(0.01f, lane.Length), ux = (lane.BX - lane.AX) / len, uz = (lane.BZ - lane.AZ) / len;
+                AddVehicleAt(boat, lane.AX + ux * 3f, lane.AZ + uz * 3f, PerformativeMail.Sim.Vehicles.Vehicle.YawOf(ux, uz, 0f));
+            }
+        }
+
+        /// <summary>The boat each ferry lane has moored at its near end.</summary>
+        public const string FerryBoat = "rowboat";
+
         private void GiveTeamKit()
         {
             var host = GetPlayer(Run.Host);

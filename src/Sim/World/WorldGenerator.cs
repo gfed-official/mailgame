@@ -33,12 +33,14 @@ namespace PerformativeMail.Sim.World
         /// <summary>How many oil seeps a Small Island has (design choice 116).</summary>
         public const int SeepCount = 3;
 
-        /// <summary>True for a map id the generator makes rather than a file.</summary>
-        public static bool Generates(string mapId) => mapId == SmallIsland;
+        /// <summary>True for a map id the generator makes rather than a file: the Small Island or the Large Island.</summary>
+        public static bool Generates(string mapId) => mapId == SmallIsland || mapId == LargeIslandGenerator.LargeIsland;
 
-        /// <summary>The map a server or a client plays on: a file's, or the seed's town.</summary>
+        /// <summary>The map a server or a client plays on: a file's, or the seed's island of that archetype.</summary>
         public static WorldMap Resolve(ContentDb content, string mapId, uint seed) =>
-            Generates(mapId) ? Generate(content, seed) : content.Map(mapId);
+            mapId == SmallIsland ? Generate(content, seed)
+            : mapId == LargeIslandGenerator.LargeIsland ? LargeIslandGenerator.Generate(content, seed)
+            : content.Map(mapId);
 
         public static WorldMap Generate(ContentDb content, uint seed)
         {
@@ -334,9 +336,11 @@ namespace PerformativeMail.Sim.World
                     if (d < best) { best = d; near = st; }
                 }
                 if (near == null) break;
+                // Past the last number of the whole street (all its segments): a number of its segment's alone could be a
+                // house's further along ("14 Heron Bend" twice on seed 15).
                 int number = 1;
                 foreach (var d in destinations)
-                    if (d.Address.Street == near.Id) number = Math.Max(number, d.Address.Number + 1);
+                    if (d.Street.Name == near.Name) number = Math.Max(number, d.Address.Number + 1);
                 var building = new TileRect(x + 1, lot.Y, 3, 3);
                 Fill(lot, TileType.Lot, near.District);
                 Fill(building, TileType.Building, near.District);
@@ -438,12 +442,34 @@ namespace PerformativeMail.Sim.World
                 if (!seen.Add(d.Address)) return $"address {d.Address} twice";
             var po = map.PostOffice;
             var path = new List<(float X, float Z)>();
+            var scratch = new TilePathfinder.Scratch();
+            // Where a walk can start: the pad, and the far end of every ferry lane whose near end can be walked to from one
+            // of them (doc 02 §3.12 "by walking, or by walking plus a marked ferry lane").
+            var starts = new List<(float X, float Z)> { (po.SpawnPadX, po.SpawnPadZ) };
+            var crossed = new bool[map.FerryLanes.Count];
+            for (bool grew = true; grew; )
+            {
+                grew = false;
+                for (int i = 0; i < map.FerryLanes.Count; i++)
+                {
+                    if (crossed[i]) continue;
+                    var lane = map.FerryLanes[i];
+                    foreach (var (sx, sz) in starts)
+                    {
+                        if (TilePathfinder.Find(map, sx, sz, lane.AX, lane.AZ, path, scratch)) { starts.Add((lane.BX, lane.BZ)); crossed[i] = grew = true; break; }
+                        if (TilePathfinder.Find(map, sx, sz, lane.BX, lane.BZ, path, scratch)) { starts.Add((lane.AX, lane.AZ)); crossed[i] = grew = true; break; }
+                    }
+                }
+            }
             foreach (var d in map.Destinations)
             {
                 int tx = (int)MathF.Floor(d.MailboxX / SimConstants.TileSize), tz = (int)MathF.Floor(d.MailboxZ / SimConstants.TileSize);
                 if (map.IsSolid(tx, tz)) return $"the mailbox of {map.FormatAddress(d.Address)} is in a wall";
-                if (!TilePathfinder.Find(map, po.SpawnPadX, po.SpawnPadZ, d.MailboxX, d.MailboxZ, path))
-                    return $"no walk from the Post Office to {map.FormatAddress(d.Address)}";
+                bool reached = false;
+                foreach (var (sx, sz) in starts)
+                    if (TilePathfinder.Find(map, sx, sz, d.MailboxX, d.MailboxZ, path, scratch)) { reached = true; break; }
+                if (!reached)
+                    return map.FerryLanes.Count == 0 ? $"no walk from the Post Office to {map.FormatAddress(d.Address)}" : $"no walk nor ferry lane from the Post Office to {map.FormatAddress(d.Address)}";
             }
             foreach (var district in map.Districts)
             {
@@ -458,8 +484,8 @@ namespace PerformativeMail.Sim.World
                 for (int x = ptx - 20; x <= ptx + 20; x++)
                     if (map.InBounds(x, z) && (map.GetTile(x, z) == TileType.Grass || map.GetTile(x, z) == TileType.Beach) && !map.IsNavBlocked(x, z)) open++;
             if (open < 400) return $"only {open} open tiles by the Post Office";
-            // The streets one network (doc 02 §3.8), every mailbox at the side of one.
-            if (!map.Routes.Connected()) return "the streets are not one network";
+            // The streets one network (doc 02 §3.8) — one a shore, where ferry lanes join them —, every mailbox at the side of one.
+            if (map.Routes.Components() > 1 + map.FerryLanes.Count) return "the streets are not one network";
             foreach (var d in map.Destinations)
             {
                 // A dock's zone is on the quay, reached over the beach and from the water.

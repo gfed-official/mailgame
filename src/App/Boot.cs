@@ -77,6 +77,7 @@ namespace PerformativeMail.App
                 else if (arg == "--debug-world") { debugWorld = true; mapId = "debug_world"; }
                 // Doc 02: the seed's own Small Island town instead of the test street.
                 else if (arg == "--world=island") mapId = WorldGenerator.SmallIsland;
+                else if (arg == "--world=large") mapId = LargeIslandGenerator.LargeIsland;
                 else if (arg.StartsWith("--map=", StringComparison.Ordinal) && arg.Length > 6) mapId = arg.Substring(6);
                 else if (arg == "--solo") solo = true;
                 else if (arg == "--bot") bot = true;

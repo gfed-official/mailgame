@@ -169,7 +169,7 @@ namespace PerformativeMail.Sim.Tests
         [InlineData("", "not a seed string")]
         [InlineData("hello", "not a seed string")]
         [InlineData("PM2-TEST-00000001", "not a seed string")]
-        [InlineData("PM1-LARGE-00000001", "no world 'LARGE'")]
+        [InlineData("PM1-HUGE-00000001", "no world 'HUGE'")]
         [InlineData("PM1-SMALL-XYZ", "'XYZ' is no seed")]
         [InlineData("PM1-SMALL-123456789", "'123456789' is no seed")]
         [InlineData("PM1-SMALL-00000000", "'00000000' is no seed")]

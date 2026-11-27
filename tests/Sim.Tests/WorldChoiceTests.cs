@@ -28,6 +28,31 @@ namespace PerformativeMail.Sim.Tests
         }
 
         private static int Island => SimWorld.WorldChoices.ToList().IndexOf(WorldGenerator.SmallIsland);
+        private static int Large => SimWorld.WorldChoices.ToList().IndexOf(LargeIslandGenerator.LargeIsland);
+
+        /// <summary>Doc 01 §5.2: the Large Island opens at Postal Rank 3, the host's; --playtest-unlocks opens it whatever the rank.</summary>
+        [Theory]
+        [InlineData(1, false, OpResult.RankTooLow)]
+        [InlineData(2, false, OpResult.RankTooLow)]
+        [InlineData(3, false, OpResult.Ok)]
+        [InlineData(1, true, OpResult.Ok)]
+        public void TheLargeIsland_IsTheHostsFromPostalRankThree(int rank, bool unlocks, OpResult want)
+        {
+            var world = new SimWorld(Db, new SimSettings { Seed = 3, Raids = false, Draft = false });
+            var ada = world.AddPlayer("Ada")!;
+            ada.Rank = rank;
+            if (unlocks) ada.Playtest |= PlaytestFlags.AllUnlocks;
+            Assert.Equal(want, Request(world, ada, SimRequest.SetWorld(0, Large, 7)));
+            Assert.Equal(want == OpResult.Ok ? LargeIslandGenerator.LargeIsland : "test_street", world.Map.Id);
+            if (want != OpResult.Ok) return;
+            Assert.Equal(LargeIslandGenerator.Generate(Db, 7).MapHash, world.Map.MapHash);
+            Assert.Equal("PM1-LARGE-00000007", SeedStrings.Format(Db, world.Map.Id, 7, 0));
+            Assert.True(SeedStrings.TryParse(Db, "pm1-large-7", out int choice, out uint seed, out _, out _));
+            Assert.Equal((Large, 7u), (choice, seed));
+            // Ada stands on its pad.
+            world.Map.PostOffice.Seat(ada.Slot, out float x, out float z);
+            Assert.Equal((x, z), (ada.Move.X, ada.Move.Z));
+        }
 
         [Fact]
         public void TheHostPicksTheIslandAndItsSeed_AndTheCarriersStandOnItsPad()

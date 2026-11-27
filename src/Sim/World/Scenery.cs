@@ -127,6 +127,9 @@ namespace PerformativeMail.Sim.World
                 keepClear.Add((wx0, wz0, wx1, wz1, 1.3f));
             }
 
+            var cells = new Dictionary<long, List<int>>();
+            int indexed = 0;
+            float maxSolid = 0f;
             bool Free(float x, float z, float r)
             {
                 foreach (var k in keepClear)
@@ -134,10 +137,36 @@ namespace PerformativeMail.Sim.World
                     var seg = new Prop(PropKind.Fence, k.X0, k.Z0, k.X1, k.Z1, 0f, 1f, 0, 0f, 0f);
                     if (seg.Distance(x, z, out _, out _) < k.R + r) return false;
                 }
-                foreach (var p in props)
-                    if (p.Solid && p.Distance(x, z, out _, out _) < p.Radius + r + 0.6f) return false;
+                // The solid props near the point only, from a grid of 4 m cells (a Large Island grows a thousand and more).
+                for (; indexed < props.Count; indexed++)
+                {
+                    var p = props[indexed];
+                    if (!p.Solid) continue;
+                    maxSolid = MathF.Max(maxSolid, p.Radius);
+                    int cx0 = Cell(MathF.Min(p.X, p.X2) - p.Radius), cx1 = Cell(MathF.Max(p.X, p.X2) + p.Radius);
+                    int cz0 = Cell(MathF.Min(p.Z, p.Z2) - p.Radius), cz1 = Cell(MathF.Max(p.Z, p.Z2) + p.Radius);
+                    for (int cz = cz0; cz <= cz1; cz++)
+                        for (int cx = cx0; cx <= cx1; cx++)
+                        {
+                            long key = ((long)cz << 32) ^ (uint)cx;
+                            if (!cells.TryGetValue(key, out var list)) cells[key] = list = new List<int>();
+                            list.Add(indexed);
+                        }
+                }
+                float reach = r + 0.6f + maxSolid;
+                for (int cz = Cell(z - reach); cz <= Cell(z + reach); cz++)
+                    for (int cx = Cell(x - reach); cx <= Cell(x + reach); cx++)
+                    {
+                        if (!cells.TryGetValue(((long)cz << 32) ^ (uint)cx, out var list)) continue;
+                        foreach (int i in list)
+                        {
+                            var p = props[i];
+                            if (p.Distance(x, z, out _, out _) < p.Radius + r + 0.6f) return false;
+                        }
+                    }
                 return true;
             }
+            static int Cell(float v) => (int)MathF.Floor(v / 4f);
 
             // A dock's lot reads as the grass it was laid on, so it moves nothing of the rest (the draws of the stream depend on what fits).
             DestinationDef? OnDock(int tx, int tz)

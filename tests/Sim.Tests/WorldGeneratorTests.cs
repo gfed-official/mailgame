@@ -178,5 +178,15 @@ namespace PerformativeMail.Sim.Tests
                 Assert.True(dock.MailboxX > map.PostOffice.SpawnPadX, $"seed {seed}: the dock is not east of the Post Office");
             }
         }
+
+        /// <summary>The dock's number is past the whole street's, not its segment's: seed 15 had "14 Heron Bend" for a house and the dock.</summary>
+        [Theory]
+        [InlineData(15u)]
+        [InlineData(132u)]
+        public void NoTwoDestinations_ShareALabel(uint seed)
+        {
+            var map = WorldGenerator.Generate(Db, seed);
+            Assert.Equal(map.Destinations.Count, map.Destinations.Select(d => map.FormatAddress(d.Address)).Distinct().Count());
+        }
     }
 }

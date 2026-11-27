@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Mail;
 using PerformativeMail.Sim.Players;
@@ -10,8 +11,8 @@ namespace PerformativeMail.Sim
 {
     /// <summary>
     /// The host's choice of world in the Lobby (doc 01 §1 "Seed … chosen", §5.3, doc 06 §5 step
-    /// 1, doc 09 §2.2): which map — the test street, or the seed's own Small Island town — and
-    /// which seed. The server builds the new map and swaps it in where the old one stood: the
+    /// 1, doc 09 §2.2): which map — the test street, the seed's own Small Island town, or from Postal Rank 3 its Large
+    /// Island — and which seed. The server builds the new map and swaps it in where the old one stood: the
     /// Post Office's Intake stays the same container, the map's chests are new ones, nodes and
     /// what was built start afresh (there is nothing in the Lobby to keep), and every carrier
     /// stands on the new pad. The clients are told the map's id, seed and hash and build it
@@ -20,7 +21,14 @@ namespace PerformativeMail.Sim
     public sealed partial class SimWorld
     {
         /// <summary>The worlds the Lobby offers, in the order the world key steps through them.</summary>
-        public static readonly IReadOnlyList<string> WorldChoices = new[] { "test_street", WorldGenerator.SmallIsland };
+        public static readonly IReadOnlyList<string> WorldChoices = new[] { "test_street", WorldGenerator.SmallIsland, LargeIslandGenerator.LargeIsland };
+
+        /// <summary>The Postal Rank a world asks of the host (doc 01 §5.2: the Large Island at rank 3); 1 for the rest.</summary>
+        public static int WorldRank(ContentDb content, string mapId) =>
+            mapId == LargeIslandGenerator.LargeIsland ? content.Balance.GetInt("largeIslandRank") : 1;
+
+        /// <summary>A host of this rank may pick the world (any with --playtest-unlocks).</summary>
+        public static bool WorldOpen(ContentDb content, string mapId, int rank, bool allUnlocks) => allUnlocks || rank >= WorldRank(content, mapId);
 
         /// <summary>The index of the map played now in <see cref="WorldChoices"/>; −1 for a map not offered there.</summary>
         public int WorldChoice
@@ -58,6 +66,8 @@ namespace PerformativeMail.Sim
             }
             string mapId = WorldChoices[r.Count];
             if (!WorldGenerator.Generates(mapId) && !Content.Maps.ContainsKey(mapId)) return OpResult.BadRequest;
+            // Doc 01 §5.2: an archetype the host's Postal Rank has not opened.
+            if (!WorldOpen(Content, mapId, p.Rank, (p.Playtest & PlaytestFlags.AllUnlocks) != 0)) return OpResult.RankTooLow;
             if (mapId == Map.Id && (r.EntryId == Settings.Seed || !WorldGenerator.Generates(mapId)))
             {
                 // A file's map is the same whatever the seed; the seed still sets the mail and the raids.

@@ -228,8 +228,10 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(rank, gainAtResults.Value.RankAfter);
             Assert.Null(tracker.LastGain);
             var lines = HudText.ResultsLines(world, results, profile, gainAtResults);
-            // Rank 2 opens the Sea kit (doc 01 §5.2): revealed under the rank line, and in the profile's unlocks.
-            Assert.Equal(new[] { $"RANK UP!   Postal Rank {rank}   ·   {(480 + own.Xp) % 500} / 500 XP", "Unlocked: the Sea kit" }, lines.Skip(lines.Count - 2));
+            // Rank 2 opens the Sea kit and rank 3 the Large Island (doc 01 §5.2): revealed under the rank line, and in the profile's unlocks.
+            string opened = rank >= 3 ? "Unlocked: the Sea kit, the Large Island" : "Unlocked: the Sea kit";
+            Assert.Equal(new[] { $"RANK UP!   Postal Rank {rank}   ·   {(480 + own.Xp) % 500} / 500 XP", opened }, lines.Skip(lines.Count - 2));
+            Assert.Equal(rank >= 3, profile.Unlocks.Archetypes.Contains("large_island"));
             Assert.Equal(lines.Count - 2, HudText.ResultsLines(world, results).Count);
             Assert.Equal(new[] { "land", "sea" }, profile.Unlocks.Kits);
 
@@ -342,7 +344,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("PM1-SMALL-0000002A-CM.RH", host.SeedToCopy());
             // Double Raids is tier 2: rank 1 may not put it on, and nothing changes.
             Assert.Equal("Not pasted: Double Raids needs Postal Rank 6", host.PasteSeed("PM1-TEST-00000005-DR"));
-            Assert.Equal("Not pasted: no world 'LARGE'", host.PasteSeed("PM1-LARGE-00000005"));
+            // The Large Island is rank 3's (doc 01 §5.2); an archetype there is none of is no world.
+            Assert.Equal("Not pasted: the Large Island needs Postal Rank 3", host.PasteSeed("PM1-LARGE-00000005"));
+            Assert.Equal("Not pasted: no world 'HUGE'", host.PasteSeed("PM1-HUGE-00000005"));
             Run(10);
             Assert.Equal(42u, host.World!.Seed);
             Assert.Equal("Seed PM1-TEST-00000005 pasted", host.PasteSeed("PM1-TEST-00000005"));
@@ -360,17 +364,19 @@ namespace PerformativeMail.Net.Tests
                 $"{string.Join(",", u.Kits)} / {string.Join(",", u.Archetypes)} / {u.StampTiers} / {string.Join(",", u.PerkPools)} / {u.Rerolls}";
             Assert.Equal("land / small_island / 1 / carrier,postal / 1", Of(one));
             var eight = RankUnlocks.For(c, 8);
-            Assert.Equal("land,sea / small_island / 2 / carrier,postal,facility,defense / 2", Of(eight));
+            Assert.Equal("land,sea / small_island,large_island / 2 / carrier,postal,facility,defense / 2", Of(eight));
+            Assert.Equal("land,sea / small_island / 1 / carrier,postal / 1", Of(RankUnlocks.For(c, 2)));
+            Assert.Equal("land,sea / small_island,large_island / 1 / carrier,postal / 1", Of(RankUnlocks.For(c, 3)));
             Assert.Equal(new[] { "land", "sea", "pipes" }, RankUnlocks.For(c, 12).Kits);
             Assert.Equal(3, RankUnlocks.For(c, 12).StampTiers);
 
             Assert.Equal(new[] { "the Sea kit" }, RankUnlocks.Revealed(c, 1, 2));
-            Assert.Empty(RankUnlocks.Revealed(c, 2, 3));
+            Assert.Equal(new[] { "the Large Island" }, RankUnlocks.Revealed(c, 2, 3));
             Assert.Equal(new[] { "a second Draft reroll" }, RankUnlocks.Revealed(c, 3, 4));
             Assert.Equal(new[] { "facility perks in the Draft" }, RankUnlocks.Revealed(c, 4, 5));
             Assert.Equal(new[] { "Postage Stamps tier 2" }, RankUnlocks.Revealed(c, 5, 6));
             Assert.Equal(new[] { "defense perks in the Draft" }, RankUnlocks.Revealed(c, 7, 8));
-            Assert.Equal(new[] { "the Sea kit", "the Pipes kit", "Postage Stamps tier 2", "Postage Stamps tier 3", "facility perks in the Draft", "defense perks in the Draft", "a second Draft reroll" },
+            Assert.Equal(new[] { "the Sea kit", "the Pipes kit", "the Large Island", "Postage Stamps tier 2", "Postage Stamps tier 3", "facility perks in the Draft", "defense perks in the Draft", "a second Draft reroll" },
                 RankUnlocks.Revealed(c, 1, 12));
 
             // Written to the file and read back.
