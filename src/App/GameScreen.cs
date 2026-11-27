@@ -205,6 +205,7 @@ namespace PerformativeMail.App
             _input.Ping = session.Ping;
             _input.Cancelled += Cancel;
             _input.SeedCopied += () => { if (client.World != null) session.Feed.Add(HudText.SeedCopied(client.World)); };
+            _input.SeedPasted += line => session.Feed.Add(line);
             AddChild(_input);
             session.InputSource = _input.Sample;
         }

@@ -22,7 +22,8 @@ namespace PerformativeMail.Client.Meta
     /// <summary>
     /// What a player keeps between runs (doc 07 §7.1, doc 08 §3.8): Postal Rank XP, lifetime stats
     /// and the last ten runs. It lives on the player's own machine; the server never sees it.
-    /// Unlocks, cosmetics and settings are in the file format but nothing fills them yet.
+    /// The unlocks are what the rank has opened (<see cref="RankUnlocks"/>), written for the file's reader; cosmetics and
+    /// settings are in the file format but nothing fills them yet.
     /// </summary>
     public sealed class MetaProfile
     {
@@ -32,6 +33,8 @@ namespace PerformativeMail.Client.Meta
         public string DisplayName = "";
         public int RankXp;
         public int Runs, Wins, Deliveries, Misdeliveries, BestScore;
+        /// <summary>What the rank has opened; the tracker fills it from the content (doc 08 §3.8).</summary>
+        public ProfileUnlocks Unlocks = new ProfileUnlocks();
         /// <summary>Newest first.</summary>
         public readonly List<RecentRun> RecentRuns = new List<RecentRun>();
 
@@ -74,12 +77,14 @@ namespace PerformativeMail.Client.Meta
                 w.WriteString("displayName", DisplayName);
                 w.WriteNumber("rankXp", RankXp);
                 w.WriteStartObject("unlocks");
-                foreach (string list in new[] { "kits", "archetypes", "perkPools", "cosmetics" })
+                foreach (var (name, list) in new[] { ("kits", Unlocks.Kits), ("archetypes", Unlocks.Archetypes), ("perkPools", Unlocks.PerkPools), ("cosmetics", Unlocks.Cosmetics) })
                 {
-                    w.WriteStartArray(list);
+                    w.WriteStartArray(name);
+                    foreach (string id in list) w.WriteStringValue(id);
                     w.WriteEndArray();
                 }
-                w.WriteNumber("stampTiers", 1);
+                w.WriteNumber("stampTiers", Unlocks.StampTiers);
+                w.WriteNumber("rerolls", Unlocks.Rerolls);
                 w.WriteEndObject();
                 w.WriteStartObject("cosmetics");
                 w.WriteEndObject();
@@ -127,6 +132,15 @@ namespace PerformativeMail.Client.Meta
                     RankXp = Int(root, "rankXp"),
                 };
                 if (profile.ProfileId.Length == 0) throw new FormatException("profile: no profileId");
+                if (root.TryGetProperty("unlocks", out var unlocks) && unlocks.ValueKind == JsonValueKind.Object)
+                {
+                    Strs(unlocks, "kits", profile.Unlocks.Kits);
+                    Strs(unlocks, "archetypes", profile.Unlocks.Archetypes);
+                    Strs(unlocks, "perkPools", profile.Unlocks.PerkPools);
+                    Strs(unlocks, "cosmetics", profile.Unlocks.Cosmetics);
+                    profile.Unlocks.StampTiers = Int(unlocks, "stampTiers");
+                    profile.Unlocks.Rerolls = Int(unlocks, "rerolls");
+                }
                 if (root.TryGetProperty("stats", out var stats) && stats.ValueKind == JsonValueKind.Object)
                 {
                     profile.Runs = Int(stats, "runs");
@@ -153,6 +167,13 @@ namespace PerformativeMail.Client.Meta
                 }
                 return profile;
             }
+        }
+
+        private static void Strs(JsonElement obj, string name, List<string> into)
+        {
+            if (!obj.TryGetProperty(name, out var arr) || arr.ValueKind != JsonValueKind.Array) return;
+            foreach (var v in arr.EnumerateArray())
+                if (v.ValueKind == JsonValueKind.String) into.Add(v.GetString() ?? "");
         }
 
         private static string Str(JsonElement obj, string name) =>

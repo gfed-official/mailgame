@@ -69,7 +69,8 @@ namespace PerformativeMail.Client
 
         public static string PhaseName(RunPhase phase) => phase.ToString().ToUpperInvariant();
 
-        public static int ShiftCount(ContentDb content) => content.Balance.GetArray("baseQuota").Length;
+        /// <summary>The run's shifts: five, a practice run's two (doc 09 §6).</summary>
+        public static int ShiftCount(ClientWorld world) => RunModes.ShiftCount(world.Content, world.Global.Mode);
 
         /// <summary>"Shift 2 / 5   DELIVERY 03:12"; the phases that wait for people have no shift and no clock.</summary>
         public static string ShiftAndPhase(ClientWorld world)
@@ -83,7 +84,7 @@ namespace PerformativeMail.Client
             }
             string clock = world.PhaseHasClock ? " " + Clock(world.PhaseSecondsLeft) : "";
             if (world.ClockStopped) clock += " " + ClockStoppedTag;
-            return $"Shift {g.Shift} / {ShiftCount(world.Content)}   {PhaseName(g.Phase)}{clock}";
+            return $"Shift {g.Shift} / {ShiftCount(world)}   {PhaseName(g.Phase)}{clock}";
         }
 
         /// <summary>After the time of a shift whose clock a playtest flag has stopped (nit 10).</summary>
@@ -99,17 +100,42 @@ namespace PerformativeMail.Client
         /// The seed as a string to share (doc 01 §5.3, "PM1-SMALL-7F3A9C21"; no Postage Stamps yet):
         /// the map's tag and the seed in hex.
         /// </summary>
-        public static string SeedString(string mapId, uint seed)
-        {
-            string tag = mapId == WorldGenerator.SmallIsland ? "SMALL" : mapId.Split('_')[0].ToUpperInvariant();
-            return $"PM1-{tag}-{seed:X8}";
-        }
+        public static string SeedString(string mapId, uint seed) => $"{SeedStrings.Version}-{SeedStrings.Tag(mapId)}-{seed:X8}";
+
+        /// <summary>The seed string to share, with the run's stamps (doc 01 §5.3, "PM1-SMALL-7F3A9C21-CM.DR").</summary>
+        public static string ShareString(ClientWorld world) => SeedStrings.Format(world.Content, world.Map.Id, world.Seed, world.Global.Stamps);
 
         /// <summary>The world's name for the Lobby: "Small Island", or a map file's own name.</summary>
         public static string WorldName(WorldMap map) => map.Id == WorldGenerator.SmallIsland ? "Small Island" : map.Name;
 
-        /// <summary>The Lobby's world plate: "Small Island · PM1-SMALL-0000002A".</summary>
-        public static string WorldTracker(ClientWorld world) => $"{WorldName(world.Map)} · {SeedString(world.Map.Id, world.Seed)}";
+        /// <summary>
+        /// The Lobby's world plate: "Small Island · PM1-SMALL-0000002A"; for the practice run (doc 09 §6) "Practice · 2
+        /// shifts, no raid, no XP", for the Daily Seed (doc 01 §5.3) "Daily 2026-11-27 · PM1-SMALL-…".
+        /// </summary>
+        public static string WorldTracker(ClientWorld world) => world.Global.Mode switch
+        {
+            RunMode.Practice => $"Practice · {ShiftCount(world)} shifts, no raid, no XP",
+            RunMode.Daily => $"Daily {RunModes.DayText(world.Global.DailyDay)} · {SeedString(world.Map.Id, world.Seed)}",
+            _ => $"{WorldName(world.Map)} · {SeedString(world.Map.Id, world.Seed)}",
+        };
+
+        /// <summary>The host's keys for the practice run and the Daily Seed in the Lobby. Doc 09 §4 has none; P and O.</summary>
+        public const string PracticeKey = "[P]", DailyKey = "[O]";
+
+        /// <summary>"[P] practice   ·   [O] daily   ·   [Ctrl+V] a seed", the key of the run chosen now saying it leaves it.</summary>
+        public static string ModeKeys(ClientWorld world) =>
+            $"{PracticeKey} {(world.Global.Mode == RunMode.Practice ? "leave practice" : "practice")}   ·   {DailyKey} {(world.Global.Mode == RunMode.Daily ? "leave the daily" : "daily")}   ·   {PasteKey} a seed";
+
+        /// <summary>The host's paste of a seed string in the Lobby.</summary>
+        public const string PasteKey = "[Ctrl+V]";
+
+        /// <summary>The Results' line of a practice run or a Daily Seed; empty for another run.</summary>
+        public static string ModeLine(ClientWorld world) => world.Global.Mode switch
+        {
+            RunMode.Practice => "Practice run   ·   no XP",
+            RunMode.Daily => $"Daily Seed of {RunModes.DayText(world.Global.DailyDay)}",
+            _ => "",
+        };
 
         /// <summary>
         /// The loading panel of the Generating phase (doc 01 §1, doc 09 "loading screen"): the
@@ -161,7 +187,8 @@ namespace PerformativeMail.Client
         /// </summary>
         public static string StampPick(ClientWorld world, int cursor, int tierOpen)
         {
-            if (world.Content.Stamps.Count == 0) return "";
+            // The practice run has no stamps and the Daily Seed its own (doc 01 §5.3): nothing to point at.
+            if (world.Content.Stamps.Count == 0 || world.Global.Mode != RunMode.Normal) return "";
             var s = world.Content.Stamps[cursor % world.Content.Stamps.Count];
             bool on = (world.Global.Stamps & (1 << s.Index)) != 0;
             string head = $"{StampsKey} {s.Name} ×{s.ScoreMult.ToString("0.##", CultureInfo.InvariantCulture)}";
@@ -420,14 +447,14 @@ namespace PerformativeMail.Client
                     var s = world.LastSummary;
                     string clock = Clock(world.PhaseSecondsLeft);
                     if (s == null) return "";
-                    bool last = s.Shift >= ShiftCount(world.Content);
+                    bool last = s.Shift >= ShiftCount(world);
                     // The counter serves the team where it stands, for as long as the summary is up.
                     string shop = world.ShopServes ? $"   ·   {ShopKey} shop" : "";
                     // One word for a waived quota everywhere: "QUOTA OFF" on the card, "Quota off" here and in the feed (the e36633c playtest).
                     if (!s.QuotaMet && world.QuotaWaived && !last) return $"Quota off — {QuotaWaivedTag}   ·   shift {s.Shift + 1} in {clock}{shop}";
                     if (!s.QuotaMet && world.QuotaWaived) return $"Quota off — results in {clock}";
                     if (!s.QuotaMet) return $"Quota missed — results in {clock}";
-                    return s.Shift >= ShiftCount(world.Content) ? $"Final quota met — results in {clock}" : $"Quota met — shift {s.Shift + 1} in {clock}{shop}";
+                    return s.Shift >= ShiftCount(world) ? $"Final quota met — results in {clock}" : $"Quota met — shift {s.Shift + 1} in {clock}{shop}";
                 }
                 case RunPhase.Draft:
                 {
@@ -520,6 +547,21 @@ namespace PerformativeMail.Client
         /// The Payday summary (doc 01 §1 Payday) as a report card (UI polish plan item 7; ref Lethal Company, R.E.P.O.):
         /// the title, the stamp, the postal grade, what was earned, then one row a fact.
         /// </summary>
+        /// <summary>
+        /// Doc 09 §2.9 "misdeliveries with the offending addresses": " (2 at 4 Larch Lane, 1 at 7 Oak Street)", the two
+        /// mailboxes most went wrong at and "+N more" for the rest; empty with none.
+        /// </summary>
+        public static string MisdeliveredAt(ClientWorld world, ShiftSummary s)
+        {
+            if (s.MisdeliveredAt.Length == 0) return "";
+            var parts = new List<string>();
+            for (int i = 0; i < Math.Min(2, s.MisdeliveredAt.Length); i++)
+                parts.Add($"{s.MisdeliveredCounts[i]} at {world.Map.GetDestination(s.MisdeliveredAt[i])?.Label ?? "?"}");
+            int more = s.MisdeliveredAt.Length - parts.Count;
+            if (more > 0) parts.Add($"+{more} more");
+            return $" ({string.Join(", ", parts)})";
+        }
+
         public static List<string> SummaryLines(ClientWorld world, ShiftSummary s)
         {
             var lines = new List<string>
@@ -538,7 +580,7 @@ namespace PerformativeMail.Client
             }
             lines.Add(kinds.Count == 0 ? "Delivered nothing" : "Delivered " + string.Join(", ", kinds));
             // Doc 01 §2.4 "constructs lost", when any were.
-            lines.Add($"Misdelivered {s.Misdeliveries}   ·   Late {s.LateDeliveries}{(s.ConstructsLost > 0 ? $"   ·   Constructs lost {s.ConstructsLost}" : "")}");
+            lines.Add($"Misdelivered {s.Misdeliveries}{MisdeliveredAt(world, s)}   ·   Late {s.LateDeliveries}{(s.ConstructsLost > 0 ? $"   ·   Constructs lost {s.ConstructsLost}" : "")}");
             // The Backlog and the Complaint left the HUD's corner for here and the inventory screen (UI polish plan item 4).
             lines.Add(Status(world.Global));
             if (s.Bonus > 0) lines.Add($"No misdeliveries: bonus +{Gold(s.Bonus)}");
@@ -604,6 +646,8 @@ namespace PerformativeMail.Client
             int perRank = RankXpPerRank(world.Content);
             string rank = Rank(profile, perRank);
             lines.Add(gain.Value.RankAfter > gain.Value.RankBefore ? $"RANK UP!   {rank}" : rank);
+            // Doc 09 §2.11 "unlock reveals".
+            if (gain.Value.Unlocked is { Count: > 0 } opened) lines.Add("Unlocked: " + string.Join(", ", opened));
             return lines;
         }
 
@@ -636,35 +680,37 @@ namespace PerformativeMail.Client
         {
             var lines = new List<string>
             {
-                ResultsHeadline(world.Content, r),
+                ResultsHeadline(world, r),
                 ResultsStamp(r, out _),
                 GradeLine(r.Deliveries, r.Deliveries + r.Misdeliveries),
-                $"{ShiftsLine(world.Content, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" = {Gold(r.TotalEarned)} {StampsMultLine(world)}" : "")}",
+                $"{ShiftsLine(world, r)}   ·   Score {Gold(r.Score)}{(r.Score != r.TotalEarned && r.TotalEarned > 0 ? $" = {Gold(r.TotalEarned)} {StampsMultLine(world)}" : "")}",
                 $"Delivered {r.Deliveries}   ·   Misdelivered {r.Misdeliveries}{(r.ConstructsLost > 0 ? $"   ·   Constructs lost {r.ConstructsLost}" : "")}",
             };
             // Doc 09 §2.11 "run stats": what each carrier fought and built besides the mail, where they did.
             foreach (var p in r.Players)
                 lines.Add($"{PlayerName(world, p.Player)}:   {p.Deliveries} delivered, {p.Misdeliveries} misdelivered, {Gold(p.Earned)}"
                     + (p.Kills > 0 ? $", {p.Kills} felled" : "") + (p.Built > 0 ? $", {p.Built} built" : "") + $"   ·   +{p.Xp} XP");
+            string mode = ModeLine(world);
+            if (mode.Length > 0) lines.Add(mode);
             // Doc 09 §2.11 "seed string with a copy button": the key copies it.
             lines.Add(SeedLine(world));
             return lines;
         }
 
         /// <summary>"Seed PM1-TEST-00000001   ·   [C] copies it".</summary>
-        public static string SeedLine(ClientWorld world) => $"Seed {SeedString(world.Map.Id, world.Seed)}   ·   {ShopKey} copies it";
+        public static string SeedLine(ClientWorld world) => $"Seed {ShareString(world)}   ·   {ShopKey} copies it";
 
         /// <summary>The feed's line once the seed is on the clipboard.</summary>
-        public static string SeedCopied(ClientWorld world) => $"Seed {SeedString(world.Map.Id, world.Seed)} copied";
+        public static string SeedCopied(ClientWorld world) => $"Seed {ShareString(world)} copied";
 
         /// <summary>
         /// "Shifts completed 3 / 5" of the shifts the run set out to play (from the one it started at); with the
         /// quota waived the shifts met say nothing of how far it went — "Shifts played 4–5   ·   quota off"
         /// (the e36633c playtest read "Shifts completed 0 / 2" after shift 4 was played and ended with G).
         /// </summary>
-        public static string ShiftsLine(ContentDb content, RunResults r)
+        public static string ShiftsLine(ClientWorld world, RunResults r)
         {
-            if (!r.QuotaWaived) return $"Shifts completed {r.ShiftsCompleted} / {ShiftCount(content) - r.FirstShift + 1}";
+            if (!r.QuotaWaived) return $"Shifts completed {r.ShiftsCompleted} / {ShiftCount(world) - r.FirstShift + 1}";
             string span = r.LastShift > r.FirstShift ? $"{r.FirstShift}–{r.LastShift}" : $"{r.LastShift}";
             return $"Shifts played {span}   ·   quota off";
         }
@@ -673,7 +719,7 @@ namespace PerformativeMail.Client
         /// "VICTORY — all 5 shifts delivered" / "RUN OVER — quota missed on shift 2"; a run started later
         /// (--shift=N, the debug world) names its shifts, and one with the quota waived says what was played.
         /// </summary>
-        public static string ResultsHeadline(ContentDb content, RunResults r)
+        public static string ResultsHeadline(ClientWorld world, RunResults r)
         {
             int played = r.LastShift - r.FirstShift + 1;
             string span = played == 1 ? $"shift {r.LastShift}" : $"shifts {r.FirstShift}–{r.LastShift}";
@@ -681,7 +727,8 @@ namespace PerformativeMail.Client
             if (r.QuotaWaived && r.ShiftsCompleted < played)
                 return $"RUN OVER — {span} played, quota off ({r.ShiftsCompleted} of {played} met)";
             if (r.Outcome == RunOutcome.Victory)
-                return r.FirstShift <= 1 ? $"VICTORY — all {ShiftCount(content)} shifts delivered" : $"VICTORY — {span} delivered";
+                return world.Global.Mode == RunMode.Practice ? $"PRACTICE DONE — all {ShiftCount(world)} shifts delivered"
+                    : r.FirstShift <= 1 ? $"VICTORY — all {ShiftCount(world)} shifts delivered" : $"VICTORY — {span} delivered";
             return $"RUN OVER — quota missed on shift {r.LastShift}";
         }
 

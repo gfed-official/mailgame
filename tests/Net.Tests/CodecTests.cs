@@ -239,6 +239,7 @@ namespace PerformativeMail.Net.Tests
                         Shift = 2, Earned = -40, Quota = 1100, QuotaMet = true, Bonus = 110, DeliveriesByKind = new ushort[] { 7, 0, 3 },
                         Misdeliveries = 2, LateDeliveries = 1, Mvp = player, MvpDeliveries = 6,
                         MvpDamage = new EntityId(EntityClass.Player, 9), MvpDamageDealt = 340, MvpBuilt = player, MvpBuiltCount = 7, ConstructsLost = 3,
+                        MisdeliveredAt = new ushort[] { 4, 1 }, MisdeliveredCounts = new ushort[] { 2, 1 },
                     },
                 },
                 new RunResultsEvent
@@ -402,6 +403,8 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(10, summary.Deliveries);
             Assert.Equal((2, 1, player, 6), (summary.Misdeliveries, summary.LateDeliveries, summary.Mvp, summary.MvpDeliveries));
             Assert.Equal((new EntityId(EntityClass.Player, 9), (ushort)340, player, (ushort)7, (ushort)3), (summary.MvpDamage, summary.MvpDamageDealt, summary.MvpBuilt, summary.MvpBuiltCount, summary.ConstructsLost));
+            Assert.Equal(new ushort[] { 4, 1 }, summary.MisdeliveredAt);
+            Assert.Equal(new ushort[] { 2, 1 }, summary.MisdeliveredCounts);
 
             var results = ((RunResultsEvent)back[11]).Results;
             Assert.Equal((RunOutcome.QuotaMissed, 3, 4321, 4321, 70000, 9),

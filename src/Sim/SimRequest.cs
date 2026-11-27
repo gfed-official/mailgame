@@ -192,8 +192,12 @@ namespace PerformativeMail.Sim
 
         public static SimRequest Reroll(uint reqId) => new SimRequest { RequestId = reqId, Kind = RequestKind.Reroll };
 
-        public static SimRequest SetWorld(uint reqId, int choice, uint seed) =>
-            new SimRequest { RequestId = reqId, Kind = RequestKind.SetWorld, Count = (ushort)choice, EntryId = seed };
+        /// <summary>
+        /// Host, Lobby: a world of SimWorld.WorldChoices from a seed. A practice run or the Daily Seed (<paramref name="mode"/>)
+        /// brings its own world, seed and stamps, and the choice and seed are not read.
+        /// </summary>
+        public static SimRequest SetWorld(uint reqId, int choice, uint seed, Run.RunMode mode = Run.RunMode.Normal) =>
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetWorld, Count = (ushort)choice, EntryId = seed, X = (byte)mode };
 
         public static SimRequest SetStamps(uint reqId, int mask) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetStamps, Count = (ushort)mask };

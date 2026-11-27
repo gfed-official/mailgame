@@ -204,8 +204,8 @@ namespace PerformativeMail.Net.Tests
             Assert.StartsWith("Ada:   1 delivered, 0 misdelivered", results[5]);
             Assert.EndsWith("+5 XP", results[5]);
             // Doc 09 §2.11: the seed string, and the key that copies it.
-            Assert.Equal($"Seed {HudText.SeedString(world.Map.Id, world.Seed)}   ·   [C] copies it", results[6]);
-            Assert.Equal(HudText.SeedString(world.Map.Id, world.Seed), client.SeedToCopy());
+            Assert.Equal($"Seed {HudText.ShareString(world)}   ·   [C] copies it", results[6]);
+            Assert.Equal(HudText.ShareString(world), client.SeedToCopy());
             // Design choice 124: gold on screen, never dollars or cents.
             foreach (string line in summary.Concat(results).Concat(feed.Entries.Select(e => e.Text)))
             {

@@ -24,6 +24,8 @@ namespace PerformativeMail.Client.InputHandling
         public event Action? ContentReloadAsked;
         /// <summary>The seed string was put on the clipboard (the shop's key in the Lobby and at Results).</summary>
         public event Action? SeedCopied;
+        /// <summary>Ctrl+V in the Lobby: the feed's line of the pasted seed string.</summary>
+        public event Action<string>? SeedPasted;
         /// <summary>A chip's key while the map is up (Z, X, V).</summary>
         public event Action<MapChip>? MapChipPressed;
         /// <summary>True while the map is up: Esc puts it down first.</summary>
@@ -174,10 +176,15 @@ namespace PerformativeMail.Client.InputHandling
             else if (MapOpen?.Invoke() == true && ev.IsActionPressed(InputActions.MapRoutes)) MapChipPressed?.Invoke(MapChip.Routes);
             else if (MapOpen?.Invoke() == true && ev.IsActionPressed(InputActions.MapResources)) MapChipPressed?.Invoke(MapChip.Resources);
             else if (ev.IsActionPressed(InputActions.Kit) && !UiOpen) _client.CycleKit();
+            else if (ev is InputEventKey { Pressed: true, Echo: false, CtrlPressed: true, PhysicalKeycode: Key.V } && !UiOpen
+                && _client.World?.Global.Phase == PerformativeMail.Sim.Run.RunPhase.Lobby)
+                SeedPasted?.Invoke(_client.PasteSeed(DisplayServer.ClipboardGet()));
             else if (ev.IsActionPressed(InputActions.World) && !UiOpen) _client.CycleWorld();
             else if (ev.IsActionPressed(InputActions.Seed) && !UiOpen) _client.NewSeed();
             else if (ev.IsActionPressed(InputActions.Stamps) && !UiOpen) _client.NextStamp();
             else if (ev.IsActionPressed(InputActions.StampToggle) && !UiOpen) _client.ToggleStamp();
+            else if (ev.IsActionPressed(InputActions.Practice) && !UiOpen) _client.TogglePractice();
+            else if (ev.IsActionPressed(InputActions.Daily) && !UiOpen) _client.ToggleDaily();
             else if (ev.IsActionPressed(InputActions.ReloadContent) && OS.IsDebugBuild()) ContentReloadAsked?.Invoke();
         }
 

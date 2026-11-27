@@ -217,6 +217,7 @@ namespace PerformativeMail.Sim
                 else
                 {
                     player.Misdeliveries++;
+                    NoteMisdelivery(dest.Id);
                     Events.Add(new MisdeliveredEvent
                     {
                         MailId = item.Id, DestId = dest.Id, Penalty = (ushort)verdict.Amount, Player = player.Id, Kind = item.Kind,

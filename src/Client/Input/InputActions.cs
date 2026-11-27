@@ -46,6 +46,8 @@ namespace PerformativeMail.Client.InputHandling
         public const string Stamps = "stamps";
         /// <summary>Host, Lobby: the stamp at the <see cref="Stamps"/> key's pointer on or off. Y.</summary>
         public const string StampToggle = "stamp_toggle";
+        /// <summary>Host, Lobby: the practice run (doc 09 §6) and the Daily Seed (doc 01 §5.3) on or off. Doc 09 §4 has no keys for them; P and O.</summary>
+        public const string Practice = "practice", Daily = "daily";
         /// <summary>The map overlay (doc 09 §4: M).</summary>
         public const string Map = "map";
         /// <summary>The map's filter chips while it is up (doc 09 §2.6 has no keys for them): Z Mail, X Routes, V Resources.</summary>
@@ -83,6 +85,8 @@ namespace PerformativeMail.Client.InputHandling
             BindKey(Seed, Key.N);
             BindKey(Stamps, Key.T);
             BindKey(StampToggle, Key.Y);
+            BindKey(Practice, Key.P);
+            BindKey(Daily, Key.O);
             BindKey(ReloadContent, Key.F6);
             BindMouse(Attack, MouseButton.Left);
             BindMouse(AltAttack, MouseButton.Right);

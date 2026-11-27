@@ -20,7 +20,7 @@ namespace PerformativeMail.Sim
         private uint _nextJoinOrder = 1;
 
         /// <summary>Shifts in a run: one per entry of baseQuota.</summary>
-        public int ShiftCount => Content.Balance.GetArray("baseQuota").Length;
+        public int ShiftCount => RunModes.ShiftCount(Content, Run.Mode);
 
         /// <summary>Join-in-progress is allowed only in the Lobby and during Prep (doc 06 §5).</summary>
         public bool AcceptsPlayers =>
@@ -157,6 +157,7 @@ namespace PerformativeMail.Sim
             BeginShiftEvents();
             // Doc 01 §2.4's callouts count what is done from the shift's Prep on.
             _shiftConstructsLost = 0;
+            _shiftMisdeliveredAt.Clear();
             foreach (var p in _players)
             {
                 p.ShiftDamage = 0;
@@ -245,6 +246,19 @@ namespace PerformativeMail.Sim
                 }
             }
             summary.ConstructsLost = Clamp16(_shiftConstructsLost);
+            // Most first; of as many, the one gone wrong first (a stable sort).
+            var wrong = new List<KeyValuePair<ushort, int>>(_shiftMisdeliveredAt);
+            var order = new List<int>();
+            for (int i = 0; i < wrong.Count; i++) order.Add(i);
+            order.Sort((a, b) => wrong[b].Value != wrong[a].Value ? wrong[b].Value.CompareTo(wrong[a].Value) : a.CompareTo(b));
+            int shown = Math.Min(order.Count, ShiftSummary.MaxMisdeliveredAt);
+            summary.MisdeliveredAt = new ushort[shown];
+            summary.MisdeliveredCounts = new ushort[shown];
+            for (int i = 0; i < shown; i++)
+            {
+                summary.MisdeliveredAt[i] = wrong[order[i]].Key;
+                summary.MisdeliveredCounts[i] = Clamp16(wrong[order[i]].Value);
+            }
             summary.Bonus = Economy.PayShiftBonus() + PaydayEvents();
             if (summary.QuotaMet) Run.ShiftsCompleted++;
             Run.LastSummary = summary;
@@ -282,7 +296,8 @@ namespace PerformativeMail.Sim
                 Misdeliveries = Economy.TotalMisdeliveries,
                 ConstructsLost = _runConstructsLost,
             };
-            int xp = StampedXp(QuotaFormula.Xp(b, Run.ShiftsCompleted, outcome == RunOutcome.Victory, Economy.TotalDeliveries, _players.Count));
+            // Doc 09 §6: a practice run "does not award XP".
+            int xp = Run.Mode == RunMode.Practice ? 0 : StampedXp(QuotaFormula.Xp(b, Run.ShiftsCompleted, outcome == RunOutcome.Victory, Economy.TotalDeliveries, _players.Count));
             foreach (var p in _players)
             {
                 results.Players.Add(new PlayerResult

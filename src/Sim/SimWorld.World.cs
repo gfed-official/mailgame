@@ -36,7 +36,26 @@ namespace PerformativeMail.Sim
         {
             if (Run.Phase != RunPhase.Lobby) return OpResult.WrongPhase;
             if (p.Id != Run.Host) return OpResult.NotHost;
+            switch ((RunMode)r.X)
+            {
+                case RunMode.Practice:
+                    return EnterMode(RunMode.Practice, WorldChoices[0], RunModes.PracticeSeed(Content), 0, 0);
+                case RunMode.Daily:
+                    ushort day = RunModes.Day(Settings.UtcNow());
+                    return EnterMode(RunMode.Daily, WorldGenerator.SmallIsland, RunModes.DailySeed(day), RunModes.DailyStamps(Content), day);
+                case RunMode.Normal:
+                    break;
+                default:
+                    return OpResult.BadRequest;
+            }
             if (r.Count >= WorldChoices.Count) return OpResult.BadRequest;
+            // Another world or seed is a run of the host's own again; the practice's or the day's stamps go with it.
+            if (Run.Mode != RunMode.Normal)
+            {
+                Run.Mode = RunMode.Normal;
+                Run.DailyDay = 0;
+                SetStamps(0);
+            }
             string mapId = WorldChoices[r.Count];
             if (!WorldGenerator.Generates(mapId) && !Content.Maps.ContainsKey(mapId)) return OpResult.BadRequest;
             if (mapId == Map.Id && (r.EntryId == Settings.Seed || !WorldGenerator.Generates(mapId)))
@@ -49,6 +68,22 @@ namespace PerformativeMail.Sim
             try { map = WorldGenerator.Resolve(Content, mapId, r.EntryId); }
             catch (InvalidOperationException) { return OpResult.BadRequest; }
             ChangeWorld(map, r.EntryId);
+            return OpResult.Ok;
+        }
+
+        /// <summary>
+        /// Doc 09 §6's practice run (the test street, the practice seed, no stamps) or doc 01 §5.3's Daily Seed (the Small
+        /// Island from the UTC day's seed, the daily stamps whatever the host's rank).
+        /// </summary>
+        private OpResult EnterMode(RunMode mode, string mapId, uint seed, byte stamps, ushort day)
+        {
+            WorldMap map;
+            try { map = Map.Id == mapId && Settings.Seed == seed ? Map : WorldGenerator.Resolve(Content, mapId, seed); }
+            catch (InvalidOperationException) { return OpResult.BadRequest; }
+            Run.Mode = mode;
+            Run.DailyDay = day;
+            SetStamps(stamps);
+            ChangeWorld(map, seed);
             return OpResult.Ok;
         }
 

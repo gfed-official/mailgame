@@ -139,6 +139,8 @@ namespace PerformativeMail.Sim.Net
                     foreach (ushort n in s.DeliveriesByKind) w.U16(n);
                     w.U16(s.Misdeliveries); w.U16(s.LateDeliveries); w.U32(s.Mvp.Value); w.U16(s.MvpDeliveries);
                     w.U32(s.MvpDamage.Value); w.U16(s.MvpDamageDealt); w.U32(s.MvpBuilt.Value); w.U16(s.MvpBuiltCount); w.U16(s.ConstructsLost);
+                    w.U8((byte)s.MisdeliveredAt.Length);
+                    for (int i = 0; i < s.MisdeliveredAt.Length; i++) { w.U16(s.MisdeliveredAt[i]); w.U16(s.MisdeliveredCounts[i]); }
                     break;
                 }
                 case RunResultsEvent e:
@@ -474,6 +476,10 @@ namespace PerformativeMail.Sim.Net
                     s.MvpBuilt = new EntityId(r.U32());
                     s.MvpBuiltCount = r.U16();
                     s.ConstructsLost = r.U16();
+                    int wrong = System.Math.Min((int)r.U8(), ShiftSummary.MaxMisdeliveredAt);
+                    s.MisdeliveredAt = new ushort[wrong];
+                    s.MisdeliveredCounts = new ushort[wrong];
+                    for (int i = 0; i < wrong; i++) { s.MisdeliveredAt[i] = r.U16(); s.MisdeliveredCounts[i] = r.U16(); }
                     return new ShiftSummaryEvent { Summary = s };
                 }
                 case EventType.RunResults:

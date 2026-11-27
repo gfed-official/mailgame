@@ -217,7 +217,7 @@ namespace PerformativeMail.App
                     if (_ptFrames < 3) break;
                     if (_ptFrames == 3)
                     {
-                        string want = $"Shift {RaidPlaytestShift} / {HudText.ShiftCount(world.Content)}   PREP";
+                        string want = $"Shift {RaidPlaytestShift} / {HudText.ShiftCount(world)}   PREP";
                         Check(server.Run.Shift == RaidPlaytestShift && server.Run.RunNumber == 1, $"the run started at shift {server.Run.Shift}");
                         Check(hud.PhaseText.StartsWith(want, StringComparison.Ordinal), $"in the first Prep the HUD phase line is \"{hud.PhaseText}\", expected \"{want} …\"");
                         Check(world.Global.Quota == QuotaFormula.Quota(world.Content.Balance, RaidPlaytestShift, 1) && hud.QuotaText == HudText.Quota(world.Global),
@@ -412,7 +412,7 @@ namespace PerformativeMail.App
                     Check(_ruinStep == RuinStep.Done, $"the ruin of shift {RaidPlaytestShift} was not rebuilt in the next Prep ({_ruinStep})");
                     if (StepRepairWall()) break;
                     VerifyPostOffice();
-                    string want = $"Shift {RaidPlaytestShift + 1} / {HudText.ShiftCount(world.Content)}   PREP";
+                    string want = $"Shift {RaidPlaytestShift + 1} / {HudText.ShiftCount(world)}   PREP";
                     Check(server.Run.Phase == RunPhase.Prep && server.Run.Shift == RaidPlaytestShift + 1 && server.Run.Outcome == RunOutcome.None && server.Run.Results == null,
                         $"after the missed quota the server is in {server.Run.Phase} of shift {server.Run.Shift} ({server.Run.Outcome})");
                     Check(world.Results == null && hud.PhaseText.StartsWith(want, StringComparison.Ordinal), $"after the missed quota the HUD phase line is \"{hud.PhaseText}\", expected \"{want} …\"");

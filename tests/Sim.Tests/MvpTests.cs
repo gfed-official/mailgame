@@ -69,6 +69,41 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void Payday_NamesTheMailboxesWrongMailWentInto_MostFirst()
+        {
+            // Doc 09 §2.9 "misdeliveries with the offending addresses".
+            var world = new SimWorld(Db, new SimSettings { Seed = 7, Raids = false, Draft = false });
+            var ada = world.AddPlayer("ada")!;
+            world.SetPlaytest(ada, PlaytestFlags.NoQuota, 1);
+            Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.StartRun(0)));
+            Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.SetReady(0, true)));
+            var d = world.Map.Destinations;
+            uint id = 970000;
+            foreach (var at in new[] { d[2], d[1], d[1] })
+            {
+                Assert.True(world.Give(ada.Hotbar, ItemStack.OfMail(TestContent.Mail("letter", d[0].Address, id++, 1))));
+                SimDriver.Teleport(ada, at.MailboxX, at.MailboxZ);
+                SimDriver.StepTicks(world, 15);
+                var entry = ada.Hotbar.Entries.First(e => e.Stack.Kind == StackKind.Mail);
+                Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.Deliver(0, ada.Hotbar.Id, entry.EntryId, at.Id)));
+            }
+            world.Run.PhaseEndTick = world.Tick + 1;
+            world.Step();
+            var s = world.Run.LastSummary!;
+            Assert.Equal(3, s.Misdeliveries);
+            Assert.Equal(new[] { d[1].Id, d[2].Id }, s.MisdeliveredAt);
+            Assert.Equal(new ushort[] { 2, 1 }, s.MisdeliveredCounts);
+
+            // The next shift counts afresh.
+            world.Run.PhaseEndTick = world.Tick + 1;
+            world.Step();
+            Assert.Equal(OpResult.Ok, Request(world, ada, SimRequest.SetReady(0, true)));
+            world.Run.PhaseEndTick = world.Tick + 1;
+            world.Step();
+            Assert.Empty(world.Run.LastSummary!.MisdeliveredAt);
+        }
+
+        [Fact]
         public void Results_CarryEachCarriersFelledDamageAndBuilt_AndTheConstructsLost()
         {
             var world = new SimWorld(Db, new SimSettings { Seed = 7, Raids = false, Draft = false });

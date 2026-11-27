@@ -48,6 +48,8 @@ namespace PerformativeMail.Sim
         public bool RunEvents;
         /// <summary>A playtest's or a test's event (its id): rolled for every shift it may come in, whatever the chance.</summary>
         public string? ForcedEvent;
+        /// <summary>The server's clock, read only for the Daily Seed's UTC date (doc 01 §5.3); tests set their own.</summary>
+        public Func<DateTime> UtcNow = () => DateTime.UtcNow;
     }
 
     /// <summary>The small global block replicated at 5 Hz (doc 06 §4: wallet, complaint, quota progress).</summary>
@@ -80,6 +82,10 @@ namespace PerformativeMail.Sim
         public byte Events;
         /// <summary>Street Festival's street while it is live (a street id), else 0.</summary>
         public byte EventStreet;
+        /// <summary>The run's kind (doc 09 §6 practice, doc 01 §5.3 Daily Seed).</summary>
+        public RunMode Mode;
+        /// <summary>The Daily Seed's UTC day (<see cref="RunModes.Day"/>), 0 for another run.</summary>
+        public ushort DailyDay;
     }
 
     /// <summary>
@@ -329,6 +335,8 @@ namespace PerformativeMail.Sim
             Stamps = Stamps,
             Events = LiveEvents,
             EventStreet = (byte)(FestivalStreet + 1),
+            Mode = Run.Mode,
+            DailyDay = Run.DailyDay,
         };
 
         // --- tick -----------------------------------------------------------------------------

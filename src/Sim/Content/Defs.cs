@@ -336,6 +336,10 @@ namespace PerformativeMail.Sim.Content
         public string Name { get; init; } = "";
         public string Description { get; init; } = "";
         public int Tier { get; init; } = 1;
+        /// <summary>Two capital letters for the seed string (doc 01 §5.3: "PM1-SMALL-7F3A9C21-CM.DR").</summary>
+        public string Code { get; init; } = "";
+        /// <summary>One of the Daily Seed's fixed stamps (doc 01 §5.3).</summary>
+        public bool Daily { get; init; }
         /// <summary>Doc 01 §6: the run's score is its earnings times the product of its stamps'.</summary>
         public float ScoreMult { get; init; } = 1f;
         public IReadOnlyList<StampRule> Rules { get; init; } = Array.Empty<StampRule>();

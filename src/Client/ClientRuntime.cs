@@ -404,7 +404,7 @@ namespace PerformativeMail.Client
         public uint ToggleStamp()
         {
             int n = _content.Stamps.Count;
-            if (!CanChooseWorld || n == 0) return 0;
+            if (!CanChooseWorld || n == 0 || World!.Global.Mode != RunMode.Normal) return 0;
             var stamp = _content.Stamps[StampCursor % n];
             int mask = World!.Global.Stamps ^ (1 << stamp.Index);
             if ((World.Global.Stamps & (1 << stamp.Index)) == 0 && stamp.Tier > StampTierOpen) return 0;
@@ -413,6 +413,41 @@ namespace PerformativeMail.Client
 
         /// <summary>The highest tier of the Postage Stamps this client's Postal Rank opens (every tier with --playtest-stamps).</summary>
         public int StampTierOpen => StampRules.TierOpen(_content.Balance, Rank, (Playtest & PlaytestFlags.AllUnlocks) != 0);
+
+        /// <summary>
+        /// Host, Lobby: the practice run (doc 09 §6: the test street from a fixed seed, two shifts, no raid, no XP), or
+        /// back from it to the test street on a seed drawn at random; 0 if not the host's to pick now.
+        /// </summary>
+        public uint TogglePractice() =>
+            World?.Global.Mode == RunMode.Practice ? ChooseWorld(0, (uint)_seedDice.Next(1, int.MaxValue))
+            : CanChooseWorld ? Send(SimRequest.SetWorld(0, 0, 0, RunMode.Practice)) : 0;
+
+        /// <summary>Host, Lobby: today's Daily Seed (doc 01 §5.3; the server reads the UTC date), or back from it to a seed drawn at random.</summary>
+        public uint ToggleDaily() =>
+            World?.Global.Mode == RunMode.Daily ? NewSeed()
+            : CanChooseWorld ? Send(SimRequest.SetWorld(0, 0, 0, RunMode.Daily)) : 0;
+
+        /// <summary>
+        /// Host, Lobby: a seed string pasted (doc 01 §5.3, "PM1-SMALL-7F3A9C21-CM.DR"): its world, its seed and its
+        /// stamps, which is a run of the host's own (it leaves the practice run or the daily). Returns the feed's line:
+        /// what was chosen, or why nothing was — not a seed string, or a stamp the host's Postal Rank has not opened.
+        /// </summary>
+        public string PasteSeed(string? text)
+        {
+            if (!CanChooseWorld) return "Only the host chooses the seed, in the Lobby";
+            if (!SeedStrings.TryParse(_content, text, out int choice, out uint seed, out byte stamps, out string error))
+                return $"Not pasted: {error}";
+            double[] ranks = _content.Balance.GetArray("stampTierRanks");
+            foreach (var s in _content.Stamps)
+                if ((stamps & (1 << s.Index)) != 0 && s.Tier > StampTierOpen)
+                    return $"Not pasted: {s.Name} needs Postal Rank {(s.Tier - 1 < ranks.Length ? (int)ranks[s.Tier - 1] : 0)}";
+            ChooseWorld(choice, seed);
+            Send(SimRequest.SetStamps(0, stamps));
+            return $"Seed {SeedStrings.Format(_content, SimWorld.WorldChoices[choice], seed, stamps)} pasted";
+        }
+
+        /// <summary>The content this client was made with.</summary>
+        public ContentDb Content => _content;
 
         /// <summary>The same world from a seed drawn at random.</summary>
         public uint NewSeed() => ChooseWorld(Math.Max(0, WorldChoice), (uint)_seedDice.Next(1, int.MaxValue));
@@ -460,7 +495,7 @@ namespace PerformativeMail.Client
         {
             var world = World;
             if (world == null || (world.Global.Phase != RunPhase.Lobby && world.Global.Phase != RunPhase.Results)) return null;
-            return HudText.SeedString(world.Map.Id, world.Seed);
+            return HudText.ShareString(world);
         }
 
         public bool ToggleShop()

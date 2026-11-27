@@ -228,12 +228,156 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(rank, gainAtResults.Value.RankAfter);
             Assert.Null(tracker.LastGain);
             var lines = HudText.ResultsLines(world, results, profile, gainAtResults);
-            Assert.Equal($"RANK UP!   Postal Rank {rank}   ·   {(480 + own.Xp) % 500} / 500 XP", lines[lines.Count - 1]);
-            Assert.Equal(lines.Count - 1, HudText.ResultsLines(world, results).Count);
+            // Rank 2 opens the Sea kit (doc 01 §5.2): revealed under the rank line, and in the profile's unlocks.
+            Assert.Equal(new[] { $"RANK UP!   Postal Rank {rank}   ·   {(480 + own.Xp) % 500} / 500 XP", "Unlocked: the Sea kit" }, lines.Skip(lines.Count - 2));
+            Assert.Equal(lines.Count - 2, HudText.ResultsLines(world, results).Count);
+            Assert.Equal(new[] { "land", "sea" }, profile.Unlocks.Kits);
 
             // What is on disk is what is in memory.
             Assert.Equal(profile.ToJson(), store.Json);
             Assert.Equal(profile.RankXp, MetaProfile.FromJson(store.Json!).RankXp);
+        }
+
+        [Fact]
+        public void APracticeRun_IsTwoShiftsWithNoXp_AndTheProfileDoesNotCountIt()
+        {
+            // Doc 09 §6 (design choice 165): the host's [P] in the Lobby; the bot plays the run through.
+            var hub = new LoopbackHub();
+            var server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3 }, hub);
+            var client = new ClientRuntime(Shared.Content, hub.CreateClient(), "Bot");
+            var store = new MemoryProfileStore();
+            var profile = MetaProfile.Create("Bot");
+            profile.RankXp = 480;
+            var tracker = new ProfileTracker(client, profile, store);
+            for (int i = 0; i < 10; i++) { client.Tick(); server.Tick(); }
+            var world = client.World!;
+            Assert.Equal("[P] practice   ·   [O] daily   ·   [Ctrl+V] a seed", HudText.ModeKeys(world));
+            Assert.NotEqual(0u, client.TogglePractice());
+            for (int i = 0; i < 10; i++) { client.Tick(); server.Tick(); }
+            world = client.World!;
+            Assert.Equal(RunMode.Practice, world.Global.Mode);
+            Assert.Equal("Practice · 2 shifts, no raid, no XP", HudText.WorldTracker(world));
+            Assert.Equal("[P] leave practice   ·   [O] daily   ·   [Ctrl+V] a seed", HudText.ModeKeys(world));
+            Assert.Equal("", HudText.StampPick(world, 0, 3));
+            Assert.Equal(0u, client.ToggleStamp());
+
+            var bot = new DeliveryBot(client);
+            RunResults? results = null;
+            bool raid = false;
+            int lobbies = 0;
+            client.EventReceived += e =>
+            {
+                if (e is RunResultsEvent x) results = x.Results;
+                if (e is PhaseChangedEvent p && p.Phase == RunPhase.Lobby) lobbies++;
+            };
+            for (int i = 0; i < 30 * 60 * 15 && lobbies == 0; i++)
+            {
+                bot.Tick();
+                client.Tick();
+                server.Tick();
+                raid |= client.World!.Raid != Sim.Combat.RaidState.None;
+            }
+            Assert.Equal(1, lobbies);
+            Assert.NotNull(results);
+            Assert.False(raid);
+            Assert.True(results!.LastShift <= 2);
+            Assert.Equal(0, results.Players.Single().Xp);
+            Assert.Equal((480, 0, 0, 0), (profile.RankXp, profile.Runs, profile.Deliveries, profile.RecentRuns.Count));
+            world = client.World!;
+            Assert.Contains("Practice run   ·   no XP", HudText.ResultsLines(world, results));
+            Assert.StartsWith(results.Outcome == RunOutcome.Victory ? "PRACTICE DONE — all 2 shifts" : "RUN OVER", HudText.ResultsHeadline(world, results));
+
+            // [P] again: back to a run of the host's own on the test street.
+            Assert.NotEqual(0u, client.TogglePractice());
+            for (int i = 0; i < 10; i++) { client.Tick(); server.Tick(); }
+            Assert.Equal(RunMode.Normal, client.World!.Global.Mode);
+            Assert.Equal("test_street", client.World.Map.Id);
+            Assert.NotEqual(3u, client.World.Seed);
+        }
+
+        [Fact]
+        public void TheDailySeed_ReachesTheClients_WithItsDateAndStamps()
+        {
+            var hub = new LoopbackHub();
+            var day = new DateTime(2026, 11, 27, 12, 0, 0, DateTimeKind.Utc);
+            var server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3, UtcNow = () => day }, hub);
+            var host = new ClientRuntime(Shared.Content, hub.CreateClient(), "Ada");
+            for (int i = 0; i < 10; i++) { host.Tick(); server.Tick(); }
+            var guest = new ClientRuntime(Shared.Content, hub.CreateClient(), "Bob");
+            for (int i = 0; i < 10; i++) { host.Tick(); guest.Tick(); server.Tick(); }
+            Assert.Equal(0u, guest.ToggleDaily());
+            Assert.NotEqual(0u, host.ToggleDaily());
+            for (int i = 0; i < 20; i++) { host.Tick(); guest.Tick(); server.Tick(); }
+            foreach (var w in new[] { host.World!, guest.World! })
+            {
+                Assert.Equal(RunMode.Daily, w.Global.Mode);
+                Assert.Equal(RunModes.DailySeed(RunModes.Day(day)), w.Seed);
+                Assert.StartsWith("Daily 2026-11-27 · PM1-SMALL-", HudText.WorldTracker(w));
+                Assert.Equal("Stamps: Rush Hour, Heavy Load   ·   score ×1.21", HudText.StampsTracker(w));
+            }
+            Assert.Equal("[P] practice   ·   [O] leave the daily   ·   [Ctrl+V] a seed", HudText.ModeKeys(host.World!));
+            Assert.Equal(0u, host.ToggleStamp());
+            Assert.NotEqual(0u, host.ToggleDaily());
+            for (int i = 0; i < 20; i++) { host.Tick(); guest.Tick(); server.Tick(); }
+            Assert.Equal((RunMode.Normal, (byte)0), (guest.World!.Global.Mode, guest.World.Global.Stamps));
+            Assert.Equal(0, host.ContainerDesyncs + host.BadPackets + guest.ContainerDesyncs + guest.BadPackets);
+        }
+
+        [Fact]
+        public void APastedSeedString_ChoosesItsWorldSeedAndStamps_WithinTheHostsRank()
+        {
+            // Doc 01 §5.3: the string copied at Results, pasted in another Lobby (design choice 166).
+            var hub = new LoopbackHub();
+            var server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 3 }, hub);
+            var host = new ClientRuntime(Shared.Content, hub.CreateClient(), "Ada");
+            void Run(int ticks) { for (int i = 0; i < ticks; i++) { host.Tick(); server.Tick(); } }
+            Run(10);
+            Assert.NotEqual(0u, host.TogglePractice());
+            Run(10);
+            Assert.Equal("Seed PM1-SMALL-0000002A-CM.RH pasted", host.PasteSeed("pm1-small-2a-cm.rh"));
+            Run(20);
+            var w = host.World!;
+            Assert.Equal((RunMode.Normal, "small_island", 42u), (w.Global.Mode, w.Map.Id, w.Seed));
+            Assert.Equal("PM1-SMALL-0000002A-CM.RH", HudText.ShareString(w));
+            Assert.Equal("PM1-SMALL-0000002A-CM.RH", host.SeedToCopy());
+            // Double Raids is tier 2: rank 1 may not put it on, and nothing changes.
+            Assert.Equal("Not pasted: Double Raids needs Postal Rank 6", host.PasteSeed("PM1-TEST-00000005-DR"));
+            Assert.Equal("Not pasted: no world 'LARGE'", host.PasteSeed("PM1-LARGE-00000005"));
+            Run(10);
+            Assert.Equal(42u, host.World!.Seed);
+            Assert.Equal("Seed PM1-TEST-00000005 pasted", host.PasteSeed("PM1-TEST-00000005"));
+            Run(10);
+            Assert.Equal(("test_street", 5u, (byte)0), (host.World!.Map.Id, host.World.Seed, host.World.Global.Stamps));
+            Assert.Equal(0, host.ContainerDesyncs + host.BadPackets);
+        }
+
+        [Fact]
+        public void TheUnlocks_AreWhatTheRankOpens_ReadFromTheContent()
+        {
+            var c = Shared.Content;
+            var one = RankUnlocks.For(c, 1);
+            static string Of(ProfileUnlocks u) =>
+                $"{string.Join(",", u.Kits)} / {string.Join(",", u.Archetypes)} / {u.StampTiers} / {string.Join(",", u.PerkPools)} / {u.Rerolls}";
+            Assert.Equal("land / small_island / 1 / carrier,postal / 1", Of(one));
+            var eight = RankUnlocks.For(c, 8);
+            Assert.Equal("land,sea / small_island / 2 / carrier,postal,facility,defense / 2", Of(eight));
+            Assert.Equal(new[] { "land", "sea", "pipes" }, RankUnlocks.For(c, 12).Kits);
+            Assert.Equal(3, RankUnlocks.For(c, 12).StampTiers);
+
+            Assert.Equal(new[] { "the Sea kit" }, RankUnlocks.Revealed(c, 1, 2));
+            Assert.Empty(RankUnlocks.Revealed(c, 2, 3));
+            Assert.Equal(new[] { "a second Draft reroll" }, RankUnlocks.Revealed(c, 3, 4));
+            Assert.Equal(new[] { "facility perks in the Draft" }, RankUnlocks.Revealed(c, 4, 5));
+            Assert.Equal(new[] { "Postage Stamps tier 2" }, RankUnlocks.Revealed(c, 5, 6));
+            Assert.Equal(new[] { "defense perks in the Draft" }, RankUnlocks.Revealed(c, 7, 8));
+            Assert.Equal(new[] { "the Sea kit", "the Pipes kit", "Postage Stamps tier 2", "Postage Stamps tier 3", "facility perks in the Draft", "defense perks in the Draft", "a second Draft reroll" },
+                RankUnlocks.Revealed(c, 1, 12));
+
+            // Written to the file and read back.
+            var profile = MetaProfile.Create("Ada");
+            profile.Unlocks = eight;
+            var back = MetaProfile.FromJson(profile.ToJson());
+            Assert.Equal(Of(eight), Of(back.Unlocks));
         }
 
         private sealed class FailingStore : IProfileStore

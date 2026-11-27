@@ -889,6 +889,10 @@ namespace PerformativeMail.App
                     Check(hud.PhaseText.Contains("PAYDAY", StringComparison.Ordinal), $"at Payday the HUD phase line is \"{hud.PhaseText}\"");
                     // UI polish plan item 7: a stamp turned as if pressed by hand, and the earned gold counting up to the line.
                     var lines = HudText.SummaryLines(world, summary);
+                    // Doc 09 §2.9: where the wrong mail went, by the mailboxes' addresses.
+                    if (summary.Misdeliveries > 0)
+                        Check(summary.MisdeliveredAt.Length > 0 && lines.Any(l => l.StartsWith($"Misdelivered {summary.Misdeliveries} ({summary.MisdeliveredCounts[0]} at {world.Map.GetDestination(summary.MisdeliveredAt[0])!.Label}", StringComparison.Ordinal)),
+                            $"at Payday of shift {summary.Shift} the misdeliveries name no mailbox: \"{string.Join(" / ", lines)}\"");
                     var (stamp, degrees) = hud.StampShown;
                     Check(stamp == lines[HudText.StampLine] && Mathf.Abs(degrees - Hud.StampDegrees) < 0.5f, $"at Payday the stamp reads \"{stamp}\" turned {degrees:0.0}°, expected \"{lines[HudText.StampLine]}\"");
                     Check(hud.EarnedShown.StartsWith("Earned ", StringComparison.Ordinal) && hud.EarnedShown.EndsWith($" of {HudText.Gold(summary.Quota)}", StringComparison.Ordinal),
@@ -915,7 +919,7 @@ namespace PerformativeMail.App
                         Check(hud.Overlay.Visible && hud.OverlayText == want, $"at Results the panel shows \"{hud.OverlayText}\", expected \"{want}\"");
                         Check(hud.StampShown.Text == HudText.ResultsStamp(results, out _), $"at Results the stamp reads \"{hud.StampShown.Text}\"");
                         // Doc 09 §2.11: the seed string on the card, and the shop's key copies it.
-                        Check(hud.OverlayText.Contains(HudText.SeedLine(world), StringComparison.Ordinal) && client.SeedToCopy() == HudText.SeedString(world.Map.Id, world.Seed),
+                        Check(hud.OverlayText.Contains(HudText.SeedLine(world), StringComparison.Ordinal) && client.SeedToCopy() == HudText.ShareString(world),
                             $"at Results the seed line or its copy is missing (\"{client.SeedToCopy()}\")");
                         CheckProfile(world, results);
                         Check(hud.PhaseText.StartsWith("RESULTS", StringComparison.Ordinal), $"at Results the HUD phase line is \"{hud.PhaseText}\"");
@@ -971,6 +975,10 @@ namespace PerformativeMail.App
                 var read = MetaProfile.FromJson(stored);
                 Check(read.ProfileId == profile.ProfileId && read.RankXp == profile.RankXp && read.Runs == profile.Runs && read.Deliveries == profile.Deliveries
                     && read.RecentRuns.Count == profile.RecentRuns.Count, "the stored profile differs from the one in memory");
+                // Doc 08 §3.8: the unlocks of the rank, filled (design choice 167).
+                var want = RankUnlocks.For(world.Content, profile.Rank(perRank));
+                Check(read.Unlocks.Kits.SequenceEqual(want.Kits) && read.Unlocks.Kits.Contains("land") && read.Unlocks.StampTiers == want.StampTiers
+                    && read.Unlocks.PerkPools.SequenceEqual(want.PerkPools), $"the stored unlocks are kits {string.Join(",", read.Unlocks.Kits)}, tiers {read.Unlocks.StampTiers}, pools {string.Join(",", read.Unlocks.PerkPools)}");
             }
             GD.Print($"[smoke] profile: +{xp} XP, {HudText.Rank(profile, perRank)}, {profile.Runs} runs, {profile.Deliveries} deliveries");
         }
@@ -1064,7 +1072,7 @@ namespace PerformativeMail.App
                 foreach (var s in _summaries) { if (s.QuotaMet) met++; earned += s.Earned + s.Bonus; }
                 Check(_results.ShiftsCompleted == met, $"results say {_results.ShiftsCompleted} shifts completed, the summaries say {met}");
                 Check(_results.TotalEarned == earned, $"results say {_results.TotalEarned} earned, the summaries add up to {earned}");
-                var wantOutcome = met == HudText.ShiftCount(world.Content) ? RunOutcome.Victory : RunOutcome.QuotaMissed;
+                var wantOutcome = met == HudText.ShiftCount(world) ? RunOutcome.Victory : RunOutcome.QuotaMissed;
                 Check(_results.Outcome == wantOutcome, $"the run ended as {_results.Outcome} after {met} of {_summaries.Count} quotas");
             }
             VerifyDrafts();

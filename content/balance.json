@@ -19,6 +19,8 @@
   "doubleRaidSeconds": 60,
   "doubleRaidWarnSeconds": 10,
   "stampTierRanks": [1, 6, 12],
+  "practiceSeed": 1,
+  "practiceShifts": 2,
   "shopSpecialSlots": 2,
   "shopSpecialDiscount": 0.2,
   "emptyServerGraceSeconds": 60,

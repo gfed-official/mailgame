@@ -991,7 +991,8 @@ namespace PerformativeMail.Sim
             _raidShift = Run.Shift;
             _raidEdgeA = _raidEdgeB = -1;
             var waves = Content.Waves;
-            if (!Settings.Raids || Content.Enemies.Count == 0 || (Map.Debug is { Raids: false } && !RaidsAtShiftStart)) return;
+            // Doc 09 §6: a practice run has no raid.
+            if (!Settings.Raids || Run.Mode == RunMode.Practice || Content.Enemies.Count == 0 || (Map.Debug is { Raids: false } && !RaidsAtShiftStart)) return;
             if (RaidsAtShiftStart)
             {
                 // A shift without a raid of its own borrows the first one there is.

@@ -57,6 +57,12 @@ namespace PerformativeMail.Sim.Run
         public ushort MvpDamageDealt, MvpBuiltCount;
         /// <summary>Doc 01 §2.4: what the team built that broke this shift.</summary>
         public ushort ConstructsLost;
+        /// <summary>
+        /// Doc 09 §2.9 "misdeliveries with the offending addresses": the mailboxes the shift's wrong mail went into and
+        /// how much went into each, most first, at most <see cref="MaxMisdeliveredAt"/>.
+        /// </summary>
+        public ushort[] MisdeliveredAt = Array.Empty<ushort>(), MisdeliveredCounts = Array.Empty<ushort>();
+        public const int MaxMisdeliveredAt = 8;
 
         public int Deliveries
         {
@@ -124,6 +130,10 @@ namespace PerformativeMail.Sim.Run
         public ShiftSummary? LastSummary;
         /// <summary>Set while in Results.</summary>
         public RunResults? Results;
+        /// <summary>The kind of run the host chose in the Lobby; kept from run to run until they choose again.</summary>
+        public RunMode Mode;
+        /// <summary>The UTC day of a Daily Seed (<see cref="RunModes.Day"/>); 0 otherwise.</summary>
+        public ushort DailyDay;
     }
 
     public static class QuotaFormula

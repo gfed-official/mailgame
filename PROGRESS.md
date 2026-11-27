@@ -2889,6 +2889,64 @@ touched again. N4 and the bag's hotbar return passed.
       sees every card. `DraftTests` (the content's ranks; the pool at host ranks 1, 4, 5, 7, 8 and with the flag; a
       guest's rank 9; the host handing over)
 
+- [x] **Practice seed** (doc 09 §6; design choice 165). There is no main menu, so the host's [P] in the Lobby chooses it
+      (and [P] again leaves it, for the test street on a seed drawn at random): the test street, already the practice
+      street, from `practiceSeed` (1), `practiceShifts` (2) shifts, no raid (none is scheduled; `--raid` aside, the
+      raid code returns before it starts), no run event, no stamps (they come off and the Lobby's [T] line is gone; the
+      server refuses them, `NotAllowed`), 0 XP in the results; the client's profile neither counts the run nor its
+      deliveries. The run's kind is `RunState.Mode` (`RunMode`: `Normal`, `Practice`, `Daily`), sent in the global
+      block's flags; `SimRequest.SetWorld` carries it (its `X`), so no new request kind. The Lobby's world plate reads
+      "Practice · 2 shifts, no raid, no XP", the Results "PRACTICE DONE — all 2 shifts delivered" and "Practice run
+      · no XP", the HUD's shift line "Shift 1 / 2". A new plate under the stamps: "[P] practice   ·   [O] daily seed".
+      A practice run stays chosen run after run until the host picks another world, seed or the daily
+- [x] **Daily Seed** (doc 01 §5.3, doc 09 §2.2): the host's [O]: the server reads its UTC date (`SimSettings.UtcNow`)
+      and plays the Small Island from FNV-1a of "PM1-DAILY-2026-11-27" (`RunModes.DailySeed`), with the stamps marked
+      `"daily"` in the content (Rush Hour and Heavy Load, tier 1, on whatever the host's rank; the [T] line is gone and
+      the server refuses other stamps). The day rides in the global block (`DailyDay`, protocol `m4.4`); the plate
+      reads "Daily 2026-11-27 · PM1-SMALL-…", Results "Daily Seed of 2026-11-27". [O] again, a new seed, or [V] leave it
+      and take its stamps off. No leaderboard (deferred by the doc). Every stamp now has a two-letter `"code"` (CM, RH,
+      HL, DR, NR, PA, MM, SC) for the seed string, checked unique at load
+      `RunModeTests` (practice: world, seed, two shifts, no raid or event, no XP, stamps refused, kept for the next run;
+      leaving it; the daily: the date's seed and island for anyone that day, another the next, its stamps, leaving it;
+      the codes), `ProfileTests` (a practice run over loopback: the plates and keys, no raid, 0 XP, the profile
+      untouched, [P] back; the daily reaching both clients, a guest's key doing nothing); the smoke's world stage goes
+      island → daily → practice → back and checks the server and the plates
+
+- [x] **Pasting a shareable seed string** (doc 01 §5.3, doc 09 §2.2 "seed field … enter"; design choice 166). The
+      string now carries the stamps by their codes: "PM1-SMALL-7F3A9C21-CM.DR" (`SeedStrings.Format`; the Results'
+      seed line and its [C] copy, `HudText.ShareString`; the world plate keeps the bare seed, the stamps have their own
+      plate). In the Lobby the host's Ctrl+V reads the clipboard (`SeedStrings.TryParse`: any case, blanks around it,
+      1–8 hex digits, codes once each) and chooses its world, seed and stamps — a run of their own, out of practice or
+      the daily; a stamp of a tier their rank has not opened, an unknown world or a broken string changes nothing and
+      the feed says why ("Not pasted: Double Raids needs Postal Rank 6"). The mode plate reads "[P] practice   ·   [O]
+      daily   ·   [Ctrl+V] a seed". `RunModeTests` (written and read back, ten broken strings), `ProfileTests` (pasted
+      over loopback, refused); the smoke's world stage comes back to the test street by pasting its own string
+
+- [x] **MetaProfile.unlocks filled, and the Results' unlock reveals** (doc 08 §3.8, doc 01 §5.2, doc 09 §2.11; design
+      choice 167). `RankUnlocks.For(content, rank)` reads what a rank opens from where the content keeps it — the kits'
+      ranks, the stamps' tier ranks, the perks' `rankMin` by category, `rerollSecondRank` — and the profile file now
+      holds it (`"unlocks": { "kits": ["land", "sea"], "archetypes": ["small_island"], "perkPools": ["carrier",
+      "postal"], "cosmetics": [], "stampTiers": 1, "rerolls": 1 }`), set when the tracker starts and after each run's
+      XP, and read back. At a rank-up the Results card says what opened under the rank line: "Unlocked: the Sea kit",
+      "… Postage Stamps tier 2", "facility perks in the Draft", "a second Draft reroll" (`RankUnlocks.Revealed`,
+      `ProfileGain.Unlocked`). `ProfileTests` (ranks 1, 8, 12, every reveal, the file round trip, the run that rises
+      to rank 2); the smoke checks the stored unlocks
+
+- [x] **Payday: the misdeliveries' mailboxes** (doc 09 §2.9 "misdeliveries with the offending addresses"). The server
+      notes each mailbox wrong mail went into during the shift and how much (`SimWorld.NoteMisdelivery`); the summary
+      carries the eight with the most, most first (`ShiftSummary.MisdeliveredAt` / `MisdeliveredCounts`, protocol
+      `m4.5`), and the card's line reads "Misdelivered 3 (2 at 4 Larch Lane, 1 at 7 Oak Street)   ·   Late 0", two
+      named and "+N more" past them so the card does not widen at 720p. The address is the wrong mailbox's — where the
+      carrier went wrong — not the mail's own. `MvpTests`, `CodecTests`; the smoke checks the line at a Payday with a
+      misdelivery
+- Not built in this batch: Payday's "upcoming district preview" (doc 09 §2.9), Results' Play again / New seed (the
+      Lobby's [N], G and now Ctrl+V cover them), cosmetics; Large Island, Sea Fog, onboarding tips, leaderboard, M5
+
+Batch 6d–6e (the d0c338e bugs; the perk pool by rank, practice, the Daily Seed, the pasted seed string, the unlocks,
+the misdeliveries' mailboxes): `tools/smoke.sh`'s three Godot smokes SMOKE OK, BOT OK, the seeds valid; Sim.Tests 694
+and Net.Tests 240 green. Not yet looked at rendered at 1280×720: the mode plate and the four-row inventory under the
+hint (both checked headless).
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4482,6 +4540,31 @@ See "Commands" at the bottom (filled in as the tooling lands).
     that already wait for `bp_sorting`. The ranks are per perk in the content (`rankMin`), not per category in code.
     The playtest flag that opens the stamp tiers opens the pool too; both are what Postal Rank locks.
 
+165. **Practice and the Daily Seed without a main menu.** Doc 09 §6 puts the practice seed on the main menu, which
+    does not exist; the Lobby's host keys are where the world and seed are chosen, so practice is a Lobby key there
+    (P) and so is the daily (O; doc 09 §2.2's seed field "random / enter / daily"). Practice reuses the test street —
+    it is a short, fixed street made for learning the loop — with seed 1 and the first two shifts' quotas. "No raid"
+    is read as no raid and no run event (Wildfire, the Inspector), and no stamps, so nothing hits a learner; the Draft
+    between the two shifts stays (it is part of the loop). "Does not award XP" is read as the profile not counting
+    the run at all (runs, wins, best score, deliveries, recent runs), so practice cannot pad the stats. The Daily
+    Seed's "fixed stamp set" is a set marked in the content (Rush Hour + Heavy Load, both tier 1 so every rank can play
+    the same daily) rather than one drawn from the date, so everybody's daily is comparable; its world is the Small
+    Island (the rank-1 archetype). The UTC date is the server's (the host's machine), read once when the host chooses
+    the daily; a Lobby left over midnight keeps the day it chose.
+
+166. **A seed string pasted, not typed.** Doc 09 §2.2 has a seed field to enter; the Lobby has no text fields (its
+    controls are keys over plates), and the strings are made to be copied (the [C] at Results) and shared in chat, so
+    Ctrl+V pastes one from the clipboard rather than a field being typed into. A daily's string is an ordinary one: its
+    seed and stamps played as a run of one's own (no date check). The stamps a string names must be open to the
+    pasting host's rank, as if put on by hand; the whole paste is refused rather than half applied.
+
+167. **Unlocks derived, not stored as truth.** Doc 08 §2.15 sketches a `content/unlocks.json` table of ranks; every
+    entry of it already lives in the content (kit ranks, stamp tier ranks, perk rankMin, the reroll rank), and a second
+    table could disagree with them. So the unlocks are computed from the rank and the content, and the profile's
+    "unlocks" block is written as a record for whoever reads the file; the game never reads it back to decide anything
+    (the rank does), so an edited file opens nothing. The Large Island (rank 3) and cosmetics (15+) are not built, so
+    they are neither listed nor revealed; a rank-3 rise reveals nothing yet.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4514,7 +4597,9 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 ~/.local/bin/godot --path . -- --profile=/tmp/p.json             # another profile file than user://profile.json
 ~/.local/bin/godot --path . -- --low                             # weak GPU: no lamp lights, shadows, glow, AA; coarser shapes
 # in the Lobby: K picks your starting kit (Sea from Postal Rank 2); the host's V steps through the worlds, N draws a new seed,
-#   T points at the next of the eight Postage Stamps and Y puts it on or off (tier 2 from Postal Rank 6, tier 3 from 12)
+#   T points at the next of the eight Postage Stamps and Y puts it on or off (tier 2 from Postal Rank 6, tier 3 from 12),
+#   P chooses the practice run (test street, 2 shifts, no raid, no XP) and O today's Daily Seed; each again leaves it;
+#   Ctrl+V pastes a seed string ("PM1-SMALL-7F3A9C21-CM.DR", as C copies it at Results) with its stamps
 # in the Draft: 1-3 take a card, R (or the button) draws new cards of your own, once a run (twice from Postal Rank 4)
 # in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)
 # in a run: M puts up the map with the way to the house of the mail in your hand; Z / X / V toggle its Mail / Routes / Resources chips; at a depot's or port's console, M edits its route on the map

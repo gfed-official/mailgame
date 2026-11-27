@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
@@ -214,6 +215,19 @@ namespace PerformativeMail.Sim
         /// </summary>
         /// <summary>Constructs broken this shift and this run (doc 01 §2.4 "constructs lost").</summary>
         private int _shiftConstructsLost, _runConstructsLost;
+        /// <summary>The mailboxes wrong mail went into this shift, in the order it first did, with how much (doc 09 §2.9).</summary>
+        private readonly List<KeyValuePair<ushort, int>> _shiftMisdeliveredAt = new List<KeyValuePair<ushort, int>>();
+
+        private void NoteMisdelivery(ushort dest)
+        {
+            for (int i = 0; i < _shiftMisdeliveredAt.Count; i++)
+                if (_shiftMisdeliveredAt[i].Key == dest)
+                {
+                    _shiftMisdeliveredAt[i] = new KeyValuePair<ushort, int>(dest, _shiftMisdeliveredAt[i].Value + 1);
+                    return;
+                }
+            _shiftMisdeliveredAt.Add(new KeyValuePair<ushort, int>(dest, 1));
+        }
 
         public void DamageConstruct(Construct built, float damage)
         {

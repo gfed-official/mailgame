@@ -29,6 +29,8 @@ namespace PerformativeMail.Sim
         {
             if (Run.Phase != RunPhase.Lobby) return OpResult.WrongPhase;
             if (p.Id != Run.Host) return OpResult.NotHost;
+            // The practice run has none and the Daily Seed its fixed set (doc 01 §5.3).
+            if (Run.Mode != RunMode.Normal) return OpResult.NotAllowed;
             if ((r.Count >> Content.Stamps.Count) != 0 || r.Count > byte.MaxValue) return OpResult.BadRequest;
             // Doc 01 §5.2: a stamp of a tier the host's Postal Rank has not opened is not theirs to put on.
             int tier = StampTierOpen(p);

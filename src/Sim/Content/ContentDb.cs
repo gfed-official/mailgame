@@ -1024,6 +1024,8 @@ namespace PerformativeMail.Sim.Content
                             Name = J.Str(ctx, e, "name"),
                             Description = J.Str(ctx, e, "description", ""),
                             Tier = J.Int(ctx, e, "tier", 1),
+                            Code = J.Str(ctx, e, "code"),
+                            Daily = J.Bool(ctx, e, "daily", false),
                             ScoreMult = (float)J.Num(ctx, e, "scoreMult"),
                             Rules = rules,
                             Modifiers = stampMods,
@@ -1033,6 +1035,10 @@ namespace PerformativeMail.Sim.Content
                         };
                         if (def.ScoreMult < 1f) ctx.Error($"'{id}': scoreMult must be >= 1");
                         if (def.Tier < 1 || def.Tier > 3) ctx.Error($"'{id}': tier must be 1..3");
+                        // Doc 01 §5.3: the seed string's stamps, "PM1-SMALL-7F3A9C21-CM.DR".
+                        if (def.Code.Length != 2 || def.Code[0] < 'A' || def.Code[0] > 'Z' || def.Code[1] < 'A' || def.Code[1] > 'Z') ctx.Error($"'{id}': code must be two capital letters");
+                        foreach (var other in list)
+                            if (other.Code == def.Code) ctx.Error($"'{id}': code '{def.Code}' is '{other.Id}'s too");
                         bool cursed = rules.Contains(StampRule.CursedMail);
                         if (cursed && (chance <= 0f || chance > 1f || valueMult < 1f || raid.Count == 0)) ctx.Error($"'{id}': cursed_mail wants params.chance in (0, 1], params.valueMult >= 1 and a miniRaid");
                         if (!cursed && (chance > 0f || raid.Count > 0)) ctx.Error($"'{id}': params.chance and miniRaid are cursed_mail's");
@@ -1580,7 +1586,7 @@ namespace PerformativeMail.Sim.Content
             "enemyWindupSeconds", "enemyFleeSeconds", "enemyFleeSpeedMult", "lootDespawnSeconds", "lootPickupRange",
             "deathBagDespawnSeconds", "respawnProtectionSeconds", "respawnYardMetres", "raidStandoffMetres", "enemyLeashMult", "enemyProvokedSeconds",
             "maxAttackersPerCarrier", "attackerWaitMetres", "disconnectGraceSeconds",
-            "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank", "personalPerkCap", "priorityMailChance", "priorityValueMult", "priorityMailSeconds", "doubleRaidSeconds", "doubleRaidWarnSeconds", "stampTierRanks",
+            "generatingSeconds", "draftSeconds", "draftCards", "draftRarityWeights", "draftRareWeightPerShift", "rerollsPerRun", "rerollSecondRank", "personalPerkCap", "priorityMailChance", "priorityValueMult", "priorityMailSeconds", "doubleRaidSeconds", "doubleRaidWarnSeconds", "stampTierRanks", "practiceSeed", "practiceShifts",
             "shopSpecialSlots", "shopSpecialDiscount", "shopRange", "serverShopRange", "harvestSwingSeconds",
             "buildRange", "serverBuildRange", "deconstructHoldSeconds", "deconstructRefundPrep", "deconstructRefundDelivery",
             "beltPushMultiplier", "beltPushSeconds", "pipeSpeed", "pipeSpacing", "pipeOutletRate", "pipeOutletCapacity",

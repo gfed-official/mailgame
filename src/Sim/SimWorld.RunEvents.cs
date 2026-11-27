@@ -90,7 +90,7 @@ namespace PerformativeMail.Sim
         /// <summary>At most one event for this shift: none before shift 2, in the debug world or with events off.</summary>
         private RunEventDef? RollEvent()
         {
-            if (!Settings.RunEvents || Map.Debug != null || Run.Shift < 2 || Content.RunEvents.Count == 0) return null;
+            if (!Settings.RunEvents || Run.Mode == RunMode.Practice || Map.Debug != null || Run.Shift < 2 || Content.RunEvents.Count == 0) return null;
             var rng = _eventRng ??= new RngStream(Settings.Seed, "waves.events");
             var open = new List<RunEventDef>();
             int total = 0;
@@ -378,7 +378,7 @@ namespace PerformativeMail.Sim
                 if (clean) paid = Economy.PayEventBonus((int)Math.Round(Economy.ShiftEarnings * watch.Param("bonus")));
                 Events.Add(new RunEventEvent { Event = watch.Index, Shift = (byte)Run.Shift, Stage = clean ? RunEventStage.Paid : RunEventStage.Fizzled, Amount = paid });
             }
-            if (!Settings.RunEvents || Map.Debug != null || Run.Shift >= ShiftCount) return paid;
+            if (!Settings.RunEvents || Run.Mode == RunMode.Practice || Map.Debug != null || Run.Shift >= ShiftCount) return paid;
             foreach (var e in Content.RunEvents)
             {
                 if (e.Trigger != RunEventTrigger.Complaint) continue;

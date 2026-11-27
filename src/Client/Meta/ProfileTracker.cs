@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using PerformativeMail.Sim;
@@ -11,6 +12,8 @@ namespace PerformativeMail.Client.Meta
     {
         public int Xp;
         public int RankBefore, RankAfter;
+        /// <summary>What the rise opened, in words (<see cref="RankUnlocks.Revealed"/>); empty without a rank up.</summary>
+        public IReadOnlyList<string> Unlocked;
     }
 
     /// <summary>
@@ -38,6 +41,7 @@ namespace PerformativeMail.Client.Meta
             _store = store;
             _clock = clock ?? (() => DateTime.Now);
             client.EventReceived += OnEvent;
+            Profile.Unlocks = RankUnlocks.For(client.Content, Profile.Rank(client.Content.Balance.GetInt("rankXpPerRank")));
         }
 
         /// <summary>
@@ -74,10 +78,10 @@ namespace PerformativeMail.Client.Meta
             if (world == null) return;
             switch (ev)
             {
-                case DeliveredEvent e when e.Player == world.LocalId:
+                case DeliveredEvent e when e.Player == world.LocalId && world.Global.Mode != RunMode.Practice:
                     Profile.Deliveries++;
                     break;
-                case MisdeliveredEvent e when e.Player == world.LocalId:
+                case MisdeliveredEvent e when e.Player == world.LocalId && world.Global.Mode != RunMode.Practice:
                     Profile.Misdeliveries++;
                     break;
                 case ShiftSummaryEvent _:
@@ -100,6 +104,8 @@ namespace PerformativeMail.Client.Meta
                 if (p.Player == world.LocalId) xp = p.Xp;
             // Not in the results: this player was not part of the run.
             if (xp < 0) return;
+            // Doc 09 §6: a practice run gives no XP, and is not counted among the runs either (design choice 165).
+            if (world.Global.Mode == RunMode.Practice) { LastGain = null; return; }
 
             int perRank = HudText.RankXpPerRank(world.Content);
             int before = Profile.Rank(perRank);
@@ -116,7 +122,9 @@ namespace PerformativeMail.Client.Meta
                 Players = results.Players.Count,
                 Date = _clock().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             });
-            LastGain = new ProfileGain { Xp = xp, RankBefore = before, RankAfter = Profile.Rank(perRank) };
+            int after = Profile.Rank(perRank);
+            Profile.Unlocks = RankUnlocks.For(world.Content, after);
+            LastGain = new ProfileGain { Xp = xp, RankBefore = before, RankAfter = after, Unlocked = RankUnlocks.Revealed(world.Content, before, after) };
         }
 
         /// <summary>A failed save must not stop the game: the profile stays in memory and the next save tries again.</summary>
