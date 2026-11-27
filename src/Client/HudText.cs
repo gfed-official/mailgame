@@ -600,6 +600,71 @@ namespace PerformativeMail.Client
             if (s.Bonus > 0) lines.Add($"No misdeliveries: bonus +{Gold(s.Bonus)}");
             string mvp = MvpLine(world, s);
             if (mvp.Length > 0) lines.Add(mvp);
+            // Doc 09 §2.9: the upcoming district and what new mail comes with it.
+            lines.AddRange(Upcoming(world, s));
+            return lines;
+        }
+
+        /// <summary>
+        /// Doc 09 §2.9 "upcoming district preview and mail forecast for the next shift": "Next: District 3 opens in shift
+        /// 3  ·  13 houses on Fern Hollow, Quay Street +1", then, when there is any, "By the ferry  ·  New mail: Cargo for the
+        /// Business Docks  ·  an Apartment Complex (10 units)". Nothing after the last shift or a missed quota that ends
+        /// the run.
+        /// </summary>
+        public static List<string> Upcoming(ClientWorld world, ShiftSummary s)
+        {
+            var lines = new List<string>();
+            int next = s.Shift + 1;
+            if (next > ShiftCount(world) || (!s.QuotaMet && !world.QuotaWaived)) return lines;
+            var map = world.Map;
+            int early = world.DistrictsEarly;
+            var opening = new List<DestinationDef>();
+            foreach (var d in map.Destinations)
+                if (map.OpensAt(d, early) == next) opening.Add(d);
+            var districts = new SortedSet<int>();
+            var streets = new List<string>();
+            int houses = 0;
+            DestinationDef? flats = null;
+            int docks = 0;
+            foreach (var d in opening)
+            {
+                if (d.IsDock) { docks++; continue; }
+                districts.Add(d.Address.District);
+                if (!streets.Contains(d.Street.Name)) streets.Add(d.Street.Name);
+                if (d.IsApartment) flats = d;
+                else houses++;
+            }
+            var extras = new List<string>();
+            if (districts.Count > 0)
+            {
+                string named = streets.Count <= 2 ? string.Join(", ", streets) : $"{streets[0]}, {streets[1]} +{streets.Count - 2}";
+                string which = districts.Count == 1 ? $"District {districts.Min}" : "Districts " + string.Join(", ", districts);
+                lines.Add($"Next: {which} {(districts.Count == 1 ? "opens" : "open")} in shift {next}{Dot}{(houses == 1 ? "1 house" : $"{houses} houses")} on {named}");
+                // A Large Island's far town: no walk reaches it from the Post Office (doc 02 §3.8).
+                if (map.FerryLanes.Count > 0)
+                {
+                    var path = new List<(float X, float Z)>();
+                    var po = map.PostOffice;
+                    foreach (var d in opening)
+                        if (!d.IsDock && !TilePathfinder.Find(map, po.SpawnPadX, po.SpawnPadZ, d.MailboxX, d.MailboxZ, path)) { extras.Add("By the ferry"); break; }
+                }
+                if (flats != null) extras.Add($"an Apartment Complex ({flats.Units} units)");
+            }
+            if (docks > 0) extras.Add(docks == 1 ? "a Business Dock opens" : $"{docks} Business Docks open");
+            // The kinds that first come next shift, where something open then takes them.
+            var kinds = new List<string>();
+            foreach (var k in world.Content.MailKinds)
+            {
+                if (k.UnlockShift != next) continue;
+                foreach (var d in map.Destinations)
+                    if (map.OpensAt(d, early) <= next && Sim.Mail.DeliveryRules.KindAccepted(k, d.Type)) { kinds.Add(k.Name.EndsWith("o", StringComparison.Ordinal) ? k.Name : k.Name + "s"); break; }
+            }
+            if (kinds.Count > 0) extras.Add("New mail: " + string.Join(", ", kinds));
+            if (extras.Count > 0)
+            {
+                string line = string.Join(Dot, extras);
+                lines.Add(char.ToUpperInvariant(line[0]) + line.Substring(1));
+            }
             return lines;
         }
 

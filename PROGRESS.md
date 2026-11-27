@@ -2939,7 +2939,7 @@ touched again. N4 and the bag's hotbar return passed.
       named and "+N more" past them so the card does not widen at 720p. The address is the wrong mailbox's — where the
       carrier went wrong — not the mail's own. `MvpTests`, `CodecTests`; the smoke checks the line at a Payday with a
       misdelivery
-- Not built in this batch: Payday's "upcoming district preview" (doc 09 §2.9), Results' Play again / New seed (the
+- Not built in this batch: Payday's "upcoming district preview" (doc 09 §2.9; since 7e), Results' Play again / New seed (the
       Lobby's [N], G and now Ctrl+V cover them), cosmetics; Large Island, Sea Fog, onboarding tips, leaderboard, M5
 
 Batch 6d–6e (the d0c338e bugs; the perk pool by rank, practice, the Daily Seed, the pasted seed string, the unlocks,
@@ -3089,6 +3089,18 @@ top left? It takes up a lot of screen real estate."
 - `SeaFogTests` (3: only on the Large Island, live from Delivery's start with BoatSpeed 0.7; a Rowboat rows 2.1 m/s
       against 3; a shift-5 raid with no Balloon among 10+ raiders), `RunEventTests` (the content), `CodecTests` (an
       event past the eighth's bit round-trips), `ContentValidatorTests`. Looked at rendered (the ferry's view in the fog)
+
+### 7e. Payday's upcoming district preview (doc 09 §2.9), 2026-11-27
+
+- [x] **The next shift on the Payday card** (`HudText.Upcoming`). Under the MVP line: "Next: District 3 opens in shift 3
+      ·  13 houses on Fern Hollow, Quay Street +1" (the destinations whose district — or own shift, a dock's — opens
+      next shift, with the Zoning Board's early districts), then, when any, "By the ferry" (a Large Island's far town no
+      walk reaches), "an Apartment Complex (10 units)", "2 Business Docks open", "New mail: Postcards, Large Packages"
+      (the kinds whose first shift is the next and that something open then takes — Cargo waits for the docks). Nothing
+      after the last shift or a missed quota that ends the run. The forecast by street stays the Forecast Desk perk's
+      (doc 10 §4.3), told at Prep
+- `PaydayPreviewTests` (2: a Small Island's shift 1 → 2 card; a Large Island's shift 2 card by the ferry); looked at
+      rendered at 1280×720 (the test street's card: one district, the new-mail line; the card still clear of the hotbar)
 
 ## How to build and check
 
