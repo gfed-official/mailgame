@@ -84,6 +84,7 @@ namespace PerformativeMail.Sim.Content
         public ItemDef Item(string id) => _itemsById[id];
         public EnemyDef Enemy(string id) => _enemiesById[id];
         public PerkDef Perk(string id) => _perksById[id];
+        public bool TryPerk(string id, out PerkDef perk) => _perksById.TryGetValue(id, out perk!);
         public ShopItemDef ShopItem(string id) => _shopById[id];
         public VehicleDef Vehicle(string id) => _vehiclesById[id];
         public bool TryVehicle(string id, out VehicleDef vehicle) => _vehiclesById.TryGetValue(id, out vehicle!);

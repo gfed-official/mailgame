@@ -48,6 +48,8 @@ namespace PerformativeMail.Sim
         public bool RunEvents;
         /// <summary>A playtest's or a test's event (its id): rolled for every shift it may come in, whatever the chance.</summary>
         public string? ForcedEvent;
+        /// <summary>Playtest (--playtest-perks=id,id): these perks are the first cards of every Draft whatever the pool, as long as somebody could take them.</summary>
+        public IReadOnlyList<string>? ForcedPerks;
         /// <summary>The server's clock, read only for the Daily Seed's UTC date (doc 01 §5.3); tests set their own.</summary>
         public Func<DateTime> UtcNow = () => DateTime.UtcNow;
     }

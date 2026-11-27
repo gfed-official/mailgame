@@ -239,6 +239,25 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(new[] { first, "late" }.OrderBy(id => id), Offer(world).OrderBy(id => id));
         }
 
+        /// <summary>--playtest-perks=id,id: those cards first in every Draft, past the pool's rank, if somebody could take them.</summary>
+        [Fact]
+        public void APlaytestsPerks_AreTheFirstCards_PastThePoolsRank_ButNotOnAReroll()
+        {
+            var world = new SimWorld(Db, new SimSettings { Seed = 7, Raids = false, Draft = true, ForcedPerks = new[] { "union_muscle", "no_such_perk", "express_lane" } });
+            var host = world.AddPlayer("host")!;
+            PastThePayday(world, host);
+            Assert.Equal(RunPhase.Draft, world.Run.Phase);
+            // Rank 1 opens neither the defense nor the facility pool; the flag puts them on the table anyway.
+            Assert.Equal(1, world.PerkPoolRank);
+            Assert.Equal(new[] { "union_muscle", "express_lane" }, Offer(world).Take(2));
+            Assert.Equal(3, Offer(world).Length);
+            // A reroll draws from the pool as ever.
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.Reroll(0)));
+            var mine = world.OfferFor(host).Select(p => p.Id).ToArray();
+            Assert.DoesNotContain("union_muscle", mine);
+            Assert.DoesNotContain("express_lane", mine);
+        }
+
         [Fact]
         public void TheFacilityPerksAskPostalRankFive_AndTheDefensePerksEight_TheRestOne()
         {

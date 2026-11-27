@@ -55,6 +55,7 @@ namespace PerformativeMail.App
             int startShift = 0, startWallet = 0;
             string mapId = "test_street";
             string? forcedEvent = null;
+            string[]? forcedPerks = null;
             foreach (string arg in OS.GetCmdlineUserArgs())
             {
                 if (arg == "--smoke") smoke = true;
@@ -72,6 +73,8 @@ namespace PerformativeMail.App
                     && gold > 0)
                     startWallet = Math.Min(PlaytestMask.MaxWallet, gold);
                 else if (arg.StartsWith("--event=", StringComparison.Ordinal) && arg.Length > 8) forcedEvent = arg.Substring(8);
+                else if (arg.StartsWith("--playtest-perks=", StringComparison.Ordinal) && arg.Length > 17)
+                    forcedPerks = arg.Substring(17).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 else if (arg == "--quick") quick = true;
                 // Design choice 119: the showcase map, everything built and running, the debug toggles on.
                 else if (arg == "--debug-world") { debugWorld = true; mapId = "debug_world"; }
@@ -148,7 +151,18 @@ namespace PerformativeMail.App
                     return;
                 }
                 if (forcedEvent != null) GD.Print($"[boot] playtest: the run event {forcedEvent} in every shift it may come");
-                session.StartHost(content, seed, profile, store, quickStart: (quick && !smoke) || debugWorld, listenPort: listen, mapId: mapId, forcedEvent: forcedEvent);
+                if (forcedPerks != null)
+                {
+                    foreach (string id in forcedPerks)
+                        if (!content.TryPerk(id, out _))
+                        {
+                            GD.PrintErr($"[boot] --playtest-perks: no such perk '{id}' (content/perks)");
+                            GetTree().Quit(2);
+                            return;
+                        }
+                    GD.Print($"[boot] playtest: the perks {string.Join(", ", forcedPerks)} first in every Draft");
+                }
+                session.StartHost(content, seed, profile, store, quickStart: (quick && !smoke) || debugWorld, listenPort: listen, mapId: mapId, forcedEvent: forcedEvent, forcedPerks: forcedPerks);
             }
             AddChild(session);
             BotDriver? botDriver = null;

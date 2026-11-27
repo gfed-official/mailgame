@@ -365,6 +365,13 @@ namespace PerformativeMail.Sim
             _rarityWeight[(int)PerkRarity.Rare] += Math.Max(0, b.GetInt("draftRareWeightPerShift") * (shift - 2));
 
             offer.Clear();
+            // A playtest's perks first, past the pool's shift and rank (not on a reroll: the cards asked for are on the table).
+            if (Settings.ForcedPerks != null && avoid == null)
+                foreach (string id in Settings.ForcedPerks)
+                {
+                    if (offer.Count >= cards || !Content.TryPerk(id, out var forced)) continue;
+                    if (Offerable(forced, shift, offer, only, avoid, pool: false)) offer.Add(forced);
+                }
             while (offer.Count < cards)
             {
                 _candidates.Clear();
@@ -408,9 +415,9 @@ namespace PerformativeMail.Sim
         /// excludes no card that is, and somebody who is here could take it — for a reroll, the
         /// one who asked, and none of the cards they had. The pool is the host's rank's (<see cref="PerkPoolRank"/>).
         /// </summary>
-        private bool Offerable(PerkDef perk, int shift, List<PerkDef> offer, Player? only, IReadOnlyList<PerkDef>? avoid)
+        private bool Offerable(PerkDef perk, int shift, List<PerkDef> offer, Player? only, IReadOnlyList<PerkDef>? avoid, bool pool = true)
         {
-            if (!InPool(perk, shift)) return false;
+            if (pool && !InPool(perk, shift)) return false;
             foreach (var card in offer)
                 if (ReferenceEquals(card, perk) || perk.ConflictsWith(card)) return false;
             if (avoid != null)

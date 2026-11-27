@@ -3102,6 +3102,14 @@ top left? It takes up a lot of screen real estate."
 - `PaydayPreviewTests` (2: a Small Island's shift 1 → 2 card; a Large Island's shift 2 card by the ferry); looked at
       rendered at 1280×720 (the test street's card: one district, the new-mail line; the card still clear of the hotbar)
 
+### 7f. `--playtest-perks=id,id` (playtests), 2026-11-27
+
+- [x] As host, the named perks (ids of content/perks) are the first cards of every Draft, past the pool's shift and
+      Postal Rank, so long as somebody here could take them (not a perk held to its limit, nor one excluded by a card on
+      the table); the rest of the offer is drawn as ever, and a reroll draws from the pool alone. An unknown id stops the
+      boot with exit 2 ("--playtest-perks: no such perk 'nope'"). Host-side like `--event` (`SimSettings.ForcedPerks`),
+      no protocol change. `DraftTests.APlaytestsPerks_AreTheFirstCards_PastThePoolsRank_ButNotOnAReroll`
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4830,6 +4838,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --playtest-materials  20 Logs and 40 Stone in your pockets when a shift's Prep or Delivery starts and when back on your feet
 #   --playtest-stamps     as host, every tier of the Postage Stamps, the whole perk pool and the Large Island are open whatever your Postal Rank
 #                         (--playtest-unlocks says the same)
+#   --playtest-perks=A,B  as host, those perks (content/perks ids) are the first cards of every Draft, whatever the pool
 #   --event=ID            as host, the run event ID of content/events (festival, lost_parcels, wildfire, fog on a Large Island, …) comes in every shift it may
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
