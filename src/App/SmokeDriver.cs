@@ -980,7 +980,9 @@ namespace PerformativeMail.App
                             $"at Results the seed line or its copy is missing (\"{client.SeedToCopy()}\")");
                         CheckProfile(world, results);
                         Check(hud.PhaseText.StartsWith("RESULTS", StringComparison.Ordinal), $"at Results the HUD phase line is \"{hud.PhaseText}\"");
-                        Check(hud.HintText.Contains($"Press {HudText.GoKey}", StringComparison.Ordinal), $"at Results the HUD hint is \"{hud.HintText}\"");
+                        // Doc 09 §2.11: "Play again (same seed)", "New seed", "Back to lobby" on the host's keys.
+                        Check(hud.HintText == $"{HudText.RerollKey} play again (same seed)   ·   {HudText.SeedKey} new seed   ·   {HudText.GoKey} back to the lobby",
+                            $"at Results the HUD hint is \"{hud.HintText}\"");
                         Shot("results");
                         // A slower clock again, so the picture is taken before the host leaves the screen.
                         _session.FixedTicksPerFrame = TicksPerFrame;

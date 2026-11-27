@@ -3188,6 +3188,12 @@ green at 24cbd0a (Sim.Tests 716, Net.Tests 245, `tools/smoke.sh` SMOKE OK ×3, B
       the keys, Lobby only); the smoke checks the Lobby's look line and that a guest's Post Red and Gold cap reach the
       host and its drawing (shot `nametag`).
 
+- [x] **Results: Play again (same seed) / New seed** (doc 09 §2.11). At Results the host's hint reads "[R] play again
+      (same seed)   ·   [N] new seed   ·   [G] back to the lobby" (a practice run: "[R] practise again"). R takes the
+      team back to the Lobby and starts the run again at once on the same world, seed and stamps; N the same on a new
+      seed of the same world (as the Lobby's N draws it). Client-side, no protocol change (`ClientRuntime.PlayAgain`:
+      ContinueRun, then in the Lobby NewSeed and StartRun). `ResultsKeysTests`; the smoke checks the Results' hint.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4913,6 +4919,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   Ctrl+V pastes a seed string ("PM1-SMALL-7F3A9C21-CM.DR", as C copies it at Results) with its stamps
 # in the Lobby U and J step your uniform and cap through the cosmetics your rank and achievements have opened
 # in the Lobby H puts the "How to play" card up or down; in a first run's shift 1, H puts the shown tip away
+# at Results the host's R plays again on the same seed, N on a new seed, G goes back to the Lobby
 # in the Draft: 1-3 take a card, R (or the button) draws new cards of your own, once a run (twice from Postal Rank 4)
 # in a debug build: F6 reloads content/ (a host alone in the game; the feed says whether it took)
 # in a run: M puts up the map with the way to the house of the mail in your hand; Z / X / V toggle its Mail / Routes / Resources chips; at a depot's or port's console, M edits its route on the map

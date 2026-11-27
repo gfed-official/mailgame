@@ -194,7 +194,7 @@ namespace PerformativeMail.Net.Tests
             Assert.True(s.StepUntil(() => world.Global.Phase == RunPhase.Results, 21));
             Assert.Equal("RESULTS   RUN OVER", HudText.ShiftAndPhase(world));
             Assert.Equal("", HudText.Quota(world.Global));
-            Assert.Equal("Press [G] to return to the lobby", HudText.PhaseHint(world));
+            Assert.Equal("[R] play again (same seed)   ·   [N] new seed   ·   [G] back to the lobby", HudText.PhaseHint(world));
             Assert.Equal("", HudText.ShiftTally(world.Global));
             var results = HudText.ResultsLines(world, world.Results!);
             Assert.Equal("RUN OVER — quota missed on shift 1", results[0]);

@@ -161,6 +161,9 @@ namespace PerformativeMail.Client.InputHandling
             else if (ev.IsActionPressed(InputActions.Rotate) && Building) _build!.Rotate();
             // In the Draft, before the card is chosen, R draws new cards (doc 01 §2.5).
             else if (ev.IsActionPressed(InputActions.Rotate) && _client.World?.CanReroll == true) _client.Reroll();
+            // At Results the host's R plays the run again on the same seed, N on a new one (doc 09 §2.11).
+            else if (ev.IsActionPressed(InputActions.Rotate) && _client.World?.Global.Phase == PerformativeMail.Sim.Run.RunPhase.Results) _client.PlayAgain(false);
+            else if (ev.IsActionPressed(InputActions.Seed) && _client.World?.Global.Phase == PerformativeMail.Sim.Run.RunPhase.Results) _client.PlayAgain(true);
             // A pad's trigger builds as the left button does (that one is taken with the mouse above).
             else if (Building && ev is InputEventJoypadMotion && ev.IsActionPressed(InputActions.Attack)) _placeQueued = true;
             else if (ev.IsActionPressed(InputActions.Use) && Building) _build!.Pipette();

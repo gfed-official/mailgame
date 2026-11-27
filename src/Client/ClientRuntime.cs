@@ -276,6 +276,35 @@ namespace PerformativeMail.Client
         public uint StartRun() => Send(SimRequest.StartRun(0));
         public uint SetReady(bool ready) => Send(SimRequest.SetReady(0, ready));
         public uint ContinueRun() => Send(SimRequest.ContinueRun(0));
+
+        /// <summary>What the host asked of the Results (doc 09 §2.11), done once back in the Lobby: 1 play again, 2 a new seed.</summary>
+        private int _afterResults;
+
+        /// <summary>
+        /// Host, Results (doc 09 §2.11): "Play again (same seed)" — back to the Lobby and the run started again on the
+        /// same world, seed and stamps — or "New seed" — the same, on a new seed of the same world (not for a practice
+        /// run, whose seed is fixed). 0 where there is nothing to ask.
+        /// </summary>
+        public uint PlayAgain(bool newSeed)
+        {
+            var world = World;
+            if (world == null || world.Global.Phase != RunPhase.Results || !world.IsHost || _afterResults != 0) return 0;
+            if (newSeed && world.Global.Mode == RunMode.Practice) return 0;
+            uint id = ContinueRun();
+            if (id != 0) _afterResults = newSeed ? 2 : 1;
+            return id;
+        }
+
+        private void StepAfterResults(ClientWorld world)
+        {
+            if (_afterResults == 0) return;
+            if (world.Global.Phase == RunPhase.Results) return;
+            bool fresh = _afterResults == 2;
+            _afterResults = 0;
+            if (world.Global.Phase != RunPhase.Lobby) return;
+            if (fresh) NewSeed();
+            StartRun();
+        }
         public uint SetPaused(bool paused) => Send(SimRequest.SetPaused(0, paused));
 
         /// <summary>
@@ -796,6 +825,7 @@ namespace PerformativeMail.Client
             TickStarting?.Invoke();
             var world = World;
             if (State != ClientState.Joined || world == null) return;
+            StepAfterResults(world);
             // Paused: the server simulates no input, so none is predicted or sent, and its clock stands.
             if (world.Paused) return;
             world.ServerTick += 1.0;

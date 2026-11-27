@@ -507,7 +507,11 @@ namespace PerformativeMail.Client
                     return $"Take a perk:{keys}{newCards}   ·   {players - waiting} / {players} have chosen";
                 }
                 case RunPhase.Results:
-                    return world.IsHost ? $"Press {GoKey} to return to the lobby" : $"Waiting for {host} to return to the lobby";
+                    // Doc 09 §2.11: "Play again (same seed)", "New seed", "Back to lobby" (a practice run's seed is fixed).
+                    if (!world.IsHost) return $"Waiting for {host} to return to the lobby";
+                    return world.Global.Mode == RunMode.Practice
+                        ? $"{RerollKey} practise again   ·   {GoKey} back to the lobby"
+                        : $"{RerollKey} play again (same seed)   ·   {SeedKey} new seed   ·   {GoKey} back to the lobby";
                 case RunPhase.Delivery when world.ClockStopped:
                     return world.IsHost
                         ? $"Playtest: the shift clock is stopped   ·   {GoKey} ends the shift"
