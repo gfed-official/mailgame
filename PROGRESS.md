@@ -2310,8 +2310,16 @@ corner for good.
       the map's tiles (the houses) and every destination's mailbox are as they were, and a dozen mailboxes
       each take their mail after it. Both held as built; nothing changed
 
-M3's list in doc 12 is done but for the BalanceSim sanity check of chapter 11 §10.1 (a solo player with 6
-walls loses no belts on shift 2), which needs the BalanceSim's combat agents and comes next.
+- [x] **The chapter 11 §10.1 sanity check: a solo carrier in shift 2 loses no belt behind six walls** (design
+      choice 151). Played on the real sim, not on BalanceSim's abstract agents (`BalanceSanityTests`): one
+      clumsy carrier answers shift 2's raid with six Conveyor Belts beside the street the raiders come down,
+      with six Wooden Walls on their side and without; four seeds. Every raider passes within 2–2.5 m of the
+      line, every one is felled, and no belt is lost or even struck either way (the doc allows 0–2 undefended).
+      Doc 12's scripted scenarios (Wall Breakers at walls, Hog Riders over them at a chest, Balloons at turrets,
+      Tanks shoving walls and crushing belts) were already covered by `WallBreakerTests`, `HogRiderTests`,
+      `BalloonTests` and `TankTests`; nothing was added for them
+
+M3's list in doc 12 is done.
 
 ### 5b. Playtest nits of the f32ea2e report (`mailgame-harness/results/20261126-001813-f32ea2e/report.md`, 2026-11-26)
 
@@ -3983,6 +3991,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     keys on its wording. A key in a card is the first "[…]" of a row; a row without one (a closed counter, "Needs
     a Pickaxe in the hand") has no keycap. "hold E" is drawn on the keycap as HOLD E rather than as a separate
     hold glyph (no icon assets).
+
+151. **§10.1 on the real sim, and an open question.** BalanceSim (doc 11 §4) does not exist; the sanity check
+    is a scenario on `SimWorld` instead, which tests the real raiders rather than a model of them. It holds
+    trivially in one sense: shift 2 rolls Raiders, Swarmlings and Archers only, and by choice 128 (nit 17)
+    those go for carriers and hold their line otherwise, striking a construct only where it blocks their way,
+    so six walls change nothing in shift 2. Doc 05 §2 gives the Raider "Nearest of: player, construct" and
+    the Archer "Player > turret > construct"; with those, belts beside the street would be struck in shift 2
+    and the walls would matter. **For Evan:** keep nit 17's holding line, or give Raiders the doc's construct
+    targeting? Left as is in this batch (a balance change with playtest weight, not a bug).
 
 ## Commands
 
