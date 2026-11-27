@@ -511,7 +511,7 @@ namespace PerformativeMail.Client
                 : CountAndKind(world.Content, stack);
 
         /// <summary>A line of the Intake manifest: "8 Larch Lane  —  3 Letters", with the stack count when there are several.</summary>
-        public static string ManifestRow(ClientWorld world, in ManifestRow row)
+        public static string ManifestRow(ClientWorld world, in ManifestRow row, Func<string, bool>? fits = null)
         {
             string address = world.Map.FormatAddress(row.Address);
             string name = world.Content.MailKinds[row.Kind].Name;
@@ -520,7 +520,12 @@ namespace PerformativeMail.Client
             // The 0e940bc playtest: which rows are cursed was only found out once a stack was taken. First in
             // the row, where the list's ellipsis cannot eat it (e36633c: "… 6 Letters (2 stacks) · 1 CU…").
             string flags = (row.Cursed > 0 ? $"{row.Cursed} {CursedWord.ToUpperInvariant()}  ·  " : "") + (row.Lost > 0 ? $"{row.Lost} {LostWord.ToUpperInvariant()}  ·  " : "");
-            return $"{flags}{address}  —  {CountAndKind(name, row.Items)}{stacks}";
+            string full = $"{flags}{address}  —  {CountAndKind(name, row.Items)}{stacks}";
+            if (fits == null || fits(full)) return full;
+            // Too long for the list (f40acb7: "2 CURSED · 4 Larch Lane — 9 Letters (2 sta…"): closer set, then
+            // without the stacks, rather than a word cut in half.
+            string tight = flags.Replace("  ·  ", " · ") + $"{address} — {CountAndKind(name, row.Items)}";
+            return row.Stacks > 1 && fits(tight + $" ({row.Stacks} stacks)") ? tight + $" ({row.Stacks} stacks)" : tight;
         }
 
         // --- the fight of the concept video: health, the raid, loot --------------------------------

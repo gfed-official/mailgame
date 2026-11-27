@@ -2532,6 +2532,36 @@ Item 1: `tools/smoke.sh`
       (`Hud.PromptTextRect` is now worked out from the card's size, not its rect a frame late); both rendered
       smokes pass at 720p
 
+### 5g. Playtest bugs of the f40acb7 report (`mailgame-harness/results/20261126-161222-f40acb7/report.md`, 2026-11-26)
+
+The report was played on f40acb7, before the HUD polish of 5f; each bug was checked against the current HUD.
+
+- [x] **(N1) The under-attack chevron parted from its words.** At 1280×420 the chevron stood in the gap under the
+      hint and "Post Office under attack" under PROTECTED; with the Intake open the words dropped to the screen's
+      foot. The chevron and its words were each cleared of the HUD on their own. They are now one group: the
+      words beside the chevron on the edge (level with its middle, towards the screen's middle), over it above
+      the construct (`EdgeMarker.WordsAbout`), and the two moved as one under every box the HUD keeps clear, or
+      over them where under runs off the screen (`EdgeMarker.GroupClear`; design choice 152).
+      `ConstructHitFlowTests.TheChevronAndItsWords_StayTogether_ClearOfTheHud` (the guest at 1280×420 with the
+      banner, the host at 720 with the Intake), `OverTheConstruct_…`; the raid smoke's check of the chevron and
+      its words against every keep-clear box holds
+- [x] **(N2) The open Intake covered the Post Office's HP row and "Close Intake [E]".** The tracker rows now stack
+      from the bottom right without gaps for the hidden ones, and from the top right while the open inventory
+      screen would cover them at the bottom (`PanelDodge.TrackersFromTop`). The prompt goes under the open panel,
+      else over it (under the hint), else into the gutter on its left (`PanelDodge.Prompt`); the held stack's name
+      waits while the prompt stands on it; the mend bar waits while a panel is open. `PanelDodgeTests`; the smoke
+      checks, with the Intake open in Delivery, that the prompt and every tracker row are clear of the panel
+- [x] **(N3) Cursed Intake rows cut the stack count ("… 9 Letters (2 sta…").** A row too long for the list is set
+      closer ("2 CURSED · 4 Larch Lane — 9 Letters (2 stacks)"), then without the stacks, never a word cut in
+      half; the whole row is the row's tooltip (`HudText.ManifestRow` with the list's measure, `InventoryPanel.FitsRow`).
+      `ManifestListTests`
+- [x] **(d-b) `--playtest-materials`**: the player's pockets are topped up to **20 Logs and 40 Stone**
+      (`PlaytestMask.Materials`; six Wooden Walls or the Hammer's mending, ten Stone Walls once Fortify is bought,
+      or 200 Slingshot shots) when a shift's Prep or Delivery starts, when they join a run under way, and when
+      they are back on their feet; in the inventory before the hotbar. Only for who asked; nothing in the Lobby,
+      Payday or Results (nothing is built then). No shop price or drop table changed. Protocol `m2.27` (the Hello's
+      flag). `PlaytestTests.Materials_…`, `CodecTests`
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4011,6 +4041,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     and the walls would matter. **For Evan:** keep nit 17's holding line, or give Raiders the doc's construct
     targeting? Left as is in this batch (a balance change with playtest weight, not a bug).
 
+152. **The under-attack marker's words beside the chevron, and the group cleared as one** (the f40acb7 playtest).
+    On the screen's edge the words now stand beside the chevron, level with it, on the side towards the middle
+    (they stood under or over it before, offset by its quadrant), so the pair is short enough to fit between the
+    HUD's lines; when it cannot, it goes under the next box, or over it where under is off the screen. Over a
+    construct in view the words stay over the chevron. With a panel open, the tracker rows go to the top right
+    only if the panel covers them at the bottom; the prompt prefers under the panel, then over it, then the left
+    gutter. `--playtest-materials` tops up rather than adds (as `--playtest-package`), so a playtest can build all
+    shift without the box's resource nodes or the raiders' drops.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4065,6 +4104,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --raid                every shift's raid is announced as the shift starts and comes 5 s later
 #   --playtest-package    four Small Packages for the mail cannon (RMB) when a shift starts and when back on your feet
 #   --playtest-wallet=N   runs start with N gold in the team's wallet (e.g. 500); asked in a run, topped up to it at once
+#   --playtest-materials  20 Logs and 40 Stone in your pockets when a shift's Prep or Delivery starts and when back on your feet
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on
 ~/.local/bin/godot --path . -- --raid --playtest-package         # host: G, G, and the cannon is loaded when the raiders come
 ~/.local/bin/godot --path . -- --join=192.168.1.20 --raid --playtest-package --playtest-mailbox   # a guest: all three go together

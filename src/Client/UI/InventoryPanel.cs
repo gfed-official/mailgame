@@ -138,6 +138,7 @@ namespace PerformativeMail.Client.UI
                 SizeFlagsVertical = SizeFlags.ExpandFill,
             };
             _manifest.ItemClicked += OnManifestClicked;
+            _fitsRow = FitsRow;
             _externalSide.AddChild(_manifest);
 
             // The shop's cards stand where an open container would: at the counter there is none.
@@ -412,6 +413,19 @@ namespace PerformativeMail.Client.UI
             RefreshManifest(world, external);
         }
 
+        private System.Func<string, bool> _fitsRow = null!;
+
+        /// <summary>Whether a manifest row is drawn whole in the list's width (its scroll bar and margins aside).</summary>
+        private bool FitsRow(string text)
+        {
+            var font = _manifest.GetThemeFont("font");
+            float room = Mathf.Max(_manifest.Size.X, _manifest.CustomMinimumSize.X) - ManifestRowSlack;
+            return font.GetStringSize(text, HorizontalAlignment.Left, -1, _manifest.GetThemeFontSize("font_size")).X <= room;
+        }
+
+        /// <summary>What a row of the list loses to the scroll bar and the item's margins, px.</summary>
+        private const float ManifestRowSlack = 34f;
+
         /// <summary>
         /// One row per (address, kind); a click takes the oldest stack of the row. The rows are
         /// updated in place and keep their position while the list is open (<see cref="ManifestList"/>).
@@ -425,7 +439,11 @@ namespace PerformativeMail.Client.UI
             {
                 var row = rows[i];
                 if (i >= _manifest.ItemCount) _manifest.AddItem("");
-                _manifest.SetItemText(i, HudText.ManifestRow(world, row));
+                string text = HudText.ManifestRow(world, row, _fitsRow);
+                _manifest.SetItemText(i, text);
+                // Said shorter to fit: the whole row on hover.
+                string whole = HudText.ManifestRow(world, row);
+                _manifest.SetItemTooltip(i, whole == text ? "" : whole);
                 _manifest.SetItemDisabled(i, row.Empty);
                 var dest = world.Map.FindDestination(row.Address);
                 var colour = dest != null ? Palette.HouseColour(dest.Variant).Lightened(0.4f) : Colors.White;

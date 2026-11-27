@@ -187,8 +187,9 @@ namespace PerformativeMail.Client.UI
                 if (!IsInsideTree() || _card.Text.Length == 0) return new Rect2();
                 var size = _card.GetCombinedMinimumSize();
                 float lead = _mark.CustomMinimumSize.X + 10f;
-                float x = GetViewportRect().Size.X * 0.5f - (lead + size.X) * 0.5f + lead;
-                return new Rect2(x, _card.GetParent<Control>().GetGlobalRect().Position.Y, size);
+                var row = _promptRow.GetGlobalRect();
+                float x = row.GetCenter().X - (lead + size.X) * 0.5f + lead;
+                return new Rect2(x, row.Position.Y, size);
             }
         }
 
@@ -239,6 +240,7 @@ namespace PerformativeMail.Client.UI
         /// <summary>The Repair Hammer's target bar under the crosshair: -1 while it is down, else what it shows.</summary>
         public float RepairBarValue => _repairBar.Visible ? _repairBar.Value : -1f;
         private PromptCard _card = null!;
+        private HBoxContainer _promptRow = null!;
         private Label _held = null!, _hint = null!, _paused = null!, _mouseNote = null!, _banner = null!, _hp = null!, _weapons = null!;
         private MeterBar _quotaBar = null!, _timeBar = null!, _healthBar = null!, _staminaBar = null!;
         private ColorRect _hurt = null!;
@@ -352,7 +354,7 @@ namespace PerformativeMail.Client.UI
             AddChild(crosshair);
 
             // The prompt line: the match mark, then the text, centred as one.
-            var promptRow = new HBoxContainer
+            var promptRow = _promptRow = new HBoxContainer
             {
                 Name = "PromptRow",
                 Alignment = BoxContainer.AlignmentMode.Center,
@@ -360,7 +362,7 @@ namespace PerformativeMail.Client.UI
                 // Under the hold bar, which stands right under the crosshair: a card of three rows ends clear of the
                 // loot cards over the hotbar at 1280×720 (UI polish plan item 5).
                 AnchorLeft = 0f, AnchorRight = 1f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
-                OffsetLeft = m, OffsetRight = -m, OffsetTop = 40f, OffsetBottom = 74f,
+                OffsetLeft = m, OffsetRight = -m, OffsetTop = PromptRowTop, OffsetBottom = PromptRowTop + PromptRowHeight,
             };
             promptRow.AddThemeConstantOverride("separation", 10);
             AddChild(promptRow);
@@ -540,6 +542,8 @@ namespace PerformativeMail.Client.UI
             poRow.Bar = _postOffice.Visible && world.PostOfficeMaxHp > 0 ? Mathf.Clamp(world.PostOfficeHp / (float)world.PostOfficeMaxHp, 0f, 1f) : -1f;
             poRow.Pulse = _postOffice.Visible && _postOffice.Text.EndsWith(HudText.UnderAttackTag, StringComparison.Ordinal);
             foreach (var row in _trackerRows) row.Visible = !world.ShopOpen;
+            var panel = PanelBox();
+            LayoutTrackers(panel);
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
             bool lost = _client!.State == ClientState.Disconnected;
             _hint.Text = lost ? HudText.HostLostHint : HudText.PhaseHint(world);
@@ -600,10 +604,11 @@ namespace PerformativeMail.Client.UI
             }
             _card.SetText(text);
             FitPrompt();
+            _promptOnHeld = DodgePrompt(panel) && text.Length > 0;
             _card.SetTone(tone == PromptTone.Match ? Palette.Match : tone == PromptTone.Mismatch ? Palette.Mismatch : Colors.White);
             _mark.Tone = text.Length > 0 ? tone : PromptTone.Neutral;
             float mendHealth = building || MapOpen?.Invoke() == true ? -1f : HudText.RepairTargetHealth(world, _client!.Input.HeldSlot);
-            _repairBar.Visible = mendHealth >= 0f && holdProgress <= 0f;
+            _repairBar.Visible = mendHealth >= 0f && holdProgress <= 0f && panel == null;
             if (_repairBar.Visible) _repairBar.Value = mendHealth;
             _hold.Visible = holdProgress > 0f;
             _hold.Value = holdProgress;
@@ -615,7 +620,8 @@ namespace PerformativeMail.Client.UI
             _held.Text = held == null ? "" : HudText.Held(world, held.Stack);
             var heldDest = held != null && held.Stack.Kind == StackKind.Mail ? world.Map.FindDestination(held.Stack.Address) : null;
             _held.Modulate = heldDest != null ? Palette.HouseColour(heldDest.Variant).Lightened(0.35f) : Colors.White;
-            _held.Visible = !_loot.Cards.Visible;
+            // Under an open panel's foot the prompt may stand where the held stack's name does: the panel shows the hotbar.
+            _held.Visible = !_loot.Cards.Visible && !_promptOnHeld;
             // Over the hotbar, or over the recipe bar's rows while Build mode is up.
             float m = SafeMargin;
             _held.OffsetTop = building ? -m - RecipeBarHeight - 24f : -GridView.Cell - m - 30f;
@@ -720,6 +726,69 @@ namespace PerformativeMail.Client.UI
         }
 
         private bool? _topWithQuota;
+
+        /// <summary>The inventory screen's box while it is up (the Intake, a chest, the bag), else null.</summary>
+        private ScreenBox? PanelBox()
+        {
+            if (Panel == null || !Panel.Visible || !Panel.IsInsideTree()) return null;
+            var rect = Panel.GetGlobalRect();
+            return new ScreenBox(rect.Position.X, rect.Position.Y, rect.End.X, rect.End.Y);
+        }
+
+        /// <summary>
+        /// The rows that say something, from the bottom right up with no gaps; from the top right down while an open
+        /// panel would cover them there (the f40acb7 playtest: the Intake over the Post Office's HP row).
+        /// </summary>
+        private void LayoutTrackers(ScreenBox? panel)
+        {
+            int shown = 0;
+            foreach (var row in _trackerRows)
+                if (row.Visible && row is TrackerRow t && t.Line.Visible && t.Line.Text.Length > 0) shown++;
+            if (!IsInsideTree()) return;
+            var screen = GetViewportRect().Size;
+            const float m = SafeMargin, step = TrackerRow.RowHeight + 6f;
+            bool fromTop = PanelDodge.TrackersFromTop(shown, screen.X - m - TrackerWidth, screen.X - m, screen.Y, m, TrackerRow.RowHeight, 6f, panel);
+            TrackersFromTop = fromTop;
+            int k = 0;
+            foreach (var row in _trackerRows)
+            {
+                if (!(row.Visible && row is TrackerRow t && t.Line.Visible && t.Line.Text.Length > 0)) continue;
+                if (fromTop) Place(row, 1f, 0f, -m - TrackerWidth, m + k * step, -m, m + k * step + TrackerRow.RowHeight);
+                else Place(row, 1f, 1f, -m - TrackerWidth, -m - k * step - TrackerRow.RowHeight, -m, -m - k * step);
+                k++;
+            }
+        }
+
+        /// <summary>Where the tracker rows that say something stand on screen.</summary>
+        public IEnumerable<Rect2> TrackerRects => _trackerRows.OfType<TrackerRow>().Where(r => r.Visible && r.Line.Visible && r.Line.Text.Length > 0).Select(r => r.GetGlobalRect());
+
+        /// <summary>Whether the trackers stand from the top right this frame, out of an open panel's way.</summary>
+        public bool TrackersFromTop { get; private set; }
+
+        private bool _promptOnHeld;
+
+        /// <summary>
+        /// The prompt under the crosshair, or out of the way of an open panel that covers it ("Close Intake [E]").
+        /// True when it stands where the held stack's name is drawn.
+        /// </summary>
+        private bool DodgePrompt(ScreenBox? panel)
+        {
+            if (!IsInsideTree()) return false;
+            var screen = GetViewportRect().Size;
+            var card = _card.GetCombinedMinimumSize();
+            float mid = screen.Y * 0.5f, tall = Mathf.Max(PromptRowHeight, card.Y);
+            // Under the hint at the top, over the hotbar at the foot.
+            float ceiling = _hint.GetGlobalRect().End.Y + 4f, floor = screen.Y - SafeMargin - GridView.Cell - 4f;
+            var row = PanelDodge.Prompt(mid + PromptRowTop, tall, card.X + _mark.CustomMinimumSize.X + 10f, panel, ceiling, floor, screen.X, SafeMargin);
+            _promptRow.OffsetLeft = row.X0;
+            _promptRow.OffsetRight = row.X1 - screen.X;
+            _promptRow.OffsetTop = row.Y0 - mid;
+            _promptRow.OffsetBottom = row.Y0 - mid + PromptRowHeight;
+            float heldTop = screen.Y - GridView.Cell - SafeMargin - 30f;
+            return row.Y1 > heldTop && row.Y0 < heldTop + 26f && row.X0 <= SafeMargin;
+        }
+
+        private const float PromptRowTop = 40f, PromptRowHeight = 34f;
 
         /// <summary>
         /// The top plate from the top down: the gold, the quota's line and bar (in a run), the shift's line, the

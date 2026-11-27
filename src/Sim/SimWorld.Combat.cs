@@ -213,6 +213,7 @@ namespace PerformativeMail.Sim
             Events.Add(new PlayerRespawnedEvent { Player = p.Id, ProtectedUntilTick = p.ProtectedUntilTick });
             // What they carried lies in the bag where they fell.
             GivePlaytestPackages(p);
+            GivePlaytestMaterials(p);
         }
 
         /// <summary>True while the carrier's protection after a respawn holds.</summary>

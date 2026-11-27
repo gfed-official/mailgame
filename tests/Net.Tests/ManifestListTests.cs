@@ -117,6 +117,13 @@ namespace PerformativeMail.Net.Tests
             // e36633c: on a long row the list's ellipsis ate it ("· 1 CU…"); it leads the row now.
             Assert.Equal($"2 CURSED  ·  {dest.Label}  —  5 Letters  (2 stacks)", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 2, Items = 5, Cursed = 2 }));
             Assert.Equal($"1 CURSED  ·  1 LOST  ·  {dest.Label}  —  2 Letters", HudText.ManifestRow(world, new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 1, Items = 2, Cursed = 1, Lost = 1 }));
+            // The f40acb7 playtest: "2 CURSED · 4 Larch Lane — 9 Letters (2 sta…". Too long, it is set closer, then the
+            // stacks go; never a word cut short.
+            var cursed = new ManifestRow { Address = dest.Address, Kind = letter, FirstEntry = 4, Stacks = 2, Items = 9, Cursed = 2 };
+            string whole = HudText.ManifestRow(world, cursed);
+            Assert.Equal(whole, HudText.ManifestRow(world, cursed, t => true));
+            Assert.Equal($"2 CURSED · {dest.Label} — 9 Letters (2 stacks)", HudText.ManifestRow(world, cursed, t => t.Length < whole.Length));
+            Assert.Equal($"2 CURSED · {dest.Label} — 9 Letters", HudText.ManifestRow(world, cursed, t => t.Length < whole.Length - 6));
         }
 
         [Fact]

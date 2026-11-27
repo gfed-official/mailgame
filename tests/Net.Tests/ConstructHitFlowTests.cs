@@ -162,5 +162,53 @@ namespace PerformativeMail.Net.Tests
             EdgeMarker.Extent(MathF.PI, out x0, out y0, out x1, out y1);
             Assert.False(new ScreenBox(1105f + x0, beside + y0, 1105f + x1, beside + y1).Overlaps(keep[2]));
         }
+
+        [Theory]
+        // The f40acb7 playtest, the guest at 1280×420: plate, hint and "PROTECTED in the yard" across the middle.
+        [InlineData(420f, false)]
+        // The host at 1280×720 with the Intake open: the panel under the hint.
+        [InlineData(720f, true)]
+        public void TheChevronAndItsWords_StayTogether_ClearOfTheHud(float height, bool intake)
+        {
+            var keep = new List<ScreenBox>
+            {
+                new ScreenBox(416f, 0f, 864f, 139f),
+                new ScreenBox(360f, 145f, 920f, 173f),
+            };
+            if (intake) keep.Add(new ScreenBox(248f, 178f, 1032f, 562f));
+            else keep.Add(new ScreenBox(170f, 177f, 1110f, 217f));
+            // The Post Office up the screen, a little right of straight ahead.
+            EdgeMarker.Place(700f, -300f, false, 1280f, height, 48f, out float x, out float y, out float angle);
+            var words = EdgeMarker.WordsAbout(x, angle, false, 210f, 24f, 1280f);
+            EdgeMarker.Extent(angle, out float x0, out float y0, out float x1, out float y1);
+            var chevron = new ScreenBox(x0, y0, x1, y1);
+            var group = EdgeMarker.Union(words, chevron);
+            float tip = EdgeMarker.GroupClear(x, y, group, keep, height);
+            var w = new ScreenBox(x + words.X0, tip + words.Y0, x + words.X1, tip + words.Y1);
+            var c = new ScreenBox(x + x0, tip + y0, x + x1, tip + y1);
+            foreach (var b in keep)
+            {
+                Assert.False(w.Overlaps(b));
+                Assert.False(c.Overlaps(b));
+            }
+            // Side by side: level with each other, a few pixels apart.
+            Assert.True(MathF.Abs((w.Y0 + w.Y1) * 0.5f - (c.Y0 + c.Y1) * 0.5f) < 1f);
+            Assert.True(MathF.Min(MathF.Abs(w.X0 - c.X1), MathF.Abs(c.X0 - w.X1)) <= 8f);
+            Assert.True(w.Y0 >= 8f && w.Y1 <= height - 8f && c.Y1 <= height - 8f);
+        }
+
+        [Fact]
+        public void OverTheConstruct_TheWordsStandOverTheChevron_AndMoveWithIt()
+        {
+            var keep = new List<ScreenBox> { new ScreenBox(416f, 0f, 864f, 139f) };
+            var words = EdgeMarker.WordsAbout(640f, MathF.PI / 2f, true, 200f, 24f, 1280f);
+            EdgeMarker.Extent(MathF.PI / 2f, out float x0, out float y0, out float x1, out float y1);
+            Assert.True(words.Y1 <= y0);
+            var group = EdgeMarker.Union(words, new ScreenBox(x0, y0, x1, y1));
+            // Far from the plate it stays where it is; under the plate the group goes down as one.
+            Assert.Equal(400f, EdgeMarker.GroupClear(640f, 400f, group, keep, 720f), 1);
+            float tip = EdgeMarker.GroupClear(640f, 120f, group, keep, 720f);
+            Assert.Equal(139f + 4f - group.Y0, tip, 1);
+        }
     }
 }

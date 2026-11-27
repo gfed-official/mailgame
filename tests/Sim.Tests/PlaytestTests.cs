@@ -825,6 +825,50 @@ namespace PerformativeMail.Sim.Tests
             Assert.True(raider.Hp < hp || !world.Enemies.Contains(raider), "the package missed a raider eight metres down the street");
         }
 
+        // --- the f40acb7 playtest: --playtest-materials ------------------------------------------
+
+        private static (int Logs, int Stone) Materials(SimWorld world, Player p) =>
+            (BuildRules.Have(p.Hotbar, p.Inventory, world.Content.Item("log")), BuildRules.Have(p.Hotbar, p.Inventory, world.Content.Item("stone")));
+
+        [Fact]
+        public void Materials_LogsAndStoneInPrep_ToppedUpWhenBackOnTheirFeet_AndOnlyForWhoAsked()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            var guest = world.AddPlayer("guest")!;
+            world.SetPlaytest(guest, PlaytestFlags.Materials | PlaytestFlags.NoQuota);
+            var before = Materials(world, host);
+            // Nothing in the Lobby, where nothing is built.
+            Assert.Equal((0, 0), Materials(world, guest));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal(RunPhase.Prep, world.Run.Phase);
+            Assert.Equal(new[] { ("log", 20), ("stone", 40) }, PlaytestMask.Materials);
+            Assert.Equal((20, 40), Materials(world, guest));
+            Assert.Equal(before, Materials(world, host));
+            // In the inventory, the hotbar left to tools and mail.
+            Assert.DoesNotContain(guest.Hotbar.Entries, e => e.Stack.Kind == StackKind.Item && (world.Content.Items[e.Stack.DefIndex].Id is "log" or "stone"));
+
+            foreach (var p in world.Players) Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.SetReady(0, true)));
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+            // Topped up, not doubled.
+            Assert.Equal((20, 40), Materials(world, guest));
+            world.DamagePlayer(guest, 9999f, (byte)world.Content.Enemy("barbarian").Index);
+            Assert.Equal((0, 0), Materials(world, guest));
+            while (guest.Dead) world.Step();
+            Assert.Equal((20, 40), Materials(world, guest));
+        }
+
+        [Fact]
+        public void Materials_BuildAWoodenWall()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.Materials);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            var recipe = world.Content.Recipes.Single(r => r.Id == "recipe_wall_wood");
+            Assert.True(BuildRules.HasMaterials(recipe, host.Hotbar, host.Inventory));
+        }
+
         private static void AssertParked(SimWorld world, Player p, DestinationDef dest)
         {
             float dx = dest.MailboxX - p.Move.X, dz = dest.MailboxZ - p.Move.Z;

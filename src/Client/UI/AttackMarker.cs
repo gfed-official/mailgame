@@ -9,8 +9,6 @@ namespace PerformativeMail.Client.UI
     public partial class AttackMarker : Control
     {
         private static readonly Color Red = new Color("ff3b30");
-        /// <summary>How far right of the chevron its words start when they cannot stand over it, px.</summary>
-        private const float SideOffset = 80f;
         private readonly Label _label;
         private float _angle;
         private bool _over;
@@ -53,25 +51,18 @@ namespace PerformativeMail.Client.UI
         {
             Visible = true;
             var keep = KeepClear?.Invoke();
-            at.Y = EdgeMarker.TipClear(at.X, at.Y, angle, keep);
-            Position = at;
-            _angle = angle;
-            _over = over;
             if (_label.Text != text) _label.Text = text;
             var size = _label.GetMinimumSize();
             var screen = GetViewportRect().Size;
-            // The words beside the chevron, on the side towards the middle of the screen, kept on it.
-            var offset = over ? new Vector2(-size.X * 0.5f, -size.Y - 30f)
-                : new Vector2(at.X > screen.X * 0.5f ? -size.X - 26f : 26f, at.Y > screen.Y * 0.5f ? -size.Y - 6f : 6f);
-            var global = at + offset;
-            global.X = Mathf.Clamp(global.X, 8f, screen.X - size.X - 8f);
-            global.Y = Mathf.Clamp(global.Y, 8f, screen.Y - size.Y - 8f);
-            float clear = EdgeMarker.WordsClear(global.X, global.Y, size.X, size.Y, keep, screen.Y);
-            // Over the construct, words pushed down would sit on the chevron: beside it instead, clear of
-            // the numbers rising under it (the f32ea2e smoke's wallbreaker-wall.png had "-150" under them).
-            if (over && clear != global.Y) clear = EdgeMarker.WordsClear(global.X = Mathf.Min(at.X + SideOffset, screen.X - size.X - 8f), at.Y - size.Y, size.X, size.Y, keep, screen.Y);
-            global.Y = clear;
-            _label.Position = global - at;
+            // The chevron and its words as one: cleared of the HUD together, so they never part (the f40acb7 playtest).
+            var words = EdgeMarker.WordsAbout(at.X, angle, over, size.X, size.Y, screen.X);
+            EdgeMarker.Extent(angle, out float x0, out float y0, out float x1, out float y1);
+            var group = EdgeMarker.Union(words, new ScreenBox(x0, y0, x1, y1));
+            at.Y = EdgeMarker.GroupClear(at.X, at.Y, group, keep, screen.Y);
+            Position = at;
+            _angle = angle;
+            _over = over;
+            _label.Position = new Vector2(words.X0, words.Y0);
             QueueRedraw();
         }
 

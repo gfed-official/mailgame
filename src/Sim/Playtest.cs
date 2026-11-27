@@ -28,14 +28,25 @@ namespace PerformativeMail.Sim
         /// one under way, and whenever they are back on their feet.
         /// </summary>
         Packages = 16,
+        /// <summary>
+        /// The player's pockets are topped up with Logs and Stone (<see cref="PlaytestMask.Materials"/>): when a
+        /// shift's Prep or Delivery starts, when they join a run under way, and whenever they are back on their feet.
+        /// For walls and the Slingshot when the nodes or the raiders' drops are out of reach (the f40acb7 playtest).
+        /// </summary>
+        Materials = 32,
     }
 
     public static class PlaytestMask
     {
         /// <summary>Every flag there is. Not a member of the enum, so a log names the flags one by one.</summary>
-        public const PlaytestFlags All = PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages;
+        public const PlaytestFlags All = PlaytestFlags.NoTimer | PlaytestFlags.AtMailbox | PlaytestFlags.NoQuota | PlaytestFlags.RaidNow | PlaytestFlags.Packages | PlaytestFlags.Materials;
         /// <summary>What a player with <see cref="PlaytestFlags.Packages"/> is topped up to: a few shots, and the pockets stay mostly free.</summary>
         public const int PackageCount = 4;
+        /// <summary>
+        /// What a player with <see cref="PlaytestFlags.Materials"/> is topped up to: 20 Logs (six Wooden Walls, or mending)
+        /// and 40 Stone (ten Stone Walls, or 200 Slingshot shots). Item ids of content/items/materials.json.
+        /// </summary>
+        public static readonly (string Item, int Count)[] Materials = { ("log", 20), ("stone", 40) };
         /// <summary>From the start of a shift to the first raiders under <see cref="PlaytestFlags.RaidNow"/>: time to read the warning.</summary>
         public const double RaidNowSeconds = 5;
         /// <summary>The most a playtest may ask the wallet to start with: $1000.00, in cents.</summary>

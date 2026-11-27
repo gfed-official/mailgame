@@ -86,6 +86,7 @@ namespace PerformativeMail.Sim
             if ((player.Playtest & PlaytestFlags.RaidNow) != 0 && Run.Phase == RunPhase.Delivery && Raid == RaidState.None) ScheduleRaid();
             if ((player.Playtest & PlaytestFlags.AtMailbox) != 0) ParkAtMailbox(player);
             GivePlaytestPackages(player);
+            GivePlaytestMaterials(player);
         }
 
         /// <summary>
@@ -112,7 +113,34 @@ namespace PerformativeMail.Sim
         private void StockPlaytesters()
         {
             foreach (var p in _players)
-                if (!p.Away) GivePlaytestPackages(p);
+                if (!p.Away)
+                {
+                    GivePlaytestPackages(p);
+                    GivePlaytestMaterials(p);
+                }
+        }
+
+        /// <summary>
+        /// Tops a player who asked for <see cref="PlaytestFlags.Materials"/> up to <see cref="PlaytestMask.Materials"/>,
+        /// in the inventory before the hotbar (the hotbar's slots are for tools and mail), while one may build.
+        /// </summary>
+        private void GivePlaytestMaterials(Player p)
+        {
+            if ((p.Playtest & PlaytestFlags.Materials) == 0 || !BuildRules.IsOpen(Run.Phase) || p.Dead || p.Away) return;
+            foreach (var (id, count) in PlaytestMask.Materials)
+            {
+                ItemDef? def = null;
+                foreach (var item in Content.Items)
+                    if (item.Id == id) { def = item; break; }
+                if (def == null) continue;
+                for (int want = count - BuildRules.Have(p.Hotbar, p.Inventory, def); want > 0;)
+                {
+                    int n = Math.Min(want, Math.Max(1, def.MaxStack));
+                    var stack = ItemStack.OfItem(def, n);
+                    if (!Give(p.Inventory, stack) && !Give(p.Hotbar, stack)) break;
+                    want -= n;
+                }
+            }
         }
 
         /// <summary>

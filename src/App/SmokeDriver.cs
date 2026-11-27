@@ -734,6 +734,12 @@ namespace PerformativeMail.App
                 // UI polish plan item 4: the shift's tallies head the inventory screen, not the HUD's corner.
                 Check(_screen.Inventory.TallyText == HudText.ShiftTally(world.Global) && _screen.Inventory.TallyText.StartsWith("Delivered ", StringComparison.Ordinal),
                     $"in Delivery the inventory screen's head reads \"{_screen.Inventory.TallyText}\"");
+                // The f40acb7 playtest: the open Intake covered "Close Intake [E]" and the Post Office's row.
+                var panel = _screen.Inventory.GetGlobalRect();
+                var promptAt = _screen.Hud.PromptTextRect;
+                if (_screen.Hud.PromptText.Length > 0) Check(!panel.Intersects(promptAt), $"the prompt \"{_screen.Hud.PromptText}\" at {promptAt} is under the open inventory screen {panel}");
+                foreach (var row in _screen.Hud.TrackerRects)
+                    Check(!panel.Intersects(row), $"a tracker row at {row} is under the open inventory screen {panel}");
             }
             foreach (string tracker in _screen.Hud.TrackerTexts)
                 Check(!tracker.StartsWith("Delivered", StringComparison.Ordinal) && !tracker.StartsWith("Backlog", StringComparison.Ordinal),

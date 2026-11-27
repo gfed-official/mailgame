@@ -70,6 +70,70 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>
+        /// Where the marker's words go about its tip, a box of <paramref name="w"/> by <paramref name="h"/> (the f40acb7
+        /// playtest: the chevron and "Post Office under attack" were each cleared of the HUD on their own and drifted
+        /// apart). Over the construct the words stand over the chevron; on the edge they stand beside it, level with
+        /// its middle, on the side towards the middle of a screen <paramref name="width"/> wide.
+        /// </summary>
+        public static ScreenBox WordsAbout(float tipX, float angle, bool over, float w, float h, float width, float gap = 6f)
+        {
+            Extent(angle, out float x0, out float y0, out float x1, out float y1);
+            if (over) return new ScreenBox(-w * 0.5f, y0 - gap - h, w * 0.5f, y0 - gap);
+            float my = (y0 + y1) * 0.5f;
+            bool left = tipX > width * 0.5f;
+            // Kept on the screen: beside a chevron near the edge the other way.
+            if (left && tipX + x0 - gap - w < 8f) left = false;
+            else if (!left && tipX + x1 + gap + w > width - 8f) left = true;
+            float wx = left ? x0 - gap - w : x1 + gap;
+            return new ScreenBox(wx, my - h * 0.5f, wx + w, my + h * 0.5f);
+        }
+
+        /// <summary>
+        /// The tip's height for the chevron and its words as one, <paramref name="group"/> about the tip: moved down
+        /// under every box the HUD keeps clear it would touch, or, where that runs off a screen <paramref name="height"/>
+        /// high, up over them; kept on the screen either way. The two never part.
+        /// </summary>
+        public static float GroupClear(float x, float y, in ScreenBox group, IReadOnlyList<ScreenBox>? keep, float height, float gap = 4f)
+        {
+            float lo = 8f - group.Y0, hi = height - 8f - group.Y1;
+            y = MathF.Max(lo, MathF.Min(hi, y));
+            if (keep == null) return y;
+            float down = Shift(x, y, group, keep, gap, 1f);
+            if (down <= hi && Clear(x, down, group, keep)) return down;
+            float up = Shift(x, y, group, keep, gap, -1f);
+            if (up >= lo && Clear(x, up, group, keep)) return up;
+            return MathF.Max(lo, MathF.Min(hi, down));
+        }
+
+        private static float Shift(float x, float y, in ScreenBox g, IReadOnlyList<ScreenBox> keep, float gap, float way)
+        {
+            for (int pass = 0; pass < 8; pass++)
+            {
+                bool moved = false;
+                foreach (var b in keep)
+                    if (new ScreenBox(x + g.X0, y + g.Y0, x + g.X1, y + g.Y1).Overlaps(b))
+                    {
+                        y = way > 0f ? b.Y1 + gap - g.Y0 : b.Y0 - gap - g.Y1;
+                        moved = true;
+                    }
+                if (!moved) break;
+            }
+            return y;
+        }
+
+        private static bool Clear(float x, float y, in ScreenBox g, IReadOnlyList<ScreenBox> keep)
+        {
+            var at = new ScreenBox(x + g.X0, y + g.Y0, x + g.X1, y + g.Y1);
+            foreach (var b in keep)
+                if (at.Overlaps(b)) return false;
+            return true;
+        }
+
+        /// <summary>The smallest box holding both.</summary>
+        public static ScreenBox Union(in ScreenBox a, in ScreenBox b) =>
+            new ScreenBox(MathF.Min(a.X0, b.X0), MathF.Min(a.Y0, b.Y0), MathF.Max(a.X1, b.X1), MathF.Max(a.Y1, b.Y1));
+
+        /// <summary>
         /// The top of the marker's words, a box of <paramref name="w"/> by <paramref name="h"/> at
         /// (<paramref name="x"/>, <paramref name="y"/>), moved down under any box the HUD keeps clear
         /// that it would sit on (and kept on a screen <paramref name="height"/> high).
