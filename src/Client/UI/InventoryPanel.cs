@@ -35,7 +35,9 @@ namespace PerformativeMail.Client.UI
         private ItemList _manifest = null!;
         private VBoxContainer _externalSide = null!;
         private HBoxContainer _externalSort = null!;
-        private Label _hint = null!;
+        private Label _hint = null!, _tally = null!;
+        /// <summary>The head line of the shift's tallies, empty between runs.</summary>
+        public string TallyText => _tally.Visible ? _tally.Text : "";
         private Control _overlay = null!;
         private readonly ManifestList _rows = new ManifestList();
         private uint _listedId;
@@ -96,6 +98,10 @@ namespace PerformativeMail.Client.UI
 
             var own = new VBoxContainer();
             columns.AddChild(own);
+            // The shift's tallies, off the HUD's corner (UI polish plan item 4).
+            _tally = new Label { Name = "Tally", Modulate = HintColour };
+            _tally.AddThemeFontSizeOverride("font_size", 13);
+            own.AddChild(_tally);
             own.AddChild(new Label { Text = "Hotbar" });
             HotbarGrid = MakeGrid("HotbarGrid", world => world.Hotbar);
             own.AddChild(HotbarGrid);
@@ -380,6 +386,8 @@ namespace PerformativeMail.Client.UI
             Shop.Refresh(world);
             Filters.Refresh(world);
 
+            _tally.Text = HudText.ShiftTally(world.Global);
+            _tally.Visible = _tally.Text.Length > 0;
             if (_noticeLeft > 0) _noticeLeft -= delta;
             bool noticing = _noticeLeft > 0;
             _hint.Text = noticing ? _notice : HudText.InventoryHint(external != null, _drag.Active, world.ShopOpen);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using PerformativeMail.Client.Meta;
 using PerformativeMail.Client.Presentation;
@@ -65,6 +66,10 @@ namespace PerformativeMail.Client.UI
         /// <summary>The raid's tracker row while there is a raid, else empty.</summary>
         public string RaidText => _raid.Visible ? _raid.Text : "";
         public string PostOfficeText => _postOffice.Visible ? _postOffice.Text : "";
+        /// <summary>The Post Office row's HP bar, 0..1; below 0 while it has none.</summary>
+        public float PostOfficeBar => ((TrackerRow)_postOffice.GetParent()).Bar;
+        /// <summary>The words of every tracker row shown at the bottom right.</summary>
+        public IEnumerable<string> TrackerTexts => _trackerRows.OfType<TrackerRow>().Where(r => r.Visible && r.Line.Visible && r.Line.Text.Length > 0).Select(r => r.Line.Text);
         /// <summary>The tracker row of the local player's own bag while it lies in the world, else empty.</summary>
         public string BagText => _bag.Visible ? _bag.Text : "";
         /// <summary>What the hammer and the cannon are bound to, while there is something to hit; else empty.</summary>
@@ -108,9 +113,11 @@ namespace PerformativeMail.Client.UI
         }
 
         /// <summary>The lines along the edges, for the smoke's "nothing is clipped" check.</summary>
-        public Control[] TopRow => new Control[] { _phase, _status, _quota, _wallet, _rank };
-        /// <summary>The top group from the top down: quota bar, the shift's line, clock bar. No two of them may touch (nit 14).</summary>
-        public Control[] TopStack => new Control[] { _quotaBar, _phase, _timeBar, _hint };
+        public Control[] TopRow => new Control[] { _phase, _quota, _wallet, _rank };
+        /// <summary>The top group from the top down, as far as it is shown: gold, quota line and bar, the shift's line, clock bar, hint. No two of them may touch (nit 14).</summary>
+        public Control[] TopStack => new Control[] { _wallet, _quota, _quotaBar, _phase, _timeBar, _hint }.Where(c => c.Visible).ToArray();
+        /// <summary>The shift's line on the top plate.</summary>
+        public Control PhaseLine => _phase;
         public Control TopPlate => _topPlate;
         /// <summary>The faces the prompt and the shift's line are drawn in, for the smoke's check of the theme.</summary>
         public (Font Body, Font Display) Faces => (_prompt.GetThemeFont("font"), _phase.GetThemeFont("font"));
@@ -221,7 +228,8 @@ namespace PerformativeMail.Client.UI
         private EventFeed _feed = null!;
 
         private Label _postOffice = null!;
-        private Label _phase = null!, _status = null!, _tally = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!;
+        private Label _earnPop = null!;
+        private Label _phase = null!, _quota = null!, _wallet = null!, _rank = null!, _raid = null!, _bag = null!, _perks = null!;
         /// <summary>The Lobby's plates (doc 09 §2.2): the world and its seed, the kit, the host's keys for them.</summary>
         private Label _world = null!, _kit = null!, _worldKeys = null!, _stamps = null!;
         /// <summary>The Lobby's Postage Stamps plate (doc 01 §6).</summary>
@@ -276,20 +284,26 @@ namespace PerformativeMail.Client.UI
             _hurt.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
             AddChild(_hurt);
 
-            // Top centre: what the shift has earned of its quota, the shift and its phase, the time left,
-            // on a plate of their own so that the world behind cannot be read into them (nit 14).
+            // Top centre (UI polish plan item 3; ref R.E.P.O.): the team's gold as a big number, what the
+            // shift has earned of its quota under it with its bar, then the shift and its phase and the time
+            // left, on a plate of their own so that the world behind cannot be read into them (nit 14).
             _topPlate = new Panel { Name = "TopPlate", MouseFilter = MouseFilterEnum.Ignore };
             var plate = new StyleBoxFlat { BgColor = new Color(0.06f, 0.1f, 0.16f, 0.6f), AntiAliasing = true };
             plate.SetCornerRadiusAll(10);
             _topPlate.AddThemeStyleboxOverride("panel", plate);
-            Place(_topPlate, 0.5f, 0f, -BarWidth * 0.5f - 14f, m - 10f, BarWidth * 0.5f + 14f, m + 70f);
             AddChild(_topPlate);
-            _quotaBar = AddBar("QuotaBar", 0.5f, 0f, -BarWidth * 0.5f, m, BarWidth * 0.5f, m + 8f, QuotaColour);
-            _phase = AddLabel("Phase", 20, 0.5f, 0f, -350f, m + 12f, 350f, m + 48f, HorizontalAlignment.Center, display: true);
-            _timeBar = AddBar("TimeBar", 0.5f, 0f, -BarWidth * 0.5f, m + 52f, BarWidth * 0.5f, m + 60f, Colors.White);
+            _wallet = AddLabel("Wallet", 30, 0.5f, 0f, -BarWidth * 0.5f, m - 8f, BarWidth * 0.5f, m + 30f, HorizontalAlignment.Center, display: true);
+            // "+17 g" beside the number for a moment after it changes.
+            _earnPop = AddLabel("EarnPop", 18, 0.5f, 0f, 0f, m, 140f, m + 26f, HorizontalAlignment.Left, display: true);
+            _earnPop.Visible = false;
+            _quota = AddLabel("Quota", 15, 0.5f, 0f, -BarWidth * 0.5f, m + 33f, BarWidth * 0.5f, m + 54f, HorizontalAlignment.Center);
+            _quotaBar = AddBar("QuotaBar", 0.5f, 0f, -BarWidth * 0.5f, m + 57f, BarWidth * 0.5f, m + 62f, QuotaColour);
+            _phase = AddLabel("Phase", 20, 0.5f, 0f, -350f, 0f, 350f, 0f, HorizontalAlignment.Center, display: true);
+            _timeBar = AddBar("TimeBar", 0.5f, 0f, -BarWidth * 0.5f, 0f, BarWidth * 0.5f, 0f, Colors.White);
 
             // What the run waits for and what the "go" key does, under the plate.
-            _hint = AddLabel("Hint", 18, 0.5f, 0f, -520f, m + 74f, 520f, m + 102f, HorizontalAlignment.Center);
+            _hint = AddLabel("Hint", 18, 0.5f, 0f, -520f, 0f, 520f, 0f, HorizontalAlignment.Center);
+            LayoutTop(quota: true);
             _hint.Modulate = Palette.Amber;
 
             // The raid warning and the countdown while down: across the view, above the crosshair.
@@ -392,21 +406,20 @@ namespace PerformativeMail.Client.UI
             }
 
             // Bottom right: the trackers, one plate a line, from the bottom up.
-            _wallet = AddTracker("Wallet", 0, new Color("ffd24a"));
-            _quota = AddTracker("Quota", 1, QuotaColour);
-            // Between runs the quota line is empty, so the rank takes its place above the wallet.
-            _rank = AddTracker("Rank", 1, new Color("c3a6ff"));
-            _status = AddTracker("Status", 2, new Color("5bc0eb"));
-            _tally = AddTracker("Tally", 3, Palette.Match);
-            _perks = AddTracker("Perks", 4, PerkColour);
-            _raid = AddTracker("Raid", 5, HealthColour);
-            _bag = AddTracker("Bag", 6, BagColour);
-            _postOffice = AddTracker("PostOffice", 7, new Color("e5383b"));
+            // (The gold and the quota are on the top plate, UI polish plan item 3.)
+            // Between runs the rank is the bottom row.
+            // Only what is urgent (UI polish plan item 4; ref Valheim, Peak): the shift's tallies are on the
+            // inventory screen's head and the Payday card, the Post Office only when hurt, the raid only in one.
+            _rank = AddTracker("Rank", 0, new Color("c3a6ff"));
+            _perks = AddTracker("Perks", 0, PerkColour);
+            _raid = AddTracker("Raid", 1, HealthColour);
+            _bag = AddTracker("Bag", 2, BagColour);
+            _postOffice = AddTracker("PostOffice", 3, new Color("e5383b"));
             // In the Lobby, where the shift's plates are empty.
-            _world = AddTracker("World", 2, new Color("7fd1b9"));
-            _kit = AddTracker("Kit", 3, new Color("f4a261"));
-            _worldKeys = AddTracker("WorldKeys", 4, new Color("b8c4d0"));
-            _stamps = AddTracker("Stamps", 5, Palette.Cursed);
+            _world = AddTracker("World", 1, new Color("7fd1b9"));
+            _kit = AddTracker("Kit", 2, new Color("f4a261"));
+            _worldKeys = AddTracker("WorldKeys", 3, new Color("b8c4d0"));
+            _stamps = AddTracker("Stamps", 4, Palette.Cursed);
 
             _hotbar = new GridView { Name = "Hotbar", ShowSlotNumbers = true, MouseFilter = MouseFilterEnum.Ignore };
             _hotbar.Setup(client, world => world.Hotbar);
@@ -459,6 +472,7 @@ namespace PerformativeMail.Client.UI
         public override void _Process(double delta)
         {
             Refresh();
+            StepEarnPop((float)delta);
             var world = _client?.World;
             if (world == null || !world.HasLocal) return;
             _hurtFlash = Mathf.MoveToward(_hurtFlash, 0f, (float)delta * 2.5f);
@@ -490,17 +504,17 @@ namespace PerformativeMail.Client.UI
             _timeBar.Visible = world.PhaseHasClock;
             _timeBar.Value = _clockTotal > 0.0 ? (float)(left / _clockTotal) : 0f;
             _timeBar.Fill = urgency;
+            LayoutTop(quota: !between);
+            _quota.Visible = !between;
             _quotaBar.Visible = !between;
             _quotaBar.Value = global.Quota > 0 ? global.ShiftEarnings / (float)global.Quota : 0f;
             _quotaBar.Fill = global.ShiftEarnings >= global.Quota && global.Phase != RunPhase.Prep ? Palette.Match : QuotaColour;
 
-            _status.Visible = _tally.Visible = !between;
-            _status.Text = HudText.Status(global);
-            _tally.Text = HudText.Tally(global);
             _quota.Text = HudText.Quota(global);
             _quota.Modulate = global.ShiftEarnings >= global.Quota ? Palette.Match : Colors.White;
             _wallet.Text = HudText.Wallet(global);
-            _wallet.Modulate = global.Wallet < 0 ? Palette.Mismatch : Colors.White;
+            _wallet.Modulate = global.Wallet < 0 ? Palette.Mismatch : Palette.Gold;
+            NoteWallet(global.Wallet, between);
             _rank.Visible = Profile != null && between;
             if (_rank.Visible) _rank.Text = HudText.Rank(Profile!.Profile, HudText.RankXpPerRank(world.Content));
             bool lobby = global.Phase == RunPhase.Lobby;
@@ -521,6 +535,9 @@ namespace PerformativeMail.Client.UI
             _bag.Visible = _bag.Text.Length > 0;
             _postOffice.Text = HudText.PostOfficeTracker(world);
             _postOffice.Visible = _postOffice.Text.Length > 0;
+            var poRow = (TrackerRow)_postOffice.GetParent();
+            poRow.Bar = _postOffice.Visible && world.PostOfficeMaxHp > 0 ? Mathf.Clamp(world.PostOfficeHp / (float)world.PostOfficeMaxHp, 0f, 1f) : -1f;
+            poRow.Pulse = _postOffice.Visible && _postOffice.Text.EndsWith(HudText.UnderAttackTag, StringComparison.Ordinal);
             foreach (var row in _trackerRows) row.Visible = !world.ShopOpen;
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
             bool lost = _client!.State == ClientState.Disconnected;
@@ -697,6 +714,64 @@ namespace PerformativeMail.Client.UI
                 _overlayLines.AddChild(label);
             }
             _overlayText = string.Join("\n", lines);
+        }
+
+        private bool? _topWithQuota;
+
+        /// <summary>
+        /// The top plate from the top down: the gold, the quota's line and bar (in a run), the shift's line, the
+        /// clock bar; the hint under the plate. Between runs there is no quota and the rest closes up under the gold.
+        /// </summary>
+        private void LayoutTop(bool quota)
+        {
+            if (_topWithQuota == quota) return;
+            _topWithQuota = quota;
+            const float m = SafeMargin;
+            float y = quota ? m + 66f : m + 34f;
+            Place(_phase, 0.5f, 0f, -350f, y, 350f, y + 28f);
+            Place(_timeBar, 0.5f, 0f, -BarWidth * 0.5f, y + 31f, BarWidth * 0.5f, y + 37f);
+            Place(_topPlate, 0.5f, 0f, -BarWidth * 0.5f - 14f, m - 10f, BarWidth * 0.5f + 14f, y + 45f);
+            Place(_hint, 0.5f, 0f, -520f, y + 51f, 520f, y + 79f);
+        }
+
+        private const float EarnPopSeconds = 1.1f, EarnPopRise = 16f;
+        private int _shownWallet;
+        private bool _walletSeen;
+        private int _popAmount;
+        private float _popAge = EarnPopSeconds;
+
+        /// <summary>What the gold's pop says while it is up ("+17 g"), else empty.</summary>
+        public string EarnPopText => _earnPop.Visible ? _earnPop.Text : "";
+
+        /// <summary>The wallet moved: the pop says by how much, adding up what comes while it is still up.</summary>
+        private void NoteWallet(int wallet, bool between)
+        {
+            if (!_walletSeen || between)
+            {
+                _walletSeen = true;
+                _shownWallet = wallet;
+                return;
+            }
+            if (wallet == _shownWallet) return;
+            _popAmount = _popAge < EarnPopSeconds ? _popAmount + wallet - _shownWallet : wallet - _shownWallet;
+            _shownWallet = wallet;
+            _popAge = 0f;
+            _earnPop.Text = HudText.EarnPop(_popAmount);
+            _earnPop.Modulate = _popAmount >= 0 ? Palette.Match : Palette.Mismatch;
+        }
+
+        /// <summary>The pop rises and fades over a second, beside the number (no allocation a frame).</summary>
+        private void StepEarnPop(float delta)
+        {
+            _popAge = Mathf.Min(EarnPopSeconds, _popAge + delta);
+            float t = _popAge / EarnPopSeconds;
+            _earnPop.Visible = t < 1f && _wallet.Visible && _popAmount != 0;
+            if (!_earnPop.Visible) return;
+            float half = TextWidth(_wallet) * 0.5f;
+            const float m = SafeMargin;
+            float rise = EarnPopRise * t;
+            Place(_earnPop, 0.5f, 0f, half + 10f, m - rise, half + 150f, m + 26f - rise);
+            _earnPop.Modulate = new Color(_earnPop.Modulate, 1f - t * t);
         }
 
         /// <summary>A label anchored at (<paramref name="anchorX"/>, <paramref name="anchorY"/>) with pixel offsets from that point.</summary>

@@ -32,6 +32,8 @@ namespace PerformativeMail.Client.Presentation
         public static readonly Color Match = new Color("7ae582");
         public static readonly Color Mismatch = new Color("ff6b6b");
         public static readonly Color Amber = new Color("ffbf47");
+        /// <summary>The team's gold on the top plate.</summary>
+        public static readonly Color Gold = new Color("ffd24a");
         /// <summary>Doc 05 §6: cursed mail's "glowing purple label".</summary>
         public static readonly Color Cursed = new Color("b65cff");
         /// <summary>Doc 05 §2.1: a Lost Parcel's tag, a Mega's prize.</summary>

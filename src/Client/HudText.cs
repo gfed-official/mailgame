@@ -40,9 +40,12 @@ namespace PerformativeMail.Client
             if (hp >= max && phase != RunPhase.Results) return "";
             string line = $"Post Office   {hp.ToString(CultureInfo.InvariantCulture)} / {max.ToString(CultureInfo.InvariantCulture)} HP";
             foreach (var h in world.ConstructHits)
-                if (h.Def == null && world.ServerTick - h.Tick <= ClientWorld.UnderAttackSeconds * SimConstants.TickRate) return line + "   ·   under attack";
+                if (h.Def == null && world.ServerTick - h.Tick <= ClientWorld.UnderAttackSeconds * SimConstants.TickRate) return line + "   ·   " + UnderAttackTag;
             return line;
         }
+
+        /// <summary>The end of the Post Office's tracker while it is struck.</summary>
+        public const string UnderAttackTag = "under attack";
 
         public static string Gold(int amount) => string.Format(CultureInfo.InvariantCulture, "{0} {1}", amount, GoldUnit);
 
@@ -402,6 +405,8 @@ namespace PerformativeMail.Client
             }
             lines.Add(kinds.Count == 0 ? "Delivered nothing" : "Delivered " + string.Join(", ", kinds));
             lines.Add($"Misdelivered {s.Misdeliveries}   ·   Late {s.LateDeliveries}");
+            // The Backlog and the Complaint left the HUD's corner for here and the inventory screen (UI polish plan item 4).
+            lines.Add(Status(world.Global));
             if (s.Bonus > 0) lines.Add($"No misdeliveries: bonus +{Gold(s.Bonus)}");
             if (!s.Mvp.IsNone) lines.Add($"Most deliveries: {PlayerName(world, s.Mvp)} ({s.MvpDeliveries})");
             return lines;
@@ -469,7 +474,10 @@ namespace PerformativeMail.Client
         public static string PlayerName(ClientWorld world, EntityId id) =>
             world.Players.TryGetValue(id, out var p) ? p.Name : "a player who left";
 
-        /// <summary>Progress against the quota during a shift; the coming quota in Prep; nothing outside a run.</summary>
+        /// <summary>
+        /// Progress against the quota during a shift, "quota 1240 / 4237 g"; the coming quota in Prep, "quota
+        /// 4237 g"; nothing outside a run. Under the gold on the top plate (UI polish plan item 3).
+        /// </summary>
         public static string Quota(in GlobalState g)
         {
             switch (g.Phase)
@@ -477,12 +485,16 @@ namespace PerformativeMail.Client
                 case RunPhase.Lobby:
                 case RunPhase.Generating:
                 case RunPhase.Results: return "";
-                case RunPhase.Prep: return $"Quota {Gold(g.Quota)}";
-                default: return $"Quota {Gold(g.ShiftEarnings)} / {Gold(g.Quota)}";
+                case RunPhase.Prep: return $"quota {Gold(g.Quota)}";
+                default: return $"quota {g.ShiftEarnings.ToString(CultureInfo.InvariantCulture)} / {Gold(g.Quota)}";
             }
         }
 
-        public static string Wallet(in GlobalState g) => $"Wallet {Gold(g.Wallet)}";
+        /// <summary>The team's gold, the top plate's big number: "4700 g".</summary>
+        public static string Wallet(in GlobalState g) => Gold(g.Wallet);
+
+        /// <summary>What the wallet just did, beside it for a moment: "+17 g", "−5 g".</summary>
+        public static string EarnPop(int delta) => delta >= 0 ? $"+{Gold(delta)}" : $"−{Gold(-delta)}";
 
         /// <summary>"3 Letters" / "1 Small Package".</summary>
         public static string CountAndKind(ContentDb content, ItemStack stack) => CountAndKind(Name(content, stack), stack.Count);
@@ -1763,6 +1775,13 @@ namespace PerformativeMail.Client
 
         /// <summary>The tracker row of the shift's work so far.</summary>
         public static string Tally(in GlobalState g) => $"Delivered {g.Deliveries}   ·   Misdelivered {g.Misdeliveries}";
+
+        /// <summary>
+        /// The head of the inventory screen in a run (UI polish plan item 4: off the HUD's corner): "Delivered 4
+        /// ·   Misdelivered 2   ·   Backlog 3   ·   Complaint 1"; nothing between runs.
+        /// </summary>
+        public static string ShiftTally(in GlobalState g) =>
+            g.Phase is RunPhase.Lobby or RunPhase.Generating or RunPhase.Results ? "" : $"{Tally(g)}   ·   {Status(g)}";
 
         /// <summary>What the two triggers do, beside the hotbar while there is something to hit.</summary>
         /// <summary>Doc 05 §1.2: the Slingshot in the hand, its shots (five a Stone), and the cannon still on the other button.</summary>

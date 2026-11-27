@@ -267,7 +267,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(value, s.Server.World.Economy.Wallet);
             Assert.Equal(value, s.World.Global.Wallet);
             Assert.Null(s.World.Hotbar.EntryAt(1, 0));
-            Assert.Equal($"Wallet {HudText.Gold(value)}", HudText.Wallet(s.World.Global));
+            Assert.Equal(HudText.Gold(value), HudText.Wallet(s.World.Global));
             Assert.Contains(s.Feed.Entries, e => e.Text.StartsWith("You delivered") && e.Text.Contains(dest.Label) && !e.Bad);
             Assert.Equal(0, s.Client.ContainerDesyncs);
         }
@@ -456,7 +456,7 @@ namespace PerformativeMail.Net.Tests
 
             var s = new Session();
             Assert.StartsWith("Shift 1 / 5   DELIVERY 0", HudText.ShiftAndPhase(s.World));
-            Assert.Equal("Quota 0 g / 600 g", HudText.Quota(s.World.Global));
+            Assert.Equal("quota 0 / 600 g", HudText.Quota(s.World.Global));
         }
 
         [Fact]

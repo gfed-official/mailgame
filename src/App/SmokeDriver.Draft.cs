@@ -62,7 +62,7 @@ namespace PerformativeMail.App
 
             // The cards stand in the view, clear of the lines at the top.
             var box = panel.GetGlobalRect();
-            Check(GetViewport().GetVisibleRect().Encloses(box) && box.Position.Y >= hud.TopStack[3].GetGlobalRect().End.Y, $"the Draft panel stands at {box}");
+            Check(GetViewport().GetVisibleRect().Encloses(box) && box.Position.Y >= hud.TopStack[^1].GetGlobalRect().End.Y, $"the Draft panel stands at {box}");
             for (int i = 0; i < panel.CardCount; i++)
                 Check(box.Encloses(panel.CardAt(i).GetGlobalRect()), $"card {i + 1} at {panel.CardAt(i).GetGlobalRect()} is not inside the panel at {box}");
             Check(panel.ClockShown > 0f && panel.ClockShown < 1f, $"the bar of the Draft's seconds stands at {panel.ClockShown:0.00}");

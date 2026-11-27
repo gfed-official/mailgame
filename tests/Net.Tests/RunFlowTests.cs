@@ -150,14 +150,18 @@ namespace PerformativeMail.Net.Tests
             client.PressGo();
             s.Step(10);
             Assert.StartsWith("Shift 1 / 5   PREP 01:00", HudText.ShiftAndPhase(world));
-            Assert.Equal("Quota 600 g", HudText.Quota(world.Global));
+            Assert.Equal("quota 600 g", HudText.Quota(world.Global));
             Assert.Contains("[G] ready (0 / 1)", HudText.PhaseHint(world));
             Assert.Contains(feed.Entries, e => e.Text.StartsWith("Shift 1: get ready"));
 
             client.PressGo();
             s.Step(10);
             Assert.StartsWith("Shift 1 / 5   DELIVERY 0", HudText.ShiftAndPhase(world));
-            Assert.Equal("Quota 0 g / 600 g", HudText.Quota(world.Global));
+            Assert.Equal("quota 0 / 600 g", HudText.Quota(world.Global));
+            // The top plate's gold (UI polish plan item 3): the big number and what rises beside it.
+            Assert.Equal(HudText.Gold(world.Global.Wallet), HudText.Wallet(world.Global));
+            Assert.Equal("+17 g", HudText.EarnPop(17));
+            Assert.Equal("−5 g", HudText.EarnPop(-5));
             Assert.Equal("", HudText.PhaseHint(world));
             Assert.Contains(feed.Entries, e => e.Text == "Shift 1 has started: deliver 600 g of mail");
 
@@ -173,9 +177,13 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal($"Earned {HudText.Gold(kind.BaseValue)} of 600 g", summary[1]);
             Assert.Equal("Delivered 1 Letter", summary[2]);
             Assert.Equal("Misdelivered 0   ·   Late 0", summary[3]);
+            // The Backlog and the Complaint, off the HUD's corner (UI polish plan item 4).
+            Assert.Equal(HudText.Status(world.Global), summary[4]);
+            Assert.StartsWith("Backlog ", summary[4]);
             // 10 % of one letter rounds down to nothing, so there is no bonus line.
-            Assert.Equal("Most deliveries: Ada (1)", summary[4]);
-            Assert.Equal(5, summary.Count);
+            Assert.Equal("Most deliveries: Ada (1)", summary[5]);
+            Assert.Equal(6, summary.Count);
+            Assert.Equal($"{HudText.Tally(world.Global)}   ·   {HudText.Status(world.Global)}", HudText.ShiftTally(world.Global));
             Assert.StartsWith("Shift 1 / 5   PAYDAY 00:", HudText.ShiftAndPhase(world));
             Assert.StartsWith("Quota missed — results in 00:", HudText.PhaseHint(world));
             Assert.Contains(feed.Entries, e => e.Bad && e.Text.StartsWith("Shift 1 is over: quota missed"));
@@ -184,6 +192,7 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("RESULTS   RUN OVER", HudText.ShiftAndPhase(world));
             Assert.Equal("", HudText.Quota(world.Global));
             Assert.Equal("Press [G] to return to the lobby", HudText.PhaseHint(world));
+            Assert.Equal("", HudText.ShiftTally(world.Global));
             var results = HudText.ResultsLines(world, world.Results!);
             Assert.Equal("RUN OVER — quota missed on shift 1", results[0]);
             Assert.StartsWith("Shifts completed 0 / 5   ·   Score ", results[1]);

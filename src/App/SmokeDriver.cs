@@ -66,7 +66,7 @@ namespace PerformativeMail.App
         private int _startWallet, _paid, _penalties, _deliveredEvents, _misdeliveredEvents, _mailArrived;
         private bool _sawIntakePrompt, _sawMailboxPrompt, _sawManifest, _sawCarriedMail, _sawMatchMark, _sawMismatchMark;
         private float _spawnDistance, _maxEyeOffset, _maxAimOffset, _maxLabelOver, _maxPhaseWidth;
-        private bool _themeChecked;
+        private bool _themeChecked, _sawEarnPop;
         private string _missingGlyphs = "", _biggestLabel = "", _farLabel = "", _hudLabel = "";
         private int _maxLabelsHidden, _maxLabelsDrawn;
         private string _stackedLabels = "";
@@ -215,7 +215,7 @@ namespace PerformativeMail.App
                 _maxLabelsDrawn = Math.Max(_maxLabelsDrawn, _drawnLabels.Count);
             }
             _drawnLabels.Clear();
-            var phase = _screen.Hud.TopStack[1];
+            var phase = _screen.Hud.PhaseLine;
             _maxPhaseWidth = Mathf.Max(_maxPhaseWidth, phase.GetCombinedMinimumSize().X);
         }
 
@@ -295,7 +295,7 @@ namespace PerformativeMail.App
                     if (_stageFrames == 2)
                     {
                         Check(hud.PhaseText.Contains("PREP", StringComparison.Ordinal), $"in Prep the HUD phase line is \"{hud.PhaseText}\"");
-                        Check(hud.QuotaText == HudText.Quota(world.Global) && hud.QuotaText.StartsWith("Quota ", StringComparison.Ordinal) && hud.QuotaText.EndsWith(" " + HudText.GoldUnit, StringComparison.Ordinal), $"in Prep the HUD quota line is \"{hud.QuotaText}\"");
+                        Check(hud.QuotaText == HudText.Quota(world.Global) && hud.QuotaText.StartsWith("quota ", StringComparison.Ordinal) && hud.QuotaText.EndsWith(" " + HudText.GoldUnit, StringComparison.Ordinal), $"in Prep the HUD quota line is \"{hud.QuotaText}\"");
                         Check(hud.HintText.Contains("ready", StringComparison.Ordinal), $"in Prep the HUD hint is \"{hud.HintText}\"");
                         Check(server.Intake.EntryCount == 0, "mail arrived during Prep");
                         Shot("prep");
@@ -728,12 +728,22 @@ namespace PerformativeMail.App
             if (shown && prompt.Kind == InteractKind.Deliver) _sawMailboxPrompt = true;
             if (_screen.Hud.PromptMark == PromptTone.Match && prompt.Kind == InteractKind.Deliver && prompt.AddressMatches) _sawMatchMark = true;
             if (_screen.Hud.PromptMark == PromptTone.Mismatch && prompt.Kind == InteractKind.Deliver && !prompt.AddressMatches) _sawMismatchMark = true;
-            if (_screen.Inventory.Visible && _screen.Inventory.ManifestRows > 0) _sawManifest = true;
+            if (_screen.Inventory.Visible && _screen.Inventory.ManifestRows > 0)
+            {
+                _sawManifest = true;
+                // UI polish plan item 4: the shift's tallies head the inventory screen, not the HUD's corner.
+                Check(_screen.Inventory.TallyText == HudText.ShiftTally(world.Global) && _screen.Inventory.TallyText.StartsWith("Delivered ", StringComparison.Ordinal),
+                    $"in Delivery the inventory screen's head reads \"{_screen.Inventory.TallyText}\"");
+            }
+            foreach (string tracker in _screen.Hud.TrackerTexts)
+                Check(!tracker.StartsWith("Delivered", StringComparison.Ordinal) && !tracker.StartsWith("Backlog", StringComparison.Ordinal),
+                    $"the HUD's corner still shows \"{tracker}\"");
             if (world.Hotbar.EntryCount + world.Inventory.EntryCount > 0) _sawCarriedMail = true;
             TrackCamera();
             StepMap();
             foreach (char c in FontCheck.MissingGlyphs(_screen.Hud) + FontCheck.MissingGlyphs(_screen.Inventory))
                 if (_missingGlyphs.IndexOf(c) < 0) _missingGlyphs += c;
+            if (_screen.Hud.EarnPopText.StartsWith("+", StringComparison.Ordinal) && _screen.Hud.EarnPopText.EndsWith(" " + HudText.GoldUnit, StringComparison.Ordinal)) _sawEarnPop = true;
             if (!_themeChecked)
             {
                 // UI polish plan item 2: one theme, its two faces, and the marks both can draw.
@@ -1032,12 +1042,15 @@ namespace PerformativeMail.App
                 Check(upper.End.Y + 2f <= lower.Position.Y, $"HUD {stack[i].Name} (down to {upper.End.Y:0}) touches {stack[i + 1].Name} (from {lower.Position.Y:0})");
             }
             var plate = _screen.Hud.TopPlate.GetGlobalRect();
-            for (int i = 0; i < 3; i++)
+            // All but the hint under it are on the plate (UI polish plan item 3: the gold and the quota too), each as high as its text.
+            for (int i = 0; i + 1 < stack.Length; i++)
             {
                 var rect = stack[i].GetGlobalRect();
                 Check(plate.Position.Y <= rect.Position.Y && rect.End.Y <= plate.End.Y, $"HUD {stack[i].Name} at {rect} is not on the top plate {plate}");
+                Check(rect.Size.Y >= stack[i].GetCombinedMinimumSize().Y, $"HUD {stack[i].Name} is {rect.Size.Y:0} high, its text needs {stack[i].GetCombinedMinimumSize().Y:0}");
             }
-            Check(stack[1].GetGlobalRect().Size.Y >= stack[1].GetCombinedMinimumSize().Y, $"HUD {stack[1].Name} is {stack[1].GetGlobalRect().Size.Y:0} high, its text needs {stack[1].GetCombinedMinimumSize().Y:0}");
+            Check(stack.Length == 6 && stack[0].Name == "Wallet" && stack[1].Name == "Quota", $"in Delivery the top plate holds {string.Join(", ", stack.Select(c => c.Name.ToString()))}");
+            Check(_sawEarnPop, "no \"+… g\" rose beside the gold for a paid delivery");
             Check(_maxPhaseWidth > 0f && _maxPhaseWidth <= plate.Size.X - 16f, $"the shift's line grew to {_maxPhaseWidth:0} wide, the top plate is {plate.Size.X:0}");
 
             GD.Print($"[smoke] delivered {_bot.StacksDelivered} stacks ({_deliveredEvents} items, +{HudText.Gold(_paid)}), "

@@ -98,8 +98,21 @@ namespace PerformativeMail.Client.UI
         public Label Line { get; }
         public Color Mark = Colors.White;
 
+        /// <summary>0..1: a bar of that much along the plate's foot (the Post Office's HP); below 0, none.</summary>
+        public float Bar
+        {
+            get => _bar;
+            set { if (!Mathf.IsEqualApprox(value, _bar)) { _bar = value; QueueRedraw(); } }
+        }
+
+        /// <summary>The mark beats red while set (the Post Office under attack).</summary>
+        public bool Pulse;
+
         private readonly StyleBoxFlat _plate = new StyleBoxFlat { BgColor = Plate, BorderColor = Rim, AntiAliasing = true };
+        private readonly StyleBoxFlat _barBack = new StyleBoxFlat { BgColor = new Color(0f, 0f, 0f, 0.45f), AntiAliasing = true };
+        private readonly StyleBoxFlat _barFill = new StyleBoxFlat { BgColor = new Color("e5383b"), AntiAliasing = true };
         private bool _shown;
+        private float _bar = -1f, _beat;
 
         public TrackerRow(Label line)
         {
@@ -107,6 +120,8 @@ namespace PerformativeMail.Client.UI
             MouseFilter = MouseFilterEnum.Ignore;
             _plate.SetCornerRadiusAll(7);
             _plate.SetBorderWidthAll(1);
+            _barBack.SetCornerRadiusAll(2);
+            _barFill.SetCornerRadiusAll(2);
             line.AnchorRight = 1f;
             line.AnchorBottom = 1f;
             line.OffsetLeft = 34f;
@@ -117,6 +132,12 @@ namespace PerformativeMail.Client.UI
         public override void _Process(double delta)
         {
             bool shown = Line.Visible && Line.Text.Length > 0;
+            if (Pulse && shown)
+            {
+                _beat = (_beat + (float)delta * 2.2f) % 1f;
+                QueueRedraw();
+            }
+            else _beat = 0f;
             if (shown == _shown) return;
             _shown = shown;
             QueueRedraw();
@@ -129,6 +150,12 @@ namespace PerformativeMail.Client.UI
             var at = new Vector2(17f, Size.Y * 0.5f);
             DrawCircle(at, 7f, new Color(0f, 0f, 0f, 0.35f));
             DrawCircle(at, 5.5f, Mark);
+            if (Pulse) DrawCircle(at, 5.5f + 4f * _beat, new Color(Mark, 0.5f * (1f - _beat)));
+            if (_bar < 0f) return;
+            // The HP as a bar along the foot of the plate, under the words (UI polish plan item 4).
+            var track = new Rect2(34f, Size.Y - 7f, Size.X - 44f, 4f);
+            DrawStyleBox(_barBack, track);
+            if (_bar * track.Size.X >= 2f) DrawStyleBox(_barFill, new Rect2(track.Position, new Vector2(track.Size.X * _bar, track.Size.Y)));
         }
     }
 }

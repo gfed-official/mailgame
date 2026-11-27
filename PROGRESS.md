@@ -2485,6 +2485,23 @@ Item 1: `tools/smoke.sh`
       smoke checks the prompt is in the theme's body face and the shift's line in its display face, that both
       draw ✓ ✕ ✗ · — ×, and FontCheck still finds no missing glyph
 
+- [x] **The gold and the quota as big numbers on the top plate** (plan item 3; ref R.E.P.O.). The Wallet and
+      Quota rows left the bottom-right stack: the top plate now reads, from the top, "4700 g" in the display
+      face at 30 px in gold, "quota 1240 / 4237 g" under it with the quota's bar (green once met), then the
+      shift's line and the clock bar as before. Between runs the quota rows close up. Each change of the
+      wallet floats "+17 g" (green; a spend or penalty "−5 g", red) beside the number for 1.1 s, rising and
+      fading, summing what comes while it is up (`Hud.NoteWallet`, `StepEarnPop`; no allocation a frame).
+      `HudText.Wallet` / `Quota` / `EarnPop`. `RunFlowTests`, `InteractionTests`; the smoke checks the plate
+      holds gold, quota, bar, shift's line and clock, each as high as its text and none touching, and that a
+      "+… g" rose for a paid delivery
+- [x] **Only what is urgent at the bottom right** (plan item 4; ref Valheim, Peak). The Delivered /
+      Misdelivered and Backlog / Complaint rows are gone from the HUD: they head the inventory screen in a run
+      (`InventoryPanel.TallyText`, `HudText.ShiftTally`) and the Payday card has a "Backlog 3   ·   Complaint
+      1" line. The Post Office row (shown only when hurt, as before) has a real HP bar along its foot and its
+      mark beats while it is struck (`TrackerRow.Bar`, `Pulse`); the Raid row only in a raid, as before.
+      `RunFlowTests`; the smoke checks the inventory screen's head line in Delivery, that no corner row
+      shows the tallies, and the Post Office row's bar after a blow
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).

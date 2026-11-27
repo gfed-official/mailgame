@@ -43,7 +43,8 @@ namespace PerformativeMail.App
             var hud = _screen.Hud;
             int max = world.PostOfficeMaxHp;
             string want = $"Post Office   {max - PostOfficeBlow} / {max} HP   ·   under attack";
-            if (hud.PostOfficeText == want) _poTracker = true;
+            // UI polish plan item 4: its row has a real HP bar.
+            if (hud.PostOfficeText == want && Mathf.Abs(hud.PostOfficeBar - (max - PostOfficeBlow) / (float)max) < 0.01f) _poTracker = true;
             if (_screen.AttackMarker.Text == "Post Office under attack")
             {
                 _poMarker = true;
