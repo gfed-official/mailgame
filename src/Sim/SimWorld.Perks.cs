@@ -147,6 +147,32 @@ namespace PerformativeMail.Sim
         /// <summary>Shifts before the map's that its districts open (doc 10 §4.3 Zoning Board); the raiders' ways in keep theirs.</summary>
         public int DistrictsEarly => Math.Max(0, (int)MathF.Round(TeamStat(Stat.DistrictsEarly, 0f)));
 
+        /// <summary>
+        /// Doc 10 §4.3 Forecast Desk: as Prep begins, everybody is told about how much mail the coming Delivery brings
+        /// each street, reckoned as Delivery will reckon its spawn (the quota of those here now, the team's perks).
+        /// </summary>
+        private void SendForecast()
+        {
+            if (!TeamHas(RuleFlag.ForecastDesk) || Map.Debug != null) return;
+            int quota = QuotaFormula.Quota(Content.Balance, Run.Shift, Math.Max(1, PresentCount));
+            int value = (int)Math.Round(quota * Content.MailMix.SpawnOverhead * TeamStat(Stat.SpawnValue, 1f));
+            Spawner.DistrictsEarly = DistrictsEarly;
+            var e = new ForecastEvent { Shift = (byte)Run.Shift };
+            var streets = new List<(int Street, double Count)>();
+            foreach (var kv in Spawner.Forecast(Run.Shift, value)) streets.Add((kv.Key, kv.Value));
+            streets.Sort((a, b) => b.Count != a.Count ? b.Count.CompareTo(a.Count) : a.Street.CompareTo(b.Street));
+            foreach (var (street, count) in streets)
+            {
+                int n = (int)Math.Round(count);
+                if (n > 0) e.Streets.Add(((ushort)street, (ushort)Math.Min(n, ushort.MaxValue)));
+            }
+            LastForecast = e;
+            Events.Add(e);
+        }
+
+        /// <summary>The forecast sent as this shift's Prep began; null without Forecast Desk.</summary>
+        public ForecastEvent? LastForecast { get; private set; }
+
         /// <summary>Doc 10 §4.3 Priority Post: the spawner's part of Priority mail, its worth and its time, from the balance.</summary>
         private void ApplyPriorityPost()
         {

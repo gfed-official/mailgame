@@ -27,6 +27,10 @@ namespace PerformativeMail.Sim.Run
         /// <summary>Units of an item in the hotbar and the inventory together.</summary>
         public static int Have(GridContainer hotbar, GridContainer inventory, ItemDef item) => Count(hotbar, item) + Count(inventory, item);
 
+        /// <summary>The pockets and, with Shared Build (doc 10 §4.2), the Post Office's depot as well; null: the pockets alone.</summary>
+        public static int Have(GridContainer hotbar, GridContainer inventory, ItemDef item, GridContainer? depot) =>
+            Have(hotbar, inventory, item) + (depot == null ? 0 : Count(depot, item));
+
         private static int Count(GridContainer container, ItemDef item)
         {
             int n = 0;
@@ -40,17 +44,17 @@ namespace PerformativeMail.Sim.Run
         public static int RuinCost(int count, float ratio) => Math.Min(count, (int)Math.Ceiling(count * ratio - 1e-6));
 
         /// <summary>Whether the pockets hold what rebuilding the ruin of <paramref name="def"/> takes.</summary>
-        public static bool HasRuinMaterials(BuildingDef def, GridContainer hotbar, GridContainer inventory)
+        public static bool HasRuinMaterials(BuildingDef def, GridContainer hotbar, GridContainer inventory, GridContainer? depot = null)
         {
             foreach (var input in def.Recipe.Inputs)
-                if (Have(hotbar, inventory, input.Item) < RuinCost(input.Count, def.RuinRebuildRatio)) return false;
+                if (Have(hotbar, inventory, input.Item, depot) < RuinCost(input.Count, def.RuinRebuildRatio)) return false;
             return true;
         }
 
-        public static bool HasMaterials(RecipeDef recipe, GridContainer hotbar, GridContainer inventory)
+        public static bool HasMaterials(RecipeDef recipe, GridContainer hotbar, GridContainer inventory, GridContainer? depot = null)
         {
             foreach (var input in recipe.Inputs)
-                if (Have(hotbar, inventory, input.Item) < input.Count) return false;
+                if (Have(hotbar, inventory, input.Item, depot) < input.Count) return false;
             return true;
         }
 

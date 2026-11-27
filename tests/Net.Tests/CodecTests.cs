@@ -290,6 +290,7 @@ namespace PerformativeMail.Net.Tests
                     X = 14, Y = 21, State = DriverState.Unloading, Vehicle = new EntityId(EntityClass.Vehicle, 5), House = 7, Houses = 3, At = 1, Delivered = 9, Player = player,
                 },
                 new MailWaitingEvent { Houses = { (3, 7), (11, 1) } },
+                new ForecastEvent { Shift = 2, Streets = { (1, 14), (4, 9) } },
                 new TurretFiredEvent { X = 30, Y = 12, TargetX = 70.5f, TargetZ = 22.25f },
                 new TurretOperatedEvent { X = 31, Y = 13, Player = player },
                 new EnemyShotEvent { Kind = EnemyShotKind.Arrow, FromX = 61.5f, FromZ = 28.25f, ToX = 50f, ToZ = 27.75f, AtConstruct = true },
@@ -354,6 +355,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(((byte)14, (byte)21, DriverState.Unloading, new EntityId(EntityClass.Vehicle, 5), (ushort)7, (byte)3, (byte)1, (ushort)9, player),
                 (driver.X, driver.Y, driver.State, driver.Vehicle, driver.House, driver.Houses, driver.At, driver.Delivered, driver.Player));
             Assert.Equal(new (ushort, ushort)[] { (3, 7), (11, 1) }, back.OfType<MailWaitingEvent>().Single().Houses);
+            var forecast = back.OfType<ForecastEvent>().Single();
+            Assert.Equal(2, forecast.Shift);
+            Assert.Equal(new (ushort, ushort)[] { (1, 14), (4, 9) }, forecast.Streets);
             var fired = back.OfType<TurretFiredEvent>().Single();
             Assert.Equal(((byte)30, (byte)12, 70.5f, 22.25f), (fired.X, fired.Y, fired.TargetX, fired.TargetZ));
             var manned = back.OfType<TurretOperatedEvent>().Single();

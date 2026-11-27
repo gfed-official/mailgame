@@ -560,6 +560,24 @@ namespace PerformativeMail.Client
 
         public const string PriorityWord = "Priority";
 
+        /// <summary>
+        /// Doc 10 §4.3 Forecast Desk, the feed's line as Prep begins: "Forecast, shift 2: ~14 Larch Lane · ~9 Oak
+        /// Street · ~6 Elm Row · 2 more streets", the four with most first.
+        /// </summary>
+        public static string Forecast(ClientWorld world, ForecastEvent e)
+        {
+            if (e.Streets.Count == 0) return $"Forecast, shift {e.Shift.ToString(CultureInfo.InvariantCulture)}: no mail";
+            var parts = new List<string>();
+            for (int i = 0; i < e.Streets.Count && i < 4; i++)
+            {
+                var street = world.Map.GetStreet(e.Streets[i].Street);
+                parts.Add($"~{e.Streets[i].Count.ToString(CultureInfo.InvariantCulture)} {street?.Name ?? "a street"}");
+            }
+            int more = e.Streets.Count - parts.Count;
+            if (more > 0) parts.Add(more == 1 ? "1 more street" : $"{more.ToString(CultureInfo.InvariantCulture)} more streets");
+            return $"Forecast, shift {e.Shift.ToString(CultureInfo.InvariantCulture)}: {string.Join(" · ", parts)}";
+        }
+
         /// <summary>Doc 10 §4.1 Local Knowledge: the marker's tag and words for the mailbox of the mail in hand ("#13  42 m", "Mail for 13 Larch Lane").</summary>
         public static (string Tag, string Words) MailCompass(ClientWorld world, DestinationDef dest, float metres) =>
             ($"#{dest.Address.Number.ToString(CultureInfo.InvariantCulture)}  {Mathf0(metres)} m", $"Mail for {world.Map.FormatAddress(dest.Address)}");

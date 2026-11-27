@@ -146,8 +146,8 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(new[]
             {
                 "long_legs", "big_pockets", "quick_hands", "strong_back", "bunny_hop", "bike_courier", "second_wind", "local_knowledge", "postal_sprint",
-                "express_lane", "greased_inserters", "bulk_depot", "extra_labels", "presort", "postmasters_eye",
-                "union_rep", "stamp_collector", "fragile_handling", "bulk_mailer", "grace_period", "priority_post", "second_district",
+                "express_lane", "greased_inserters", "bulk_depot", "extra_labels", "presort", "shared_build", "postmasters_eye",
+                "union_rep", "stamp_collector", "fragile_handling", "bulk_mailer", "forecast_desk", "grace_period", "priority_post", "second_district",
                 "early_warning", "union_muscle", "reinforced", "hot_barrels", "insured",
             }, Db.Perks.Select(p => p.Id));
             for (int i = 0; i < Db.Perks.Count; i++) Assert.Equal(i, Db.Perks[i].Index);
@@ -744,6 +744,30 @@ namespace PerformativeMail.Sim.Tests
             Assert.True(world.Give(chest, ItemStack.OfMail(TestContent.Mail("small", home, _nextMailId++, 1))));
             Assert.True(world.Give(chest, ItemStack.OfMail(TestContent.Mail("small", home, _nextMailId++, 1))));
             Assert.Equal(3, Stacks(chest));
+        }
+
+        [Fact]
+        public void ForecastDesk_TellsEverybodyTheComingMailByStreet_AsEachPrepBegins_AboutAsMuchAsComes()
+        {
+            var world = NewWorld(raids: false);
+            var p = world.AddPlayer("carrier")!;
+            StartRun(world, p);
+            Assert.Null(world.LastForecast);
+            Assert.Equal(OpResult.Ok, world.GrantPerk(p, Db.Perk("forecast_desk")));
+            world.SetPlaytest(p, PlaytestFlags.NoQuota, 1);
+            ReadyUp(world);
+            RunUntil(world, () => world.Run.Phase == RunPhase.Prep && world.Run.Shift == 2, 400);
+            var forecast = world.LastForecast!;
+            Assert.Equal(2, forecast.Shift);
+            Assert.Contains(world.Events, e => e is ForecastEvent f && f.Audience.IsNone);
+            int said = forecast.Streets.Sum(s => s.Count);
+            // Then the Delivery: what spawns is about what was said.
+            uint before = world.Spawner.MailSpawnedTotal;
+            ReadyUp(world);
+            RunUntil(world, () => world.Run.Phase != RunPhase.Delivery, 400);
+            int came = (int)(world.Spawner.MailSpawnedTotal - before);
+            Assert.True(said > 0 && came > 0);
+            Assert.InRange(said, came * 2 / 3, came * 3 / 2);
         }
     }
 }

@@ -43,13 +43,15 @@ namespace PerformativeMail.Sim
             var verdict = BuildRules.CheckRecipe(recipe, Run.Shift, recipe.Blueprint == null || _shopOwned.Contains(recipe.Blueprint) || Unlimited);
             if (verdict != OpResult.Ok) return verdict;
             if (def.IsVehicleDepot && VehicleDepotCount() >= VehicleDepotLimit) return OpResult.DepotLimit;
-            if (!Unlimited && !BuildRules.HasRuinMaterials(def, player.Hotbar, player.Inventory)) return OpResult.MissingMaterials;
+            var depot = BuildDepot;
+            if (!Unlimited && !BuildRules.HasRuinMaterials(def, player.Hotbar, player.Inventory, depot)) return OpResult.MissingMaterials;
             verdict = Raise(ruin, player.Id, () =>
             {
                 if (Unlimited) return;
-                foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, BuildRules.RuinCost(input.Count, def.RuinRebuildRatio));
+                foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, BuildRules.RuinCost(input.Count, def.RuinRebuildRatio), depot);
                 CommitContainer(player.Inventory.Id);
                 CommitContainer(player.Hotbar.Id);
+                if (depot != null) CommitContainer(depot.Id);
             });
             return verdict;
         }

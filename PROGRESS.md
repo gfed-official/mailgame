@@ -2710,6 +2710,19 @@ green; the base smoke passes rendered at 1280×720 (`--shots`).
       - Postmaster's Eye: every slot open and the sorters twice as fast (`BeltNetwork.SorterThroughputMult`)
       `PerkTests` (Bulk Mailer), `SorterTests` (the slots, Extra Labels, Postmaster's Eye), `RuinTests`
 
+- [x] **Shared Build and Forecast Desk: the pool of doc 10 §4 is whole** (29 perks, none power-related; design
+      choice 160). Two more rule flags:
+      - Shared Build (`shared_build`): what is built or rebuilt takes what the pockets lack from the Post Office's
+        depot — the map's chest by the Post Office, which the kits already fill as "the Depot" — wherever it is built
+        (`BuildRules.Have(…, depot)`, `TakeMaterials(…, depot)`: pockets first). A client mirrors that chest only
+        while it is open, so otherwise its recipe cards read as open and the server's verdict says if the stock falls
+        short (`ClientWorld.BuildBlind`)
+      - Forecast Desk (`forecast_desk`): as each Prep begins everybody gets about how much mail the coming Delivery
+        brings each street (`ForecastEvent`, `MailSpawner.Forecast`: each kind's share of the spawn value over its
+        price, spread over the open houses; nothing drawn from the streams), as a feed line: "Forecast, shift 2:
+        ~14 Larch Lane · ~9 Oak Street · …"
+      `RuinTests.SharedBuild_…`, `PerkTests.ForecastDesk_…` (said within ⅔–3⁄2 of what came), `CodecTests`
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4253,6 +4266,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     (three, the most the validator and doc 04 allow a sorter), so after Extra Labels it adds only the speed. A
     sorter that could take any number of labels would need a list editor on the panel rather than three cards'
     slots. The extra labels are set with Shift / Ctrl + click (the number keys stay the first label's); no new widget.
+
+160. **Shared Build's depot, and a forecast that is an estimate.** There is no PO Depot construct; the map's chest by
+    the Post Office already stands for it (the team kit goes there, `SimWorld.Kits`), so Shared Build draws on that
+    chest. Repair costs stay the pockets' (doc 10 says "build"). The Extended Forecast is a shop service in doc 10 §2.8
+    that does not exist yet; Forecast Desk gives its content (the next shift's mail by street) without the shop
+    entry, as an estimate so that no RNG stream is drawn ahead and the mail schedule stays the same with or without
+    the perk (doc 12 M4's replay rule). It is a feed line, not a panel (ADR-0018); the Prep map's "mail forecast"
+    of doc 01 §2.1 and Payday's forecast (doc 12 M4) are still to do.
 
 ## Commands
 

@@ -79,6 +79,7 @@ namespace PerformativeMail.Sim.Net
         MegaSighted = 69,
         LostParcel = 70,
         SlingshotFired = 71,
+        Forecast = 72,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -353,6 +354,12 @@ namespace PerformativeMail.Sim.Net
                     w.U8((byte)EventType.TurretOperated);
                     w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value);
                     break;
+                case ForecastEvent e:
+                    w.U8((byte)EventType.Forecast);
+                    w.U8(e.Shift);
+                    w.U16((ushort)e.Streets.Count);
+                    foreach (var (street, count) in e.Streets) { w.U16(street); w.U16(count); }
+                    break;
                 case MailWaitingEvent e:
                     w.U8((byte)EventType.MailWaiting);
                     w.U16((ushort)e.Houses.Count);
@@ -621,6 +628,13 @@ namespace PerformativeMail.Sim.Net
                     return new ConstructPushedEvent { FromX = r.U8(), FromY = r.U8(), X = r.U8(), Y = r.U8(), Enemy = r.U8() };
                 case EventType.TurretOperated:
                     return new TurretOperatedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()) };
+                case EventType.Forecast:
+                {
+                    var e = new ForecastEvent { Shift = r.U8() };
+                    int n = r.U16();
+                    for (int i = 0; i < n; i++) e.Streets.Add((r.U16(), r.U16()));
+                    return e;
+                }
                 case EventType.MailWaiting:
                 {
                     var e = new MailWaitingEvent();

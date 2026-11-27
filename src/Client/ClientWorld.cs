@@ -932,8 +932,18 @@ namespace PerformativeMail.Client
             if (!BuildRules.IsOpen(Global.Phase)) return OpResult.WrongPhase;
             var verdict = BuildRules.CheckRecipe(recipe, Global.Shift, recipe.Blueprint == null || ShopOwned.Contains(recipe.Blueprint) || Unlimited);
             if (verdict != OpResult.Ok) return verdict;
-            return Unlimited || BuildRules.HasMaterials(recipe, Hotbar, Inventory) ? OpResult.Ok : OpResult.MissingMaterials;
+            return Unlimited || BuildBlind || BuildRules.HasMaterials(recipe, Hotbar, Inventory, BuildDepot) ? OpResult.Ok : OpResult.MissingMaterials;
         }
+
+        /// <summary>Doc 10 §4.2 Shared Build: the Post Office's depot (the map's chest by it) as this client mirrors it; null without the perk or the mirror.</summary>
+        public GridContainer? BuildDepot =>
+            TeamHas(RuleFlag.SharedBuild) && ChestContainerIds.Count > 0 && Containers.TryGetValue(ChestContainerIds[0], out var depot) ? depot : null;
+
+        /// <summary>
+        /// With Shared Build and the depot not mirrored here (it is only while open), what it holds is the server's to
+        /// count: the recipe reads as open and the server's verdict says if the materials fall short.
+        /// </summary>
+        public bool BuildBlind => TeamHas(RuleFlag.SharedBuild) && ChestContainerIds.Count > 0 && BuildDepot == null;
 
         /// <summary>Whether <paramref name="c"/> is a ruin (doc 05 §5) rather than something standing.</summary>
         public bool IsRuin(Construct c) => Constructs.RuinAt(c.Tx, c.Tz) == c;
@@ -949,7 +959,7 @@ namespace PerformativeMail.Client
             var recipe = ruin.Def.Recipe;
             var verdict = BuildRules.CheckRecipe(recipe, Global.Shift, recipe.Blueprint == null || ShopOwned.Contains(recipe.Blueprint) || Unlimited);
             if (verdict != OpResult.Ok) return verdict;
-            return Unlimited || BuildRules.HasRuinMaterials(ruin.Def, Hotbar, Inventory) ? OpResult.Ok : OpResult.MissingMaterials;
+            return Unlimited || BuildBlind || BuildRules.HasRuinMaterials(ruin.Def, Hotbar, Inventory, BuildDepot) ? OpResult.Ok : OpResult.MissingMaterials;
         }
 
         /// <summary>The debug world's toggle (design choice 119): every blueprint owned, no materials taken, as on the server.</summary>
@@ -1008,9 +1018,9 @@ namespace PerformativeMail.Client
             var tiles = new List<(int, int)>();
             if (!BuildRules.LineTiles(x0, z0, x1, z1, tiles)) return false;
             int afford = int.MaxValue;
-            if (HotbarId != 0 && !Unlimited)
+            if (HotbarId != 0 && !Unlimited && !BuildBlind)
                 foreach (var input in recipe.Inputs)
-                    afford = Math.Min(afford, input.Count <= 0 ? int.MaxValue : BuildRules.Have(Hotbar, Inventory, input.Item) / input.Count);
+                    afford = Math.Min(afford, input.Count <= 0 ? int.MaxValue : BuildRules.Have(Hotbar, Inventory, input.Item, BuildDepot) / input.Count);
             int spent = 0;
             foreach (var (tx, tz) in tiles)
             {

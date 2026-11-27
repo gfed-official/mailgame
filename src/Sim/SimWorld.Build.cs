@@ -3,6 +3,7 @@ using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
+using PerformativeMail.Sim.Perks;
 using PerformativeMail.Sim.Players;
 using PerformativeMail.Sim.Run;
 using PerformativeMail.Sim.Vehicles;
@@ -89,10 +90,12 @@ namespace PerformativeMail.Sim
             }
             if (!Unlimited)
             {
-                if (!BuildRules.HasMaterials(recipe, player.Hotbar, player.Inventory)) return OpResult.MissingMaterials;
-                foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, input.Count);
+                var depot = BuildDepot;
+                if (!BuildRules.HasMaterials(recipe, player.Hotbar, player.Inventory, depot)) return OpResult.MissingMaterials;
+                foreach (var input in recipe.Inputs) TakeMaterials(player, input.Item, input.Count, depot);
                 CommitContainer(player.Inventory.Id);
                 CommitContainer(player.Hotbar.Id);
+                if (depot != null) CommitContainer(depot.Id);
             }
             if (def.Vehicle != null)
             {
@@ -172,12 +175,19 @@ namespace PerformativeMail.Sim
             return false;
         }
 
-        /// <summary>Out of the inventory first, then the hotbar; stacks in entry order. The caller commits.</summary>
-        private void TakeMaterials(Player player, ItemDef item, int count)
+        /// <summary>
+        /// Doc 10 §4.2 Shared Build (rule flag SharedBuild): what is built may come from the Post Office's depot — the
+        /// map's chest by the Post Office, which the kits already fill as the Depot — wherever it is built; null without.
+        /// </summary>
+        private GridContainer? BuildDepot => TeamHas(RuleFlag.SharedBuild) && _mapChests.Count > 0 ? _mapChests[0] : null;
+
+        /// <summary>Out of the inventory first, then the hotbar, then <paramref name="depot"/> if any; stacks in entry order. The caller commits.</summary>
+        private void TakeMaterials(Player player, ItemDef item, int count, GridContainer? depot = null)
         {
-            for (int i = 0; i < 2 && count > 0; i++)
+            for (int i = 0; i < 3 && count > 0; i++)
             {
-                var container = i == 0 ? player.Inventory : player.Hotbar;
+                var container = i == 0 ? player.Inventory : i == 1 ? player.Hotbar : depot;
+                if (container == null) break;
                 SortedEntries(container);
                 foreach (var e in _bagScratch)
                 {

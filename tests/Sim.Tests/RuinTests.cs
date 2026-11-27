@@ -264,5 +264,30 @@ namespace PerformativeMail.Sim.Tests
             var next = world.Constructs.At(Tx + 1, Tz)!;
             Assert.Equal((max, max), (next.Hp, next.MaxHp));
         }
+
+        [Fact]
+        public void SharedBuild_TakesWhatThePocketsLackFromThePostOfficesDepot_AnywhereOnTheMap()
+        {
+            var world = new SimWorld(Db, new SimSettings { Seed = 7, Raids = false, Draft = false });
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.None, 2);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.True(world.Grant(Db.ShopItem("bp_defense"), host.Id));
+            var depot = world.MapChests[0];
+            foreach (var e in depot.Entries.ToList()) depot.Remove(e.EntryId);
+            Assert.True(world.Give(depot, ItemStack.OfItem(Db.Item("stone"), 6)));
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("stone"), 1)));
+            SimDriver.Teleport(host, BuildRules.TileCentre(Tx), BuildRules.TileCentre(Tz) + 2.6f);
+            SimDriver.StepTicks(world, Player.HistoryLength);
+            int cost = StoneWall.Recipe.Inputs.Single(i => i.Item.Id == "stone").Count;
+            Assert.True(cost > 1);
+            // Without the perk the pockets are all there is.
+            Assert.Equal(OpResult.MissingMaterials, Request(world, host, SimRequest.PlaceConstruct(0, StoneWall.Index, Tx, Tz, 1)));
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, Db.Perk("shared_build")));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.PlaceConstruct(0, StoneWall.Index, Tx, Tz, 1)));
+            // The pockets first, then the depot.
+            Assert.Equal(0, Stone(host));
+            Assert.Equal(7 - cost, BuildRules.Have(depot, depot, Db.Item("stone")) / 2);
+        }
     }
 }

@@ -602,6 +602,17 @@ namespace PerformativeMail.Sim
         public readonly List<(ushort Dest, ushort Count)> Houses = new List<(ushort, ushort)>();
     }
 
+    /// <summary>
+    /// Doc 10 §4.3 Forecast Desk (doc 10 §2.8 "Extended Forecast: shows next shift's mail by street"): as Prep begins,
+    /// about how many pieces the coming Delivery brings each street, most first. An estimate from the spawn's value,
+    /// the mix's shares and the open houses, not the draws themselves.
+    /// </summary>
+    public sealed class ForecastEvent : SimEvent
+    {
+        public byte Shift;
+        public readonly List<(ushort Street, ushort Count)> Streets = new List<(ushort, ushort)>();
+    }
+
     /// <summary>The turret on tile (X, Y) fired at a raider standing at (TargetX, TargetZ) (doc 05 §4): the clients turn its gun and draw the shot.</summary>
     public sealed class TurretFiredEvent : SimEvent
     {

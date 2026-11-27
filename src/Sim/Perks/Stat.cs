@@ -89,6 +89,10 @@ namespace PerformativeMail.Sim.Perks
         PriorityPost,
         /// <summary>Doc 10 §4.1 Local Knowledge (personal): the HUD points to the mailbox of the mail in hand.</summary>
         LocalKnowledge,
+        /// <summary>Doc 10 §4.2 Shared Build: building takes from the Post Office's depot too, anywhere on the map.</summary>
+        SharedBuild,
+        /// <summary>Doc 10 §4.3 Forecast Desk: every Prep, the coming Delivery's mail by street (the Extended Forecast, free).</summary>
+        ForecastDesk,
     }
 
     public static class RuleFlags
@@ -101,6 +105,8 @@ namespace PerformativeMail.Sim.Perks
             ["presort"] = RuleFlag.Presort,
             ["priority_post"] = RuleFlag.PriorityPost,
             ["local_knowledge"] = RuleFlag.LocalKnowledge,
+            ["shared_build"] = RuleFlag.SharedBuild,
+            ["forecast_desk"] = RuleFlag.ForecastDesk,
         };
 
         /// <summary>The flag a content file names.</summary>

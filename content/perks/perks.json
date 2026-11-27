@@ -69,6 +69,10 @@
     "rules": ["presort"],
     "maxStacks": 1, "tags": ["belt", "sorting"] },
 
+  { "id": "shared_build", "name": "Shared Build", "description": "Build from the Post Office's depot materials anywhere on the map.",
+    "category": "facility", "scope": "team", "rarity": "common",
+    "rules": ["shared_build"],
+    "maxStacks": 1, "tags": ["build"] },
   { "id": "postmasters_eye", "name": "Postmaster's Eye", "description": "Sorter filter slots unlimited (all three); sorter throughput x2.",
     "category": "facility", "scope": "team", "rarity": "rare",
     "modifiers": [
@@ -97,6 +101,10 @@
     "category": "postal", "scope": "team", "rarity": "uncommon",
     "modifiers": [ { "stat": "PaperMailStack", "op": "mul", "value": 2 } ],
     "maxStacks": 1, "tags": ["inventory"] },
+  { "id": "forecast_desk", "name": "Forecast Desk", "description": "Free Extended Forecast every shift: the coming mail by street.",
+    "category": "postal", "scope": "team", "rarity": "common",
+    "rules": ["forecast_desk"],
+    "maxStacks": 1, "tags": ["forecast"] },
   { "id": "grace_period", "name": "Grace Period", "description": "Mail one shift late pays 100%.",
     "category": "postal", "scope": "team", "rarity": "uncommon",
     "modifiers": [

@@ -282,6 +282,35 @@ namespace PerformativeMail.Sim.Mail
             return spawned;
         }
 
+        /// <summary>
+        /// About how many pieces a Delivery of <paramref name="shift"/> worth <paramref name="spawnValue"/> brings each
+        /// street (doc 10 §4.3 Forecast Desk): each kind's share of the value over its price, spread evenly over the
+        /// houses open to it. An estimate, drawing nothing from the streams. Streets with none are left out.
+        /// </summary>
+        public Dictionary<int, double> Forecast(int shift, int spawnValue)
+        {
+            var streets = new Dictionary<int, double>();
+            var mix = _content.MailMix;
+            if (spawnValue <= 0 || !mix.Shares.TryGetValue(shift, out var shares)) return streets;
+            int was = _shift;
+            _shift = shift;
+            double shiftMult = 1.0 + mix.ShiftMultiplierPerShift * (shift - 1);
+            foreach (var share in shares)
+            {
+                var kind = _content.MailKind(share.Key);
+                CollectEligible(kind);
+                if (_eligible.Count == 0) continue;
+                double price = 0;
+                foreach (var d in _eligible) price += kind.BaseValue * (1.0 + mix.DistanceMultiplierPerDistrict * (d.Address.District - 1)) * shiftMult;
+                price /= _eligible.Count;
+                if (price <= 0) continue;
+                double each = spawnValue * share.Value / price / _eligible.Count;
+                foreach (var d in _eligible) streets[d.Street.Id] = (streets.TryGetValue(d.Street.Id, out double n) ? n : 0) + each;
+            }
+            _shift = was;
+            return streets;
+        }
+
         private bool HasDestination(MailKindDef kind)
         {
             foreach (var d in _map.Destinations)

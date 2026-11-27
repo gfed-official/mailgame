@@ -162,6 +162,7 @@ namespace PerformativeMail.Sim
             // A preview for the HUD; the binding quota is sampled when Delivery starts.
             Run.Quota = TeamQuota(QuotaFormula.Quota(b, Run.Shift, Math.Max(1, PresentCount)));
             EnterPhase(RunPhase.Prep, b.GetForShift("prepSeconds", Run.Shift));
+            SendForecast();
             StockPlaytesters();
         }
 

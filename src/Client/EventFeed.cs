@@ -183,6 +183,9 @@ namespace PerformativeMail.Client
                         Add(HudText.PostOfficeUnderAttack, bad: true);
                     }
                     break;
+                case ForecastEvent e:
+                    Add(HudText.Forecast(world, e));
+                    break;
                 case CursedRaidEvent e:
                     Add(HudText.CursedRaid(world, e), bad: true);
                     break;

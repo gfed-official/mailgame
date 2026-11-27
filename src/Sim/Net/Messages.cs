@@ -75,7 +75,7 @@ namespace PerformativeMail.Sim.Net
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
             "Results:u8 outcome,u8 shifts,u8 firstShift,u8 lastShift,u8 quotaWaived,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +
-            "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags,[priority:u32 due]}|item:i32 count);ContainerState:u32 id,u16 def,u8 extraRows,u32 version,u32 hash,u16 n,{entry}";
+            "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags,[priority:u32 due]}|item:i32 count);ContainerState:u32 id,u16 def,u8 extraRows,u32 version,u32 hash,u16 n,{entry};Forecast:u8 shift,u16 n,{u16 street,u16 count}";
 
         /// <summary>32-bit hash of the message schema plus the content data hash.</summary>
         public static uint Hash(ContentDb content)
