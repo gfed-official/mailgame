@@ -37,11 +37,11 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m4.7;Player:+u8 look with the kit;Summary:+u8 n,{u16 dest,u16 count};Global:+mode in the flags (practice 4, daily 8),u16 dailyDay,u16 events;" +
+            "m4.8;tile x,y u16 in requests, events and the welcome's constructs (the Large Island is 260 wide);m4.7;Player:+u8 look with the kit;Summary:+u8 n,{u16 dest,u16 count};Global:+mode in the flags (practice 4, daily 8),u16 dailyDay,u16 events;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages,materials,allStamps;" +
             "Inputs:u8 n,u16 ack,u16 enemyAck,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
-            "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u8 x,u8 y,u8 rot,u16 count,u16 dest,u8 sort;" +
+            "Request:u32 id,u8 kind,u32 container,u32 entry,u32 to,u16 x,u16 y,u8 rot,u16 count,u16 dest,u8 sort;" +
             "Kinds:open,close,move,quick,sort,deliver,start,ready,continue,pause,pick,buy,sell,use,harvest,place,remove,mount,kit,world,reroll,placeLine,beltResync,pushBelt,configure,refuel,ping,operateTurret,rebuildRuin,setStamps;" +
             "Welcome:u32 player,u32 tick,u32 seed,str map,u64 mapHash,u32 intake,u32 raidTick,u32 respawn,u32 protectedUntil,u8 chests,{u32 container},u8 bags,{u32 container,u32 owner,f32 x,f32 z,u32 despawn}," +
             "u16 loot,{u32 id,f32 x,f32 z,u8 kind,u8 mega,u16 coins,u8 n,{u16 item,u8 count}},global,u8 n,{u32 id,str name,u8 slot},state hotbar,state inventory," +
@@ -181,13 +181,13 @@ namespace PerformativeMail.Sim.Net
         {
             w.U8((byte)MsgType.Request);
             w.U32(q.RequestId); w.U8((byte)q.Kind); w.U32(q.Container); w.U32(q.EntryId); w.U32(q.ToContainer);
-            w.U8(q.X); w.U8(q.Y); w.Bool(q.Rotated); w.U16(q.Count); w.U16(q.DestId); w.U8((byte)q.SortKey);
+            w.U16(q.X); w.U16(q.Y); w.Bool(q.Rotated); w.U16(q.Count); w.U16(q.DestId); w.U8((byte)q.SortKey);
         }
 
         public static SimRequest Read(NetReader r) => new SimRequest
         {
             RequestId = r.U32(), Kind = (RequestKind)r.U8(), Container = r.U32(), EntryId = r.U32(), ToContainer = r.U32(),
-            X = r.U8(), Y = r.U8(), Rotated = r.Bool(), Count = r.U16(), DestId = r.U16(), SortKey = (SortKey)r.U8(),
+            X = r.U16(), Y = r.U16(), Rotated = r.Bool(), Count = r.U16(), DestId = r.U16(), SortKey = (SortKey)r.U8(),
         };
     }
 
@@ -238,7 +238,7 @@ namespace PerformativeMail.Sim.Net
     {
         /// <summary>Index into ContentDb.Buildings.</summary>
         public byte Building;
-        public byte X, Y;
+        public ushort X, Y;
         public byte Rotation;
         public ushort Hp;
         public uint ContainerId;
@@ -338,7 +338,7 @@ namespace PerformativeMail.Sim.Net
             w.U16((ushort)Constructs.Count);
             foreach (var c in Constructs)
             {
-                w.U8(c.Building); w.U8(c.X); w.U8(c.Y); w.U8(c.Rotation); w.U16(c.Hp); w.U32(c.ContainerId);
+                w.U8(c.Building); w.U16(c.X); w.U16(c.Y); w.U8(c.Rotation); w.U16(c.Hp); w.U32(c.ContainerId);
                 w.U8((byte)(c.Filters?.Count ?? 0));
                 if (c.Filters != null) foreach (ushort f in c.Filters) w.U16(f);
             }
@@ -395,7 +395,7 @@ namespace PerformativeMail.Sim.Net
             {
                 var info = new ConstructInfo
                 {
-                    Building = r.U8(), X = r.U8(), Y = r.U8(), Rotation = r.U8(), Hp = r.U16(), ContainerId = r.U32(),
+                    Building = r.U8(), X = r.U16(), Y = r.U16(), Rotation = r.U8(), Hp = r.U16(), ContainerId = r.U32(),
                 };
                 int filters = r.U8();
                 if (filters > 0)

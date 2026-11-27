@@ -48,7 +48,7 @@ namespace PerformativeMail.Sim
                 if (_inserterNext.TryGetValue(c, out uint next) && Tick < next) continue;
                 if (!MoveOne(c, out ushort kind)) continue;
                 _inserterNext[c] = Tick + Math.Max(1u, SimConstants.SecondsToTicks(1.0 / (c.Def.Rate * TeamStat(Stat.InserterRate, 1f))));
-                Events.Add(new InserterSwungEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Kind = kind });
+                Events.Add(new InserterSwungEvent { X = (ushort)c.Tx, Y = (ushort)c.Tz, Kind = kind });
             }
         }
 

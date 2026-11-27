@@ -64,8 +64,8 @@ namespace PerformativeMail.Sim
             int hp = c.Hp + amount;
             Constructs.SetHp(c, hp);
             HpRepaired += amount;
-            Events.Add(new ConstructDamagedEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Hp = (ushort)hp });
-            if (hp >= c.MaxHp) Events.Add(new RepairedEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Player = p.Id });
+            Events.Add(new ConstructDamagedEvent { X = (ushort)c.Tx, Y = (ushort)c.Tz, Hp = (ushort)hp });
+            if (hp >= c.MaxHp) Events.Add(new RepairedEvent { X = (ushort)c.Tx, Y = (ushort)c.Tz, Player = p.Id });
         }
 
         private void MendPostOffice(Player p, ItemDef hammer)

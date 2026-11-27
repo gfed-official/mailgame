@@ -475,7 +475,7 @@ namespace PerformativeMail.Sim
                 ? d.Houses[d.HouseAt] : null;
             Events.Add(new DriverEvent
             {
-                Audience = audience, X = (byte)d.Depot.Tx, Y = (byte)d.Depot.Tz, State = d.State, Vehicle = d.Truck?.Id ?? EntityId.None,
+                Audience = audience, X = (ushort)d.Depot.Tx, Y = (ushort)d.Depot.Tz, State = d.State, Vehicle = d.Truck?.Id ?? EntityId.None,
                 House = house?.Id ?? DriverEvent.NoHouse, Houses = (byte)Math.Min(255, d.Houses.Count), At = (byte)Math.Min(255, d.HouseAt),
                 Delivered = (ushort)Math.Min(ushort.MaxValue, d.Delivered), Player = by,
             });

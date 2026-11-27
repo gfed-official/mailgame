@@ -76,8 +76,8 @@ namespace PerformativeMail.Sim
             foreach (var s in _beltChanged) Events.Add(BeltState(s, EntityId.None));
         }
 
-        private byte HeadX(BeltSegment s) => (byte)(s.Head % Map.Cols);
-        private byte HeadZ(BeltSegment s) => (byte)(s.Head / Map.Cols);
+        private ushort HeadX(BeltSegment s) => (ushort)(s.Head % Map.Cols);
+        private ushort HeadZ(BeltSegment s) => (ushort)(s.Head / Map.Cols);
 
         private BeltStateEvent BeltState(BeltSegment s, EntityId audience)
         {

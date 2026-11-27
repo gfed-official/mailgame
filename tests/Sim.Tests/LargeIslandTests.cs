@@ -208,6 +208,42 @@ namespace PerformativeMail.Sim.Tests
             Assert.True(seen > 0, $"no Cargo came in shift {shift}: {world.Run.Phase} tick {world.Tick}, spawned {world.Spawner.MailSpawnedTotal}");
         }
 
+        /// <summary>
+        /// The island is up to 260 tiles wide; a tile's column past 255 must still reach the server and come back in its
+        /// events (they were bytes: a wall by the east street mouth went up at column 1).
+        /// </summary>
+        [Fact]
+        public void AWallIsBuiltPastColumn255_WhereItWasAskedFor()
+        {
+            uint seed = Enumerable.Range(1, 20).Select(s => (uint)s).First(s => LargeIslandGenerator.Generate(Db, s).Cols > 256);
+            var world = new SimWorld(Db, new SimSettings { Seed = seed, MapId = LargeIslandGenerator.LargeIsland, Raids = false, Draft = false });
+            var host = world.AddPlayer("host")!;
+            uint id = 1;
+            OpResult Request(SimRequest r)
+            {
+                world.Events.Clear();
+                r.RequestId = id++;
+                world.Submit(host.Id, r);
+                world.Step();
+                return world.Events.OfType<RequestResultEvent>().Last(e => e.RequestId == r.RequestId).Result;
+            }
+            Assert.Equal(OpResult.Ok, Request(SimRequest.StartRun(0)));
+            var wall = Db.Building("wall_wood");
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(Db.Item("log"), 10)));
+            var map = world.Map;
+            var (tx, tz) = Enumerable.Range(0, map.Rows).SelectMany(z => Enumerable.Range(256, map.Cols - 256).Select(x => (x, z)))
+                .First(t => BuildRules.CheckPlacement(map, world.Constructs, wall, t.x, t.z, 0) == OpResult.Ok);
+            SimDriver.Teleport(host, BuildRules.TileCentre(tx - 2), BuildRules.TileCentre(tz));
+            SimDriver.StepTicks(world, 12);
+            world.Events.Clear();
+            world.Submit(host.Id, SimRequest.PlaceConstruct(id++, wall.Index, tx, tz, 0));
+            world.Step();
+            Assert.Equal(OpResult.Ok, world.Events.OfType<RequestResultEvent>().Last().Result);
+            Assert.Equal(wall, world.Constructs.At(tx, tz)?.Def);
+            var placed = world.Events.OfType<ConstructPlacedEvent>().Single();
+            Assert.Equal((tx, tz), ((int)placed.X, (int)placed.Y));
+        }
+
         [Fact]
         public void ARunIsPlayedOnTheIsland_ALetterIsDeliveredInThePostOfficesTown()
         {

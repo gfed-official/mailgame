@@ -69,8 +69,8 @@ namespace PerformativeMail.Sim
         {
             Audience = audience,
             Item = Info(new BeltItem { Mail = cap.Mail }),
-            FromX = (byte)(from % Map.Cols), FromY = (byte)(from / Map.Cols),
-            OutX = (byte)(cap.Outlet % Map.Cols), OutY = (byte)(cap.Outlet / Map.Cols),
+            FromX = (ushort)(from % Map.Cols), FromY = (ushort)(from / Map.Cols),
+            OutX = (ushort)(cap.Outlet % Map.Cols), OutY = (ushort)(cap.Outlet / Map.Cols),
         };
 
         /// <summary>Who joins gets every capsule under way, from the tile it is at.</summary>

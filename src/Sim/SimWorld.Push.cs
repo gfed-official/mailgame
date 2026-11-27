@@ -98,13 +98,13 @@ namespace PerformativeMail.Sim
         private void Shove(Enemy e, Construct built, int tx, int tz)
         {
             int hp = built.Hp;
-            Events.Add(new ConstructPushedEvent { FromX = (byte)built.Tx, FromY = (byte)built.Tz, X = (byte)tx, Y = (byte)tz, Enemy = e.Def.Index });
+            Events.Add(new ConstructPushedEvent { FromX = (ushort)built.Tx, FromY = (ushort)built.Tz, X = (ushort)tx, Y = (ushort)tz, Enemy = e.Def.Index });
             RemoveConstruct(built, EntityId.None, destroyed: false);
             var moved = Erect(built.Def, tx, tz, built.Rotation, EntityId.None);
             if (hp < moved.Hp)
             {
                 Constructs.SetHp(moved, hp);
-                Events.Add(new ConstructDamagedEvent { X = (byte)tx, Y = (byte)tz, Hp = (ushort)hp });
+                Events.Add(new ConstructDamagedEvent { X = (ushort)tx, Y = (ushort)tz, Hp = (ushort)hp });
             }
         }
     }

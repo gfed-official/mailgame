@@ -256,31 +256,31 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case ConstructPlacedEvent e:
                     w.U8((byte)EventType.ConstructPlaced);
-                    w.U32(e.Player.Value); w.U8(e.Building); w.U8(e.X); w.U8(e.Y); w.U8(e.Rotation); w.U16(e.Hp); w.U32(e.ContainerId);
+                    w.U32(e.Player.Value); w.U8(e.Building); w.U16(e.X); w.U16(e.Y); w.U8(e.Rotation); w.U16(e.Hp); w.U32(e.ContainerId);
                     break;
                 case ConstructRemovedEvent e:
                     w.U8((byte)EventType.ConstructRemoved);
-                    w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value); w.Bool(e.Destroyed);
+                    w.U16(e.X); w.U16(e.Y); w.U32(e.Player.Value); w.Bool(e.Destroyed);
                     break;
                 case ConstructDamagedEvent e:
                     w.U8((byte)EventType.ConstructDamaged);
-                    w.U8(e.X); w.U8(e.Y); w.U16(e.Hp);
+                    w.U16(e.X); w.U16(e.Y); w.U16(e.Hp);
                     break;
                 case ConstructsClearedEvent _:
                     w.U8((byte)EventType.ConstructsCleared);
                     break;
                 case BeltStateEvent e:
                     w.U8((byte)EventType.BeltState);
-                    w.U8(e.X); w.U8(e.Y); w.U32(e.Tick); w.U16((ushort)e.Items.Count);
+                    w.U16(e.X); w.U16(e.Y); w.U32(e.Tick); w.U16((ushort)e.Items.Count);
                     foreach (var it in e.Items) WriteBeltItem(w, it);
                     break;
                 case BeltItemAddedEvent e:
                     w.U8((byte)EventType.BeltItemAdded);
-                    w.U8(e.X); w.U8(e.Y); WriteBeltItem(w, e.Item);
+                    w.U16(e.X); w.U16(e.Y); WriteBeltItem(w, e.Item);
                     break;
                 case BeltItemMovedEvent e:
                     w.U8((byte)EventType.BeltItemMoved);
-                    w.U32(e.MailId); w.U8(e.X); w.U8(e.Y); w.U8(e.Lane);
+                    w.U32(e.MailId); w.U16(e.X); w.U16(e.Y); w.U8(e.Lane);
                     break;
                 case BeltItemRemovedEvent e:
                     w.U8((byte)EventType.BeltItemRemoved);
@@ -288,20 +288,20 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case BeltChecksumEvent e:
                     w.U8((byte)EventType.BeltChecksum);
-                    w.U8(e.X); w.U8(e.Y); w.U16(e.Count); w.U32(e.Hash);
+                    w.U16(e.X); w.U16(e.Y); w.U16(e.Count); w.U32(e.Hash);
                     break;
                 case BeltPushedEvent e:
                     w.U8((byte)EventType.BeltPushed);
-                    w.U8(e.X); w.U8(e.Y); w.U16(e.Ticks); w.U32(e.Player.Value);
+                    w.U16(e.X); w.U16(e.Y); w.U16(e.Ticks); w.U32(e.Player.Value);
                     break;
                 case ConstructConfiguredEvent e:
                     w.U8((byte)EventType.ConstructConfigured);
-                    w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value); w.U8((byte)e.Filters.Count);
+                    w.U16(e.X); w.U16(e.Y); w.U32(e.Player.Value); w.U8((byte)e.Filters.Count);
                     foreach (ushort f in e.Filters) w.U16(f);
                     break;
                 case PipeCapsuleEvent e:
                     w.U8((byte)EventType.PipeCapsule);
-                    WriteBeltItem(w, e.Item); w.U8(e.FromX); w.U8(e.FromY); w.U8(e.OutX); w.U8(e.OutY);
+                    WriteBeltItem(w, e.Item); w.U16(e.FromX); w.U16(e.FromY); w.U16(e.OutX); w.U16(e.OutY);
                     break;
                 case PipeCapsuleRemovedEvent e:
                     w.U8((byte)EventType.PipeCapsuleRemoved);
@@ -313,15 +313,15 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case DriverEvent e:
                     w.U8((byte)EventType.Driver);
-                    w.U8(e.X); w.U8(e.Y); w.U8((byte)e.State); w.U32(e.Vehicle.Value); w.U16(e.House); w.U8(e.Houses); w.U8(e.At); w.U16(e.Delivered); w.U32(e.Player.Value);
+                    w.U16(e.X); w.U16(e.Y); w.U8((byte)e.State); w.U32(e.Vehicle.Value); w.U16(e.House); w.U8(e.Houses); w.U8(e.At); w.U16(e.Delivered); w.U32(e.Player.Value);
                     break;
                 case TurretFiredEvent e:
                     w.U8((byte)EventType.TurretFired);
-                    w.U8(e.X); w.U8(e.Y); w.F32(e.TargetX); w.F32(e.TargetZ);
+                    w.U16(e.X); w.U16(e.Y); w.F32(e.TargetX); w.F32(e.TargetZ);
                     break;
                 case RuinEvent e:
                     w.U8((byte)EventType.Ruin);
-                    w.U8(e.X); w.U8(e.Y); w.U8(e.Building); w.U8(e.Rotation); w.Bool(e.Gone); w.Bool(e.Rebuilt); w.U32(e.Player.Value);
+                    w.U16(e.X); w.U16(e.Y); w.U8(e.Building); w.U8(e.Rotation); w.Bool(e.Gone); w.Bool(e.Rebuilt); w.U32(e.Player.Value);
                     break;
                 case EnemyShotEvent e:
                     w.U8((byte)EventType.EnemyShot);
@@ -349,15 +349,15 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case RepairedEvent e:
                     w.U8((byte)EventType.Repaired);
-                    w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value); w.Bool(e.PostOffice);
+                    w.U16(e.X); w.U16(e.Y); w.U32(e.Player.Value); w.Bool(e.PostOffice);
                     break;
                 case ConstructPushedEvent e:
                     w.U8((byte)EventType.ConstructPushed);
-                    w.U8(e.FromX); w.U8(e.FromY); w.U8(e.X); w.U8(e.Y); w.U8(e.Enemy);
+                    w.U16(e.FromX); w.U16(e.FromY); w.U16(e.X); w.U16(e.Y); w.U8(e.Enemy);
                     break;
                 case TurretOperatedEvent e:
                     w.U8((byte)EventType.TurretOperated);
-                    w.U8(e.X); w.U8(e.Y); w.U32(e.Player.Value);
+                    w.U16(e.X); w.U16(e.Y); w.U32(e.Player.Value);
                     break;
                 case RunEventEvent e:
                     w.U8((byte)EventType.RunEvent);
@@ -384,11 +384,11 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case InserterSwungEvent e:
                     w.U8((byte)EventType.InserterSwung);
-                    w.U8(e.X); w.U8(e.Y); w.U16(e.Kind);
+                    w.U16(e.X); w.U16(e.Y); w.U16(e.Kind);
                     break;
                 case SorterStatusEvent e:
                     w.U8((byte)EventType.SorterStatus);
-                    w.U8(e.X); w.U8(e.Y); w.U8(e.Buffered); w.U16(e.Sorted); w.U16(e.Overflowed); w.U8((byte)e.Matches.Count);
+                    w.U16(e.X); w.U16(e.Y); w.U8(e.Buffered); w.U16(e.Sorted); w.U16(e.Overflowed); w.U8((byte)e.Matches.Count);
                     foreach (ushort m in e.Matches) w.U16(m);
                     break;
                 case VehicleAddedEvent e:
@@ -581,40 +581,40 @@ namespace PerformativeMail.Sim.Net
                 case EventType.ConstructPlaced:
                     return new ConstructPlacedEvent
                     {
-                        Player = new EntityId(r.U32()), Building = r.U8(), X = r.U8(), Y = r.U8(), Rotation = r.U8(), Hp = r.U16(), ContainerId = r.U32(),
+                        Player = new EntityId(r.U32()), Building = r.U8(), X = r.U16(), Y = r.U16(), Rotation = r.U8(), Hp = r.U16(), ContainerId = r.U32(),
                     };
                 case EventType.ConstructRemoved:
-                    return new ConstructRemovedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()), Destroyed = r.Bool() };
+                    return new ConstructRemovedEvent { X = r.U16(), Y = r.U16(), Player = new EntityId(r.U32()), Destroyed = r.Bool() };
                 case EventType.ConstructDamaged:
-                    return new ConstructDamagedEvent { X = r.U8(), Y = r.U8(), Hp = r.U16() };
+                    return new ConstructDamagedEvent { X = r.U16(), Y = r.U16(), Hp = r.U16() };
                 case EventType.ConstructsCleared:
                     return new ConstructsClearedEvent();
                 case EventType.BeltState:
                 {
-                    var e = new BeltStateEvent { X = r.U8(), Y = r.U8(), Tick = r.U32() };
+                    var e = new BeltStateEvent { X = r.U16(), Y = r.U16(), Tick = r.U32() };
                     int n = r.U16();
                     for (int i = 0; i < n; i++) e.Items.Add(ReadBeltItem(r));
                     return e;
                 }
                 case EventType.BeltItemAdded:
-                    return new BeltItemAddedEvent { X = r.U8(), Y = r.U8(), Item = ReadBeltItem(r) };
+                    return new BeltItemAddedEvent { X = r.U16(), Y = r.U16(), Item = ReadBeltItem(r) };
                 case EventType.BeltItemMoved:
-                    return new BeltItemMovedEvent { MailId = r.U32(), X = r.U8(), Y = r.U8(), Lane = r.U8() };
+                    return new BeltItemMovedEvent { MailId = r.U32(), X = r.U16(), Y = r.U16(), Lane = r.U8() };
                 case EventType.BeltItemRemoved:
                     return new BeltItemRemovedEvent { MailId = r.U32() };
                 case EventType.BeltChecksum:
-                    return new BeltChecksumEvent { X = r.U8(), Y = r.U8(), Count = r.U16(), Hash = r.U32() };
+                    return new BeltChecksumEvent { X = r.U16(), Y = r.U16(), Count = r.U16(), Hash = r.U32() };
                 case EventType.BeltPushed:
-                    return new BeltPushedEvent { X = r.U8(), Y = r.U8(), Ticks = r.U16(), Player = new EntityId(r.U32()) };
+                    return new BeltPushedEvent { X = r.U16(), Y = r.U16(), Ticks = r.U16(), Player = new EntityId(r.U32()) };
                 case EventType.ConstructConfigured:
                 {
-                    var e = new ConstructConfiguredEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()) };
+                    var e = new ConstructConfiguredEvent { X = r.U16(), Y = r.U16(), Player = new EntityId(r.U32()) };
                     int n = r.U8();
                     for (int i = 0; i < n; i++) e.Filters.Add(r.U16());
                     return e;
                 }
                 case EventType.PipeCapsule:
-                    return new PipeCapsuleEvent { Item = ReadBeltItem(r), FromX = r.U8(), FromY = r.U8(), OutX = r.U8(), OutY = r.U8() };
+                    return new PipeCapsuleEvent { Item = ReadBeltItem(r), FromX = r.U16(), FromY = r.U16(), OutX = r.U16(), OutY = r.U16() };
                 case EventType.PipeCapsuleRemoved:
                     return new PipeCapsuleRemovedEvent { MailId = r.U32() };
                 case EventType.VehicleRemoved:
@@ -622,13 +622,13 @@ namespace PerformativeMail.Sim.Net
                 case EventType.Driver:
                     return new DriverEvent
                     {
-                        X = r.U8(), Y = r.U8(), State = (DriverState)r.U8(), Vehicle = new EntityId(r.U32()), House = r.U16(), Houses = r.U8(), At = r.U8(),
+                        X = r.U16(), Y = r.U16(), State = (DriverState)r.U8(), Vehicle = new EntityId(r.U32()), House = r.U16(), Houses = r.U8(), At = r.U8(),
                         Delivered = r.U16(), Player = new EntityId(r.U32()),
                     };
                 case EventType.TurretFired:
-                    return new TurretFiredEvent { X = r.U8(), Y = r.U8(), TargetX = r.F32(), TargetZ = r.F32() };
+                    return new TurretFiredEvent { X = r.U16(), Y = r.U16(), TargetX = r.F32(), TargetZ = r.F32() };
                 case EventType.Ruin:
-                    return new RuinEvent { X = r.U8(), Y = r.U8(), Building = r.U8(), Rotation = r.U8(), Gone = r.Bool(), Rebuilt = r.Bool(), Player = new EntityId(r.U32()) };
+                    return new RuinEvent { X = r.U16(), Y = r.U16(), Building = r.U8(), Rotation = r.U8(), Gone = r.Bool(), Rebuilt = r.Bool(), Player = new EntityId(r.U32()) };
                 case EventType.EnemyShot:
                     return new EnemyShotEvent { Kind = (EnemyShotKind)r.U8(), FromX = r.F32(), FromZ = r.F32(), ToX = r.F32(), ToZ = r.F32(), AtConstruct = r.Bool() };
                 case EventType.PostOfficeDamaged:
@@ -642,11 +642,11 @@ namespace PerformativeMail.Sim.Net
                 case EventType.LostParcel:
                     return new LostParcelEvent { Enemy = r.U8(), Kind = r.U16(), Address = new PerformativeMail.Sim.World.AddressId(r.U32(), r.U8()), Value = r.U16(), Bag = r.U32() };
                 case EventType.Repaired:
-                    return new RepairedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()), PostOffice = r.Bool() };
+                    return new RepairedEvent { X = r.U16(), Y = r.U16(), Player = new EntityId(r.U32()), PostOffice = r.Bool() };
                 case EventType.ConstructPushed:
-                    return new ConstructPushedEvent { FromX = r.U8(), FromY = r.U8(), X = r.U8(), Y = r.U8(), Enemy = r.U8() };
+                    return new ConstructPushedEvent { FromX = r.U16(), FromY = r.U16(), X = r.U16(), Y = r.U16(), Enemy = r.U8() };
                 case EventType.TurretOperated:
-                    return new TurretOperatedEvent { X = r.U8(), Y = r.U8(), Player = new EntityId(r.U32()) };
+                    return new TurretOperatedEvent { X = r.U16(), Y = r.U16(), Player = new EntityId(r.U32()) };
                 case EventType.RunEvent:
                     return new RunEventEvent { Event = r.U8(), Shift = r.U8(), Stage = (RunEventStage)r.U8(), Street = r.U8(), Amount = r.I32() };
                 case EventType.Forecast:
@@ -668,10 +668,10 @@ namespace PerformativeMail.Sim.Net
                 case EventType.VehicleFuel:
                     return new VehicleFuelEvent { Vehicle = new EntityId(r.U32()), Seconds = r.F32() };
                 case EventType.InserterSwung:
-                    return new InserterSwungEvent { X = r.U8(), Y = r.U8(), Kind = r.U16() };
+                    return new InserterSwungEvent { X = r.U16(), Y = r.U16(), Kind = r.U16() };
                 case EventType.SorterStatus:
                 {
-                    var e = new SorterStatusEvent { X = r.U8(), Y = r.U8(), Buffered = r.U8(), Sorted = r.U16(), Overflowed = r.U16() };
+                    var e = new SorterStatusEvent { X = r.U16(), Y = r.U16(), Buffered = r.U8(), Sorted = r.U16(), Overflowed = r.U16() };
                     int n = r.U8();
                     for (int i = 0; i < n; i++) e.Matches.Add(r.U16());
                     return e;

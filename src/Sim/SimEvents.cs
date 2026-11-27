@@ -344,7 +344,7 @@ namespace PerformativeMail.Sim
         public EntityId Player;
         /// <summary>Index into ContentDb.Buildings.</summary>
         public byte Building;
-        public byte X, Y;
+        public ushort X, Y;
         public byte Rotation;
         public ushort Hp;
         /// <summary>The container of a chest; 0 for what holds nothing.</summary>
@@ -357,7 +357,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed class ConstructRemovedEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public EntityId Player;
         public bool Destroyed;
     }
@@ -368,7 +368,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed class RuinEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public byte Building;
         public byte Rotation;
         public bool Gone;
@@ -384,7 +384,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed class ConstructPushedEvent : SimEvent
     {
-        public byte FromX, FromY, X, Y;
+        public ushort FromX, FromY, X, Y;
         /// <summary>The kind of the raider that shoved it.</summary>
         public byte Enemy;
     }
@@ -448,7 +448,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed class RepairedEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public EntityId Player;
         public bool PostOffice;
     }
@@ -456,7 +456,7 @@ namespace PerformativeMail.Sim
     /// <summary>A raider's blow landed on a construct (or a hammer mended it): the HP it has left.</summary>
     public sealed class ConstructDamagedEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public ushort Hp;
     }
 
@@ -477,7 +477,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed class BeltStateEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public uint Tick;
         public readonly List<BeltItemInfo> Items = new List<BeltItemInfo>();
     }
@@ -485,7 +485,7 @@ namespace PerformativeMail.Sim
     /// <summary>A piece of mail put on a segment's head (doc 06 §4 LaneInsert): from the Intake's outfeed, a splitter.</summary>
     public sealed class BeltItemAddedEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public BeltItemInfo Item;
     }
 
@@ -493,7 +493,7 @@ namespace PerformativeMail.Sim
     public sealed class BeltItemMovedEvent : SimEvent
     {
         public uint MailId;
-        public byte X, Y;
+        public ushort X, Y;
         public byte Lane;
     }
 
@@ -506,7 +506,7 @@ namespace PerformativeMail.Sim
     /// <summary>Every 2 s per segment (doc 06 §4 LaneChecksum): the count and <see cref="Automation.BeltNetwork.Checksum"/>.</summary>
     public sealed class BeltChecksumEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public ushort Count;
         public uint Hash;
     }
@@ -517,7 +517,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed class ConstructConfiguredEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         /// <summary><see cref="Automation.MailFilter.Encode"/> of each.</summary>
         public readonly List<ushort> Filters = new List<ushort>();
         public EntityId Player;
@@ -529,7 +529,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed class SorterStatusEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public byte Buffered;
         public ushort Sorted, Overflowed;
         /// <summary>Per output (a sorter's last is its overflow): pieces of the Intake's mail it would take.</summary>
@@ -539,7 +539,7 @@ namespace PerformativeMail.Sim
     /// <summary>The inserter on (X, Y) moved a piece of mail of a kind (doc 04 §2.5): the clients swing its arm.</summary>
     public sealed class InserterSwungEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public ushort Kind;
     }
 
@@ -552,7 +552,7 @@ namespace PerformativeMail.Sim
     public sealed class PipeCapsuleEvent : SimEvent
     {
         public BeltItemInfo Item;
-        public byte FromX, FromY, OutX, OutY;
+        public ushort FromX, FromY, OutX, OutY;
     }
 
     /// <summary>
@@ -570,7 +570,7 @@ namespace PerformativeMail.Sim
     {
         public const ushort NoHouse = ushort.MaxValue;
         /// <summary>The depot's tile (the one it was built on).</summary>
-        public byte X, Y;
+        public ushort X, Y;
         public DriverState State;
         /// <summary>The truck it runs; none while waiting at the depot.</summary>
         public EntityId Vehicle;
@@ -645,7 +645,7 @@ namespace PerformativeMail.Sim
     /// <summary>The turret on tile (X, Y) fired at a raider standing at (TargetX, TargetZ) (doc 05 §4): the clients turn its gun and draw the shot.</summary>
     public sealed class TurretFiredEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public float TargetX, TargetZ;
     }
 
@@ -655,7 +655,7 @@ namespace PerformativeMail.Sim
     /// </summary>
     public sealed class TurretOperatedEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public EntityId Player;
     }
 
@@ -674,7 +674,7 @@ namespace PerformativeMail.Sim
     /// <summary>A carrier pushes the segment headed at (X, Y) (doc 04 §2.1): it runs faster for <see cref="Ticks"/> ticks.</summary>
     public sealed class BeltPushedEvent : SimEvent
     {
-        public byte X, Y;
+        public ushort X, Y;
         public ushort Ticks;
         public EntityId Player;
     }

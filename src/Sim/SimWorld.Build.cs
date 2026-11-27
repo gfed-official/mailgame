@@ -140,7 +140,7 @@ namespace PerformativeMail.Sim
             }
             Events.Add(new ConstructPlacedEvent
             {
-                Player = by, Building = def.Index, X = (byte)tx, Y = (byte)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,
+                Player = by, Building = def.Index, X = (ushort)tx, Y = (ushort)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,
             });
             if (def.Behaviour == BuildingBehaviour.Alarm) SetRaidWarnTick();
             return built;
@@ -236,7 +236,7 @@ namespace PerformativeMail.Sim
             if (hp > 0)
             {
                 Constructs.SetHp(built, hp);
-                Events.Add(new ConstructDamagedEvent { X = (byte)built.Tx, Y = (byte)built.Tz, Hp = (ushort)hp });
+                Events.Add(new ConstructDamagedEvent { X = (ushort)built.Tx, Y = (ushort)built.Tz, Hp = (ushort)hp });
                 return;
             }
             var chest = built.ContainerId != 0 ? GetContainer(built.ContainerId) : null;
@@ -275,7 +275,7 @@ namespace PerformativeMail.Sim
         {
             DropContainer(built);
             Constructs.Remove(built.Tx, built.Tz);
-            Events.Add(new ConstructRemovedEvent { X = (byte)built.Tx, Y = (byte)built.Tz, Player = by, Destroyed = destroyed });
+            Events.Add(new ConstructRemovedEvent { X = (ushort)built.Tx, Y = (ushort)built.Tz, Player = by, Destroyed = destroyed });
             if (built.Def.Behaviour == BuildingBehaviour.Alarm) SetRaidWarnTick();
         }
 

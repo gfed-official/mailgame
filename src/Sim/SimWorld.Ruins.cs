@@ -25,7 +25,7 @@ namespace PerformativeMail.Sim
             Constructs.SetHp(broken, 0);
             Constructs.AddRuin(broken);
             RuinsLeft++;
-            Events.Add(new RuinEvent { X = (byte)broken.Tx, Y = (byte)broken.Tz, Building = broken.Def.Index, Rotation = broken.Rotation });
+            Events.Add(new RuinEvent { X = (ushort)broken.Tx, Y = (ushort)broken.Tz, Building = broken.Def.Index, Rotation = broken.Rotation });
         }
 
         private OpResult RebuildRuinOp(Player player, in SimRequest r)
@@ -78,7 +78,7 @@ namespace PerformativeMail.Sim
                 return verdict;
             }
             pay?.Invoke();
-            Events.Add(new RuinEvent { X = (byte)ruin.Tx, Y = (byte)ruin.Tz, Building = def.Index, Rotation = ruin.Rotation, Gone = true, Rebuilt = true, Player = by });
+            Events.Add(new RuinEvent { X = (ushort)ruin.Tx, Y = (ushort)ruin.Tz, Building = def.Index, Rotation = ruin.Rotation, Gone = true, Rebuilt = true, Player = by });
             var built = Erect(def, ruin.Tx, ruin.Tz, ruin.Rotation, by);
             // As it was set: a sorter's filters, a console's route.
             if (ruin.Filters.Length > 0)
@@ -117,7 +117,7 @@ namespace PerformativeMail.Sim
             if (!BuildRules.IsOpen(Run.Phase)) return OpResult.WrongPhase;
             if (!player.WasWithin(ruin.CentreX, ruin.CentreZ, _serverBuildRange + ruin.Def.Radius, _rewindTicks)) return OpResult.OutOfRange;
             Constructs.RemoveRuin(tx, tz);
-            Events.Add(new RuinEvent { X = (byte)ruin.Tx, Y = (byte)ruin.Tz, Building = ruin.Def.Index, Rotation = ruin.Rotation, Gone = true, Player = player.Id });
+            Events.Add(new RuinEvent { X = (ushort)ruin.Tx, Y = (ushort)ruin.Tz, Building = ruin.Def.Index, Rotation = ruin.Rotation, Gone = true, Player = player.Id });
             return OpResult.Ok;
         }
     }

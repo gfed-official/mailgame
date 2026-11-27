@@ -3228,6 +3228,19 @@ BOT OK on the Small and the Large Island (once the island bot's 2 ms tick budget
 map's outline and labels, and the playtest tag looked at. Next in the docs' order: Cargo by boat to the far town's
 dock (doc 11 §4's Motor Boat route), then M5.
 
+### 9. Keeping the build green; the far town by Motor Boat (2026-11-27)
+
+No playtest report of 07a41ed or later had landed (the newest, 20261127-120917-24cbd0a, was fixed in section 8a); the build was
+green at 07a41ed (Sim.Tests 719, Net.Tests 254, `tools/smoke.sh` SMOKE OK ×3, BOT OK on both islands). A break found in the
+Large Island's M4 work came first:
+
+- [x] **Tile columns past 255 on the Large Island.** Its maps are up to 260 tiles wide (seeds 1, 4: 258 and 259), but a tile's
+      x and y went over the wire as bytes, in every request (placing, removing, configuring, pushing, turrets, ruins) and every
+      construct, belt, pipe, turret and driver event and the welcome's constructs: a wall asked for by the east street mouth,
+      where the raiders come in, went up at column 1 (or 2, 3) at the far west end. They are u16 now (protocol m4.8).
+      `LargeIslandTests.AWallIsBuiltPastColumn255_WhereItWasAskedFor` (fails with the old byte), `CodecTests` (a construct
+      at column 257 in the welcome)
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).

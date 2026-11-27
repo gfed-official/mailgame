@@ -262,14 +262,14 @@ namespace PerformativeMail.Server
             {
                 welcome.Constructs.Add(new ConstructInfo
                 {
-                    Building = built.Def.Index, X = (byte)built.Tx, Y = (byte)built.Tz, Rotation = built.Rotation,
+                    Building = built.Def.Index, X = (ushort)built.Tx, Y = (ushort)built.Tz, Rotation = built.Rotation,
                     Hp = (ushort)built.Hp, ContainerId = built.ContainerId,
                     Filters = built.Filters.Length > 0 ? new List<ushort>(System.Linq.Enumerable.Select(built.Filters, f => f.Encode())) : null,
                 });
             }
             // The ruins (doc 05 §5) go as constructs of 0 HP.
             foreach (var ruin in World.Constructs.Ruins)
-                welcome.Constructs.Add(new ConstructInfo { Building = ruin.Def.Index, X = (byte)ruin.Tx, Y = (byte)ruin.Tz, Rotation = ruin.Rotation, Hp = 0 });
+                welcome.Constructs.Add(new ConstructInfo { Building = ruin.Def.Index, X = (ushort)ruin.Tx, Y = (ushort)ruin.Tz, Rotation = ruin.Rotation, Hp = 0 });
             foreach (var v in World.Vehicles)
             {
                 welcome.Vehicles.Add(new VehicleInfo

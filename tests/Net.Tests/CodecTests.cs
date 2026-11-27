@@ -542,7 +542,7 @@ namespace PerformativeMail.Net.Tests
             m.Nodes.Add(new NodeInfo { Node = 12, HitsLeft = 0 });
             m.Nodes.Add(new NodeInfo { Node = 317, HitsLeft = 4 });
             m.Constructs.Add(new ConstructInfo { Building = 0, X = 14, Y = 9, Rotation = 1, Hp = 180 });
-            m.Constructs.Add(new ConstructInfo { Building = 1, X = 15, Y = 9, Rotation = 3, Hp = 200, ContainerId = 4021 });
+            m.Constructs.Add(new ConstructInfo { Building = 1, X = 257, Y = 9, Rotation = 3, Hp = 200, ContainerId = 4021 });
             m.Constructs.Add(new ConstructInfo { Building = 12, X = 16, Y = 21, Rotation = 2, Hp = 500, Filters = new List<ushort> { 0x0104, 0, 0x0302 } });
             m.Vehicles.Add(new VehicleInfo { Id = new EntityId(EntityClass.Vehicle, 1), Def = 0, X = 14f, Z = 25f, Heading = 0.5f, CargoContainer = 4030 });
             m.Vehicles.Add(new VehicleInfo { Id = new EntityId(EntityClass.Vehicle, 2), Def = 0, X = 40f, Z = 28f, Heading = -1f, CargoContainer = 4031, Rider = owner });
@@ -551,7 +551,7 @@ namespace PerformativeMail.Net.Tests
             var back = WelcomeMsg.Read(Body(w, MsgType.Welcome));
 
             // What stands built, in the order it was built.
-            Assert.Equal(new[] { ((byte)0, (byte)14, (byte)9, (byte)1, (ushort)180, 0u), ((byte)1, (byte)15, (byte)9, (byte)3, (ushort)200, 4021u), ((byte)12, (byte)16, (byte)21, (byte)2, (ushort)500, 0u) },
+            Assert.Equal(new[] { ((byte)0, (ushort)14, (ushort)9, (byte)1, (ushort)180, 0u), ((byte)1, (ushort)257, (ushort)9, (byte)3, (ushort)200, 4021u), ((byte)12, (ushort)16, (ushort)21, (byte)2, (ushort)500, 0u) },
                 back.Constructs.Select(c => (c.Building, c.X, c.Y, c.Rotation, c.Hp, c.ContainerId)));
             // A sorter's filters come with it; what has none has none.
             Assert.Null(back.Constructs[0].Filters);

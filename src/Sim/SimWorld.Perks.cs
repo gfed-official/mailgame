@@ -246,7 +246,7 @@ namespace PerformativeMail.Sim
             float scale = TeamStat(Stat.ConstructHp, 1f);
             if (Math.Abs(scale - Constructs.HpScale) < 1e-6f) return;
             foreach (var (c, hp) in Constructs.Rescale(scale))
-                Events.Add(new ConstructDamagedEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Hp = (ushort)hp });
+                Events.Add(new ConstructDamagedEvent { X = (ushort)c.Tx, Y = (ushort)c.Tz, Hp = (ushort)hp });
         }
 
         /// <summary>

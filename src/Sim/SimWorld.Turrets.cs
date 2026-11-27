@@ -54,7 +54,7 @@ namespace PerformativeMail.Sim
                 if (target == null) continue;
                 _turretReady[c] = Tick + System.Math.Max(1u, SimConstants.SecondsToTicks(c.Def.ShotSeconds));
                 TurretShots++;
-                Events.Add(new TurretFiredEvent { X = (byte)c.Tx, Y = (byte)c.Tz, TargetX = target.X, TargetZ = target.Z });
+                Events.Add(new TurretFiredEvent { X = (ushort)c.Tx, Y = (ushort)c.Tz, TargetX = target.X, TargetZ = target.Z });
                 DamageEnemy(target, c.Def.ShotDamage * TeamStat(Stat.TurretDamage, 1f), null);
             }
         }
@@ -78,7 +78,7 @@ namespace PerformativeMail.Sim
             if (player.Turret != null) LetGoOfTurret(player);
             player.Turret = turret;
             _turretOperators[turret] = player;
-            Events.Add(new TurretOperatedEvent { X = (byte)turret.Tx, Y = (byte)turret.Tz, Player = player.Id });
+            Events.Add(new TurretOperatedEvent { X = (ushort)turret.Tx, Y = (ushort)turret.Tz, Player = player.Id });
             return OpResult.Ok;
         }
 
@@ -121,7 +121,7 @@ namespace PerformativeMail.Sim
             float tx, tz;
             if (target != null) Rewound(target, out tx, out tz);
             else TurretSight.Exit(px, pz, fx, fz, c.CentreX, c.CentreZ, c.Def.ShotRange, out tx, out tz);
-            Events.Add(new TurretFiredEvent { X = (byte)c.Tx, Y = (byte)c.Tz, TargetX = tx, TargetZ = tz });
+            Events.Add(new TurretFiredEvent { X = (ushort)c.Tx, Y = (ushort)c.Tz, TargetX = tx, TargetZ = tz });
             if (target != null) DamageEnemy(target, c.Def.ShotDamage * TeamStat(Stat.TurretDamage, 1f), p);
         }
 
@@ -148,7 +148,7 @@ namespace PerformativeMail.Sim
             if (c == null) return;
             p.Turret = null;
             _turretOperators.Remove(c);
-            Events.Add(new TurretOperatedEvent { X = (byte)c.Tx, Y = (byte)c.Tz, Player = EntityId.None });
+            Events.Add(new TurretOperatedEvent { X = (ushort)c.Tx, Y = (ushort)c.Tz, Player = EntityId.None });
         }
 
         /// <summary>A run ends or begins: no gun is half way through its reload, and nobody holds one.</summary>

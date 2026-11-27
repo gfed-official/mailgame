@@ -82,7 +82,7 @@ namespace PerformativeMail.Sim
 
         public static ConstructConfiguredEvent Configured(Construct built, EntityId by)
         {
-            var ev = new ConstructConfiguredEvent { X = (byte)built.Tx, Y = (byte)built.Tz, Player = by };
+            var ev = new ConstructConfiguredEvent { X = (ushort)built.Tx, Y = (ushort)built.Tz, Player = by };
             foreach (var f in built.Filters) ev.Filters.Add(f.Encode());
             return ev;
         }
@@ -116,7 +116,7 @@ namespace PerformativeMail.Sim
             var node = Belts.SorterOf(built);
             var ev = new SorterStatusEvent
             {
-                Audience = p.Id, X = (byte)built.Tx, Y = (byte)built.Tz,
+                Audience = p.Id, X = (ushort)built.Tx, Y = (ushort)built.Tz,
                 Buffered = (byte)(node?.Buffer.Count ?? 0),
                 Sorted = (ushort)Math.Min(ushort.MaxValue, node?.Sorted ?? 0),
                 Overflowed = (ushort)Math.Min(ushort.MaxValue, node?.Overflowed ?? 0),

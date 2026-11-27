@@ -117,7 +117,7 @@ namespace PerformativeMail.Sim
         public uint EntryId;
         /// <summary>Move: target container.</summary>
         public uint ToContainer;
-        public byte X, Y;
+        public ushort X, Y;
         public bool Rotated;
         /// <summary>Move: units to move, 0 = whole stack.</summary>
         public ushort Count;
@@ -135,7 +135,7 @@ namespace PerformativeMail.Sim
             new SimRequest
             {
                 RequestId = reqId, Kind = RequestKind.Move, Container = from, EntryId = entryId, ToContainer = to,
-                X = (byte)x, Y = (byte)y, Rotated = rotated, Count = (ushort)count,
+                X = (ushort)x, Y = (ushort)y, Rotated = rotated, Count = (ushort)count,
             };
 
         public static SimRequest QuickMove(uint reqId, uint from, uint entryId) =>
@@ -178,12 +178,12 @@ namespace PerformativeMail.Sim
             new SimRequest { RequestId = reqId, Kind = RequestKind.Use, Container = from, EntryId = entryId };
 
         public static SimRequest Harvest(uint reqId, int node, int heldSlot) =>
-            new SimRequest { RequestId = reqId, Kind = RequestKind.Harvest, DestId = (ushort)node, X = (byte)heldSlot };
+            new SimRequest { RequestId = reqId, Kind = RequestKind.Harvest, DestId = (ushort)node, X = (ushort)heldSlot };
 
         public static SimRequest PlaceConstruct(uint reqId, int building, int tx, int tz, int rotation) =>
             new SimRequest
             {
-                RequestId = reqId, Kind = RequestKind.PlaceConstruct, DestId = (ushort)building, X = (byte)tx, Y = (byte)tz, Count = (ushort)rotation,
+                RequestId = reqId, Kind = RequestKind.PlaceConstruct, DestId = (ushort)building, X = (ushort)tx, Y = (ushort)tz, Count = (ushort)rotation,
             };
 
         public static SimRequest Mount(uint reqId, uint vehicle) =>
@@ -199,7 +199,7 @@ namespace PerformativeMail.Sim
         /// brings its own world, seed and stamps, and the choice and seed are not read.
         /// </summary>
         public static SimRequest SetWorld(uint reqId, int choice, uint seed, Run.RunMode mode = Run.RunMode.Normal) =>
-            new SimRequest { RequestId = reqId, Kind = RequestKind.SetWorld, Count = (ushort)choice, EntryId = seed, X = (byte)mode };
+            new SimRequest { RequestId = reqId, Kind = RequestKind.SetWorld, Count = (ushort)choice, EntryId = seed, X = (ushort)mode };
 
         public static SimRequest SetStamps(uint reqId, int mask) =>
             new SimRequest { RequestId = reqId, Kind = RequestKind.SetStamps, Count = (ushort)mask };
@@ -213,24 +213,24 @@ namespace PerformativeMail.Sim
         public static SimRequest PlaceLine(uint reqId, int building, int x0, int z0, int x1, int z1, int rotation) =>
             new SimRequest
             {
-                RequestId = reqId, Kind = RequestKind.PlaceLine, DestId = (ushort)building, X = (byte)x0, Y = (byte)z0,
+                RequestId = reqId, Kind = RequestKind.PlaceLine, DestId = (ushort)building, X = (ushort)x0, Y = (ushort)z0,
                 ToContainer = (uint)(x1 & 0xFF) | (uint)(z1 & 0xFF) << 8, Count = (ushort)rotation,
             };
 
         public static SimRequest BeltResync(uint reqId, int headX, int headZ) =>
-            new SimRequest { RequestId = reqId, Kind = RequestKind.BeltResync, X = (byte)headX, Y = (byte)headZ };
+            new SimRequest { RequestId = reqId, Kind = RequestKind.BeltResync, X = (ushort)headX, Y = (ushort)headZ };
 
         public const ushort ConfigureOpen = 0, ConfigureClose = 1, ConfigureSet = 2, ConfigureHire = 3;
 
         public static SimRequest Configure(uint reqId, int tx, int tz, ushort op, int output = 0, int slot = 0, ushort filter = 0) =>
             new SimRequest
             {
-                RequestId = reqId, Kind = RequestKind.ConfigureConstruct, X = (byte)tx, Y = (byte)tz, Count = op,
+                RequestId = reqId, Kind = RequestKind.ConfigureConstruct, X = (ushort)tx, Y = (ushort)tz, Count = op,
                 EntryId = (uint)(output * 16 + slot), DestId = filter,
             };
 
         public static SimRequest PushBelt(uint reqId, int tx, int tz) =>
-            new SimRequest { RequestId = reqId, Kind = RequestKind.PushBelt, X = (byte)tx, Y = (byte)tz };
+            new SimRequest { RequestId = reqId, Kind = RequestKind.PushBelt, X = (ushort)tx, Y = (ushort)tz };
 
         public static SimRequest Ping(uint reqId, float x, float z, PingKind kind) =>
             new SimRequest
@@ -240,12 +240,12 @@ namespace PerformativeMail.Sim
             };
 
         public static SimRequest OperateTurret(uint reqId, int tx, int tz, bool take) =>
-            new SimRequest { RequestId = reqId, Kind = RequestKind.OperateTurret, X = (byte)tx, Y = (byte)tz, Count = (ushort)(take ? 1 : 0) };
+            new SimRequest { RequestId = reqId, Kind = RequestKind.OperateTurret, X = (ushort)tx, Y = (ushort)tz, Count = (ushort)(take ? 1 : 0) };
 
         public static SimRequest RebuildRuin(uint reqId, int tx, int tz, bool rebuild) =>
-            new SimRequest { RequestId = reqId, Kind = RequestKind.RebuildRuin, X = (byte)tx, Y = (byte)tz, Count = (ushort)(rebuild ? 1 : 0) };
+            new SimRequest { RequestId = reqId, Kind = RequestKind.RebuildRuin, X = (ushort)tx, Y = (ushort)tz, Count = (ushort)(rebuild ? 1 : 0) };
 
         public static SimRequest RemoveConstruct(uint reqId, int tx, int tz) =>
-            new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (byte)tx, Y = (byte)tz };
+            new SimRequest { RequestId = reqId, Kind = RequestKind.RemoveConstruct, X = (ushort)tx, Y = (ushort)tz };
     }
 }
