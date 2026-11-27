@@ -144,6 +144,32 @@ namespace PerformativeMail.Sim
         }
 
         /// <summary>
+        /// The e5be644 playtest's N4: a playtester going down leaves out of the bag what the top-up gives
+        /// back as they stand up, so the bag's return brings back only what they held beyond it, never the
+        /// flag's materials a second time. What they had before going down is what they have once the
+        /// bag is back (or the flag's amount, if that is more).
+        /// </summary>
+        private void TakeBackPlaytestMaterials(Player p, bool keepHotbar)
+        {
+            if ((p.Playtest & PlaytestFlags.Materials) == 0 || !BuildRules.IsOpen(Run.Phase) || p.Away) return;
+            foreach (var (id, count) in PlaytestMask.Materials)
+            {
+                ItemDef? def = null;
+                foreach (var item in Content.Items)
+                    if (item.Id == id) { def = item; break; }
+                if (def == null) continue;
+                int kept = keepHotbar ? BuildRules.Count(p.Hotbar, def) : 0;
+                int bagged = BuildRules.Have(p.Hotbar, p.Inventory, def) - kept;
+                // Out of the inventory first, then the hotbar: never out of a hotbar that is kept.
+                int take = Math.Min(bagged, Math.Max(0, count - kept));
+                if (take <= 0) continue;
+                TakeMaterials(p, def, take);
+                CommitContainer(p.Inventory.Id);
+                CommitContainer(p.Hotbar.Id);
+            }
+        }
+
+        /// <summary>
         /// Nit 18: tops a player who asked for <see cref="PlaytestFlags.Packages"/> up to
         /// <see cref="PlaytestMask.PackageCount"/> packages the cannon fires, while mailboxes take
         /// mail. They are real mail, addressed to the mailbox of the player's seat if it takes

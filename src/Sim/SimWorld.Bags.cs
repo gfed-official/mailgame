@@ -105,7 +105,15 @@ namespace PerformativeMail.Sim
                 else if (owner != null)
                 {
                     items = true;
-                    if (!InventoryOps.AutoPlace(Content, owner.Inventory, e.Stack, _entryIds))
+                    // The bag's first rows were the hotbar: what lay there goes back to its slot, or else to the hotbar
+                    // before the inventory (the e5be644 playtest's empty hotbar after a knockdown).
+                    if (e.Y < owner.Hotbar.Rows)
+                    {
+                        if (owner.Hotbar.CanPlace(e.X, e.Y, e.W, e.H)) owner.Hotbar.Add(e);
+                        else if (!InventoryOps.AutoPlace(Content, owner.Hotbar, e.Stack, _entryIds))
+                            InventoryOps.AutoPlace(Content, owner.Inventory, e.Stack, _entryIds);
+                    }
+                    else if (!InventoryOps.AutoPlace(Content, owner.Inventory, e.Stack, _entryIds))
                         InventoryOps.AutoPlace(Content, owner.Hotbar, e.Stack, _entryIds);
                 }
             }

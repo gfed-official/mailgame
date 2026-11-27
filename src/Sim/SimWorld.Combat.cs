@@ -200,7 +200,9 @@ namespace PerformativeMail.Sim
             p.RespawnTick = Tick + Math.Max(1, SimConstants.SecondsToTicks(StatFor(p, Stat.RespawnSeconds, _combat.RespawnSeconds)));
             CloseExternal(p, notify: true);
             Events.Add(new PlayerDiedEvent { Player = p.Id, RespawnTick = p.RespawnTick, Killer = enemyKind });
-            DropBag(p, keepHotbar: StatFor(p, Stat.KeepHotbarOnDeath, 0f) > 0f);
+            bool keepHotbar = StatFor(p, Stat.KeepHotbarOnDeath, 0f) > 0f;
+            TakeBackPlaytestMaterials(p, keepHotbar);
+            DropBag(p, keepHotbar);
         }
 
         /// <summary>

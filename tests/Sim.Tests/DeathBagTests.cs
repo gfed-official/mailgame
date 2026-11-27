@@ -210,6 +210,25 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void ABagsReturn_PutsTheHotbarsToolsBackInTheHotbar_InTheirSlots()
+        {
+            var world = NewWorld();
+            var p = PlayerOnTheStreet(world, 50f, 28f);
+            var pickaxe = Db.Item("pickaxe");
+            Assert.True(world.Give(p.Hotbar, ItemStack.OfItem(Db.Item("axe"), 1)));
+            Assert.True(world.Give(p.Hotbar, ItemStack.OfItem(pickaxe, 1)));
+            int slot = p.Hotbar.Entries.Single(e => e.Stack.DefIndex == pickaxe.Index).X;
+            GiveStone(world, p);
+            world.DamagePlayer(p, 1000f);
+            var bag = world.Bags.Single();
+            while (world.Bags.Count > 0) world.Step();
+            // The e5be644 playtest: after a knockdown the hotbar was empty and the tools in the inventory.
+            Assert.Equal(2, p.Hotbar.EntryCount);
+            Assert.Equal(slot, p.Hotbar.Entries.Single(e => e.Stack.DefIndex == pickaxe.Index).X);
+            Assert.Equal(3, Stones(p.Inventory));
+        }
+
+        [Fact]
         public void EveryDeathLeavesItsOwnBag()
         {
             var world = NewWorld();

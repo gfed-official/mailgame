@@ -31,7 +31,7 @@ namespace PerformativeMail.Sim.Run
         public static int Have(GridContainer hotbar, GridContainer inventory, ItemDef item, GridContainer? depot) =>
             Have(hotbar, inventory, item) + (depot == null ? 0 : Count(depot, item));
 
-        private static int Count(GridContainer container, ItemDef item)
+        public static int Count(GridContainer container, ItemDef item)
         {
             int n = 0;
             foreach (var e in container.Entries)

@@ -859,6 +859,42 @@ namespace PerformativeMail.Sim.Tests
         }
 
         [Fact]
+        public void Materials_AKnockdownsBagReturn_DoesNotAddThemAgain()
+        {
+            var world = NewWorld();
+            var host = world.AddPlayer("host")!;
+            world.SetPlaytest(host, PlaytestFlags.Materials | PlaytestFlags.NoQuota | PlaytestFlags.NoTimer);
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.StartRun(0)));
+            Assert.Equal(OpResult.Ok, Request(world, host, SimRequest.SetReady(0, true)));
+            Assert.Equal(RunPhase.Delivery, world.Run.Phase);
+            var barbarian = (byte)world.Content.Enemy("barbarian").Index;
+            // The e5be644 playtest: 200 → 396 → 588 … shots over repeated knockdowns. Each bag's return is the flag's top-up no more.
+            for (int round = 0; round < 3; round++)
+            {
+                while (world.Protected(host)) world.Step();
+                world.DamagePlayer(host, 9999f, barbarian);
+                Assert.True(host.Dead);
+                while (host.Dead) world.Step();
+                Assert.Equal((20, 40), Materials(world, host));
+                while (world.Bags.Count > 0) world.Step();
+                Assert.Equal((20, 40), Materials(world, host));
+            }
+            // What they held beyond the flag's amount comes back with the bag.
+            var stone = world.Content.Item("stone");
+            Assert.True(world.Give(host.Inventory, ItemStack.OfItem(stone, 15)));
+            Assert.Equal((20, 55), Materials(world, host));
+            while (world.Protected(host)) world.Step();
+            world.DamagePlayer(host, 9999f, barbarian);
+            Assert.True(host.Dead);
+            Assert.Equal(1, world.Bags.Count);
+            Assert.Equal((0, 0), Materials(world, host));
+            while (host.Dead) world.Step();
+            Assert.Equal((20, 40), Materials(world, host));
+            while (world.Bags.Count > 0) world.Step();
+            Assert.Equal((20, 55), Materials(world, host));
+        }
+
+        [Fact]
         public void Materials_BuildAWoodenWall()
         {
             var world = NewWorld();
