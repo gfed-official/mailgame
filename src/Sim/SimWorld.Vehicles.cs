@@ -87,6 +87,7 @@ namespace PerformativeMail.Sim
             var v = new Vehicle(_entityIds.Allocate(EntityClass.Vehicle), def, cargo.Container, x, z, heading);
             cargo.Vehicle = v;
             _vehicles.Add(v);
+            ApplyContainerRows();
             Events.Add(new VehicleAddedEvent
             {
                 Vehicle = v.Id, Def = def.Index, X = x, Z = z, Heading = heading, CargoContainer = cargo.Container.Id, Buyer = buyer,

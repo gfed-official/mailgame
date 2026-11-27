@@ -11,6 +11,7 @@ namespace PerformativeMail.Sim.Net
         {
             w.U32(s.ContainerId);
             w.U16(s.DefIndex);
+            w.U8(s.ExtraRows);
             w.U32(s.Version);
             w.U32(s.Hash);
             w.U16((ushort)s.Entries.Count);
@@ -19,7 +20,7 @@ namespace PerformativeMail.Sim.Net
 
         public static ContainerState ReadState(NetReader r)
         {
-            var s = new ContainerState { ContainerId = r.U32(), DefIndex = r.U16(), Version = r.U32(), Hash = r.U32() };
+            var s = new ContainerState { ContainerId = r.U32(), DefIndex = r.U16(), ExtraRows = r.U8(), Version = r.U32(), Hash = r.U32() };
             int n = r.Count16(MinEntryBytes);
             for (int i = 0; i < n; i++) s.Entries.Add(ReadEntry(r));
             return s;

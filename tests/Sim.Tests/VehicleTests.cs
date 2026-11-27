@@ -354,5 +354,19 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(8f, host.Move.RideSpeed, 3);
             Assert.Equal(z, host.Move.Z, 1);
         }
+
+        [Fact]
+        public void BikeCourier_IsOfferedOnceABikeIsThere_AndItsHolderRidesFortyPercentFaster()
+        {
+            var (world, host) = InPrep();
+            var perk = Db.Perk("bike_courier");
+            Assert.False(world.PrerequisitesMet(perk));
+            BuyAndMount(world, host);
+            Assert.True(world.PrerequisitesMet(perk));
+            Assert.Equal(OpResult.Ok, world.GrantPerk(host, perk));
+            SimDriver.Teleport(host, 30f, StreetZ);
+            Ride(world, host, 1f, 0f, 3 * Tps);
+            Assert.Equal(8f * 1.4f, host.Move.RideSpeed, 2);
+        }
 }
 }

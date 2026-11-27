@@ -367,7 +367,7 @@ namespace PerformativeMail.Sim
                 if (p.Away)
                 {
                     // Nobody steers them: they come to rest where they stood.
-                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs);
+                    PlayerMovement.Step(ref p.Move, new PlayerInput { Yaw = p.Move.Yaw }, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p));
                     continue;
                 }
 
@@ -379,7 +379,7 @@ namespace PerformativeMail.Sim
                 while (budget > 0 && p.Inputs.Count > 0)
                 {
                     var input = p.Inputs.Dequeue();
-                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs);
+                    PlayerMovement.Step(ref p.Move, input, Map, p.SpeedMult, _move, Constructs, AirJumps(p), BikeMult(p));
                     p.HeldSlot = input.HeldSlot < p.Hotbar.Cols ? input.HeldSlot : (byte)0;
                     _attackRewind = RewindTicks(input);
                     HandleAttackInput(p, input);

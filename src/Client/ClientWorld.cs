@@ -439,6 +439,12 @@ namespace PerformativeMail.Client
         /// <summary>Shifts before the map's that its districts open (doc 10 §4.3 Zoning Board), as the server reckons it.</summary>
         public int DistrictsEarly => Math.Max(0, (int)MathF.Round(_teamStats.Resolve(Stat.DistrictsEarly, 0f)));
 
+        /// <summary>Jumps off the ground the local player may make, as the server reckons it (Bunny Hop).</summary>
+        public int LocalAirJumps => Math.Max(0, (int)MathF.Round(LocalStat(Stat.AirJumps, 0f)));
+
+        /// <summary>The speed of a vehicle the local player pedals on land, as a share (Bike Courier).</summary>
+        public float LocalBikeMult => LocalStat(Stat.BikeSpeed, 1f);
+
         /// <summary>A perk of the team's or of the local player's own holds the rule flag.</summary>
         public bool LocalHas(RuleFlag flag) => _teamStats.Has(flag) || _localStats.Has(flag);
 

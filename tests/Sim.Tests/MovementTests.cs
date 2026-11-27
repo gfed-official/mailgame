@@ -152,5 +152,34 @@ namespace PerformativeMail.Sim.Tests
             Assert.Equal(MathF.PI / 2f, PlayerInput.YawToRadians(q), 3);
             Assert.Equal(0, PlayerInput.QuantizeYaw(2f * MathF.PI));
         }
+
+        [Fact]
+        public void WithAnAirJump_AFreshPressInTheAirJumpsAgain_OnceAndNoMore()
+        {
+            float Apex(int airJumps, bool release)
+            {
+                var s = At(30f, 28f);
+                PlayerMovement.Step(ref s, Input(0, 0, InputButtons.Jump), Map, 1f, Consts, null, airJumps);
+                float apex = s.Y;
+                // Up a while, the key let go (or held), then pressed again twice.
+                for (int i = 0; i < 8; i++) { PlayerMovement.Step(ref s, Input(0, 0, release ? InputButtons.None : InputButtons.Jump), Map, 1f, Consts, null, airJumps); apex = MathF.Max(apex, s.Y); }
+                for (int k = 0; k < 2; k++)
+                {
+                    PlayerMovement.Step(ref s, Input(0, 0, InputButtons.Jump), Map, 1f, Consts, null, airJumps);
+                    PlayerMovement.Step(ref s, Input(0, 0), Map, 1f, Consts, null, airJumps);
+                }
+                for (int i = 0; i < 120 && !s.Grounded; i++) { PlayerMovement.Step(ref s, Input(0, 0), Map, 1f, Consts, null, airJumps); apex = MathF.Max(apex, s.Y); }
+                Assert.True(s.Grounded);
+                Assert.False(s.AirJumped);
+                return apex;
+            }
+            float single = Apex(0, release: true);
+            Assert.InRange(single, 1.17f, 1.201f);
+            // Bunny Hop: the second jump from part way up goes higher than one jump does, but not three times as high.
+            float twice = Apex(1, release: true);
+            Assert.InRange(twice, 1.6f, 2.4f);
+            // Held from the ground, it is not a fresh press until let go.
+            Assert.InRange(Apex(1, release: false), 1.6f, 2.4f);
+        }
     }
 }

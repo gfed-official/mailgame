@@ -478,6 +478,20 @@ namespace PerformativeMail.Net.Tests
         private static readonly Lazy<ContentDb> CardFacesCapOne = new Lazy<ContentDb>(() => LoadCardFaces(1));
 
         [Fact]
+        public void BigPockets_TheClientsInventoryGrowsARow_InStepWithTheServer()
+        {
+            var s = new Session();
+            var ada = s.Join("Ada");
+            s.StartDelivery();
+            var truth = s.Sim.GetPlayer(ada.World!.LocalId)!;
+            Assert.Equal(OpResult.Ok, s.Sim.GrantPerk(truth, s.Content.Perk("big_pockets")));
+            s.Run(10);
+            Assert.Equal(3, ada.World.Inventory.Rows);
+            Assert.Equal(0, ada.ContainerDesyncs);
+            Assert.Equal(truth.Inventory.ComputeHash(), ada.World.Inventory.ComputeHash());
+        }
+
+        [Fact]
         public void AtThePersonalCap_ThePersonalCardsSaySo_AndOnlyTheTeamsCardIsTaken()
         {
             var s = new Session(CardFacesCapOne.Value);

@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m2.27;" +
+            "m4.1;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages,materials;" +
             "Inputs:u8 n,u16 ack,u16 enemyAck,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +
@@ -51,7 +51,7 @@ namespace PerformativeMail.Sim.Net
             "Snapshot:u32 tick,u32 ack,u8 flags,[own:f32 x,f32 y,f32 z,f32 vy,u8 moveflags,f32 speed,f32 fatigue,f32 hp,[riding:u8 ride,f32 rideSpeed,f32 headX,f32 headZ]]," +
             "u16 playerBase,u8 n,{u32 id,u8 mask,[i8 dx,i8 dy,i8 dz],[i32 xcm,i16 ycm,i32 zcm],[u16 yaw],[u8 held,u8 tool],[u8 flags],[u8 hp],[u8 ride,u8 heading],[u8 kit]}," +
             "[enemies:u16 enemyBase,u8 n,{u16 id,u8 mask,[u8 kindMegaState],[i8 dx,i8 dz],[u16 x2cm,u16 z2cm],[u8 yaw],[u8 hp]}],[global],[npcVehicles:u8 n,{u32 id,i32 xcm,i32 zcm,u8 heading}];" +
-            "MoveFlags:grounded,winded,dead,becalmed,riding;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies,npcVehicles;" +
+            "MoveFlags:grounded,winded,dead,becalmed,riding,jumpHeld,airJumped;PlayerFlags:ready,protected,away;PlayerHp:0 dead,1..255;SnapFlags:own,global,enemies,npcVehicles;" +
             "Global:u8 shift,u8 phase,u32 end,i32 quota,i32 earnings,i32 wallet,u8 complaint,u16 backlog,u16 deliveries,u16 misdeliveries,u8 outcome,u32 host,u8 raid,i8 raidEdgeA,i8 raidEdgeB,u8 playtest,u16 poHp,u8 stamps;GlobalPlaytest:clockStopped,quotaWaived;" +
             "Events:u16 n,{u8 type,...};" +
             "Ev:joined,left,cstate,cdelta,cclosed,result,spawned,delivered,misdelivered,phase,summary,results,paused," +
@@ -75,7 +75,7 @@ namespace PerformativeMail.Sim.Net
             "Paused:u8 paused,u32 tick;" +
             "Summary:u8 shift,i32 earned,i32 quota,u8 met,i32 bonus,u8 n,{u16 deliveries},u16 misdeliveries,u16 late,u32 mvp,u16 mvpDeliveries;" +
             "Results:u8 outcome,u8 shifts,u8 firstShift,u8 lastShift,u8 quotaWaived,i32 earned,i32 score,i32 deliveries,i32 misdeliveries,u8 n,{u32 id,u16 deliveries,u16 misdeliveries,i32 earned,i32 xp};" +
-            "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags}|item:i32 count)";
+            "Entry:u32 id,u8 x,u8 y,u8 w,u8 h,u8 rot,u8 kind,u16 def,(mail:u32 addr,u8 unit,u16 n,{u32 id,u16 value,u8 spawn,u8 deadline,u8 flags,[priority:u32 due]}|item:i32 count);ContainerState:u32 id,u16 def,u8 extraRows,u32 version,u32 hash,u16 n,{entry}";
 
         /// <summary>32-bit hash of the message schema plus the content data hash.</summary>
         public static uint Hash(ContentDb content)
@@ -508,7 +508,7 @@ namespace PerformativeMail.Sim.Net
     {
         private const byte FlagOwn = 1, FlagGlobal = 2, FlagEnemies = 4, FlagNpcVehicles = 8;
         private const byte PlayerReady = 1, PlayerProtected = 2, PlayerAway = 4;
-        private const byte MoveGrounded = 1, MoveWinded = 2, MoveDead = 4, MoveBecalmed = 8, MoveRiding = 16;
+        private const byte MoveGrounded = 1, MoveWinded = 2, MoveDead = 4, MoveBecalmed = 8, MoveRiding = 16, MoveJumpHeld = 32, MoveAirJumped = 64;
         private const float TwoPi = System.MathF.PI * 2f;
 
         public uint Tick;
@@ -576,7 +576,8 @@ namespace PerformativeMail.Sim.Net
                 // The saddle's four only while there is something in them (13 bytes of 49 on foot).
                 bool riding = Own.Ride != 0 || Own.RideSpeed != 0f || Own.HeadX != 0f || Own.HeadZ != 0f;
                 w.F32(Own.X); w.F32(Own.Y); w.F32(Own.Z); w.F32(Own.VelY);
-                w.U8((byte)((Own.Grounded ? MoveGrounded : 0) | (Own.Winded ? MoveWinded : 0) | (Own.Dead ? MoveDead : 0) | (Own.Becalmed ? MoveBecalmed : 0) | (riding ? MoveRiding : 0)));
+                w.U8((byte)((Own.Grounded ? MoveGrounded : 0) | (Own.Winded ? MoveWinded : 0) | (Own.Dead ? MoveDead : 0) | (Own.Becalmed ? MoveBecalmed : 0) | (riding ? MoveRiding : 0)
+                    | (Own.JumpHeld ? MoveJumpHeld : 0) | (Own.AirJumped ? MoveAirJumped : 0)));
                 w.F32(OwnSpeedMult); w.F32(Own.Fatigue); w.F32(OwnHp);
                 if (riding) { w.U8(Own.Ride); w.F32(Own.RideSpeed); w.F32(Own.HeadX); w.F32(Own.HeadZ); }
             }
@@ -624,6 +625,8 @@ namespace PerformativeMail.Sim.Net
                 m.Own.Winded = (move & MoveWinded) != 0;
                 m.Own.Dead = (move & MoveDead) != 0;
                 m.Own.Becalmed = (move & MoveBecalmed) != 0;
+                m.Own.JumpHeld = (move & MoveJumpHeld) != 0;
+                m.Own.AirJumped = (move & MoveAirJumped) != 0;
                 m.OwnSpeedMult = r.F32();
                 m.Own.Fatigue = r.F32();
                 m.OwnHp = r.F32();

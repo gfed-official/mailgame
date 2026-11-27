@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using PerformativeMail.Sim.Combat;
 using PerformativeMail.Sim.Core;
@@ -33,6 +34,8 @@ namespace PerformativeMail.Sim
                 Container = info.Container, Owner = p.Id, X = info.X, Z = info.Z,
                 DespawnTick = Tick + _combat.BagDespawnTicks,
             };
+            // Pockets a perk made bigger: the bag holds them all the same.
+            info.Container.Resize(Math.Max(0, p.Hotbar.Rows + p.Inventory.Rows - info.Container.Def.Rows));
             if (!keepHotbar) MoveIntoBag(p.Hotbar, bag.Container, 0);
             MoveIntoBag(p.Inventory, bag.Container, p.Hotbar.Rows);
             CommitContainer(p.Hotbar.Id);

@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using PerformativeMail.Client.Presentation;
+using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using GridContainer = PerformativeMail.Sim.Inventory.GridContainer;
 
@@ -108,9 +109,14 @@ namespace PerformativeMail.Client.UI
             string badges = "";
             if (Badge != null && c != null)
                 foreach (var e in c.Entries) badges += Badge(e.Stack) + ",";
+            // Priority mail counts its seconds down on its tag: drawn again each second while one is shown.
+            if (c != null && _client?.World is { } w)
+                foreach (var e in c.Entries)
+                    if (e.Stack.Priority) { badges += "p" + (int)(w.ServerTick / SimConstants.TickRate); break; }
             if (id == _drawnId && version == _drawnVersion && revision == _drawnRevision && SelectedColumn == _drawnSelected && badges == _drawnBadges) return;
             _drawnBadges = badges;
-            if (id != _drawnId) Resize();
+            // A perk's rows (Big Pockets) come as a new mirror of the same grid.
+            if (id != _drawnId || c != null && CustomMinimumSize.Y != c.Rows * Cell) Resize();
             _drawnId = id;
             _drawnVersion = version;
             _drawnRevision = revision;

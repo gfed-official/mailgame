@@ -2682,6 +2682,19 @@ green; the base smoke passes rendered at 1280×720 (`--shots`).
       `PerkTests` (spawn share and time, payment in time and late), `CodecTests.PriorityMail_…`, the smoke's
       "local knowledge" line
 
+- [x] **Bunny Hop, Bike Courier, Big Pockets, Bulk Depot** (doc 10 §4.1, §4.2; design choice 158). New stats
+      `AirJumps`, `BikeSpeed`, `InventoryRows`, `BikeCargoRows` (the carrier's) and `StorageRows` (the team's).
+      - Bunny Hop: a fresh press of jump in the air jumps again, as high, once a time off the ground (shared movement
+        step; `PlayerMoveState.JumpHeld` / `AirJumped` ride in the snapshot's move flags, so the client predicts it)
+      - Bike Courier (offered once a bike is in the world): its holder rides a pedalled land vehicle 40 % faster, and
+        every bike's cargo grid has a row more while anybody holds it
+      - Big Pockets (stacks twice): the inventory grid 2×8 → 3×8 → 4×8
+      - Bulk Depot: built chests 8×4 → 8×6 and depots 16×10 → 16×15 (a map's own chest stays as it is)
+      A grid grows a row at a time below its def's (`GridContainer.Resize`, `ContainerState.ExtraRows` on the wire,
+      the rows in its hash); whoever has it open is sent it whole; a death bag grows to hold bigger pockets. Protocol
+      `m4.1`. `MovementTests`, `VehicleTests`, `PerkTests` (Big Pockets, shrink, Bulk Depot), `DraftFlowTests`
+      (the client's inventory grows in step). Not yet looked at rendered: a 4-row inventory at 1280×720
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -4212,6 +4225,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     rule flag a personal perk may hold (`RuleFlags.IsTeam`); doc 10's "compass arrow" is read as the existing edge
     marker pointing to the mailbox of the mail in hand, not an arrow for every item in the inventory (several arrows
     at once would be a new widget and noise).
+
+158. **Grids that grow, and what doc 10 leaves open.** Big Pockets, Bike Courier's "bike grid +1 row" and Bulk
+    Depot all make a grid bigger mid-run, which a grid fixed by its def could not be. The rows are added under the
+    def's, so nothing moves; when the perks are cleared at the run's end a grid gives its rows back only once nothing
+    stands in them (nothing is dropped or lost; it tries again whenever the perks change). Bike Courier is a personal
+    perk but a bike's cargo is not a person's: the bikes' grids grow while anybody holds it. "+50 %" of a depot's 10
+    rows is 15, of a chest's 4 is 6 (rounded). Bunny Hop's "jumping onto a belt keeps momentum" is not built: there
+    is no air momentum in the movement step to keep (a carrier on a belt is carried at the belt's pace already).
 
 ## Commands
 

@@ -128,6 +128,7 @@ namespace PerformativeMail.Sim
                 containerId = info.Container.Id;
             }
             var built = Constructs.Add(def, tx, tz, rotation, Constructs.MaxHpOf(def), containerId);
+            if (containerId != 0) ApplyContainerRows();
             Events.Add(new ConstructPlacedEvent
             {
                 Player = by, Building = def.Index, X = (byte)tx, Y = (byte)tz, Rotation = built.Rotation, Hp = (ushort)built.Hp, ContainerId = containerId,

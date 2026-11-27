@@ -26,6 +26,8 @@ namespace PerformativeMail.Sim.Inventory
     {
         public uint ContainerId;
         public ushort DefIndex;
+        /// <summary>Rows a perk has added below the def's (<see cref="GridContainer.ExtraRows"/>).</summary>
+        public byte ExtraRows;
         public uint Version;
         public List<GridEntry> Entries = new List<GridEntry>();
         public uint Hash;
@@ -53,20 +55,42 @@ namespace PerformativeMail.Sim.Inventory
         public uint Id { get; }
         public ContainerDef Def { get; }
         public int Cols => Def.Cols;
-        public int Rows => Def.Rows;
+        /// <summary>Its def's rows and the rows a perk adds below them (doc 10 §4.1 Big Pockets, §4.2 Bulk Depot).</summary>
+        public int Rows => Def.Rows + ExtraRows;
+        public int ExtraRows { get; private set; }
         public uint Version { get; private set; }
 
-        private readonly uint[] _cells;
+        private uint[] _cells;
         private readonly Dictionary<uint, GridEntry> _entries = new Dictionary<uint, GridEntry>();
         private readonly HashSet<uint> _dirty = new HashSet<uint>();
         private readonly HashSet<uint> _removed = new HashSet<uint>();
 
-        public GridContainer(uint id, ContainerDef def)
+        public GridContainer(uint id, ContainerDef def, int extraRows = 0)
         {
             Id = id;
             Def = def;
-            _cells = new uint[def.Cols * def.Rows];
+            ExtraRows = Math.Max(0, extraRows);
+            _cells = new uint[def.Cols * Rows];
             foreach (var (x, y) in def.ReservedCells) _cells[y * def.Cols + x] = Blocked;
+        }
+
+        /// <summary>
+        /// Rows added below the def's, or taken away again: the entries keep their places. Taking rows away fails
+        /// (and changes nothing) while an entry stands in them. A new version: whoever mirrors it is sent it whole.
+        /// </summary>
+        public bool Resize(int extraRows)
+        {
+            extraRows = Math.Max(0, extraRows);
+            if (extraRows == ExtraRows) return true;
+            int rows = Def.Rows + extraRows;
+            foreach (var e in _entries.Values)
+                if (e.Y + e.H > rows) return false;
+            var cells = new uint[Cols * rows];
+            Array.Copy(_cells, cells, Math.Min(cells.Length, _cells.Length));
+            _cells = cells;
+            ExtraRows = extraRows;
+            Version++;
+            return true;
         }
 
         public int EntryCount => _entries.Count;
@@ -175,7 +199,7 @@ namespace PerformativeMail.Sim.Inventory
 
         public ContainerState Snapshot()
         {
-            var state = new ContainerState { ContainerId = Id, DefIndex = Def.Index, Version = Version, Hash = ComputeHash() };
+            var state = new ContainerState { ContainerId = Id, DefIndex = Def.Index, ExtraRows = (byte)ExtraRows, Version = Version, Hash = ComputeHash() };
             foreach (var e in _entries.Values) state.Entries.Add(e.Clone());
             state.Entries.Sort((a, b) => a.EntryId.CompareTo(b.EntryId));
             return state;
@@ -212,7 +236,7 @@ namespace PerformativeMail.Sim.Inventory
 
         public GridContainer Clone()
         {
-            var copy = new GridContainer(Id, Def);
+            var copy = new GridContainer(Id, Def, ExtraRows);
             foreach (var e in _entries.Values) copy.Add(e.Clone());
             copy.Version = Version;
             copy.ClearChanges();

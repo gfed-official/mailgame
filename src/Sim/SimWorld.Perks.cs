@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PerformativeMail.Sim.Content;
 using PerformativeMail.Sim.Core;
 using PerformativeMail.Sim.Inventory;
 using PerformativeMail.Sim.Perks;
@@ -23,6 +24,42 @@ namespace PerformativeMail.Sim
 
         /// <summary>A stat as this carrier has it: the team's perks and their own over the base.</summary>
         private float StatFor(Player p, Stat stat, float baseValue) => _teamStats.Resolve(stat, baseValue, p.Stats);
+
+        /// <summary>Jumps off the ground this carrier may make (doc 10 §4.1 Bunny Hop).</summary>
+        private int AirJumps(Player p) => Math.Max(0, (int)MathF.Round(StatFor(p, Stat.AirJumps, 0f)));
+
+        /// <summary>The speed of a vehicle this carrier pedals on land, as a share (doc 10 §4.1 Bike Courier).</summary>
+        private float BikeMult(Player p) => StatFor(p, Stat.BikeSpeed, 1f);
+
+        /// <summary>
+        /// The grids the perks make bigger, a row at a time below the def's (doc 10 §4.1 Big Pockets, Bike Courier; §4.2
+        /// Bulk Depot): every carrier's inventory, every bike's cargo, every built chest and depot. Called when a perk is
+        /// taken or the perks are cleared, and when such a grid is made. A grid with something in the rows it would
+        /// lose keeps them until they are empty and this is called again (design choice 158).
+        /// </summary>
+        private void ApplyContainerRows()
+        {
+            int cargo = 0;
+            foreach (var p in _players)
+            {
+                ResizeContainer(p.Inventory, Math.Max(0, (int)MathF.Round(StatFor(p, Stat.InventoryRows, 0f))));
+                cargo = Math.Max(cargo, (int)MathF.Round(StatFor(p, Stat.BikeCargoRows, 0f)));
+            }
+            foreach (var v in _vehicles)
+                if (!v.Def.Fuelled && !v.Def.OnWater) ResizeContainer(v.Cargo, cargo);
+            float storage = TeamStat(Stat.StorageRows, 1f);
+            foreach (var c in Constructs.All)
+                if (c.ContainerId != 0 && c.Def.Behaviour == BuildingBehaviour.Container && GetContainer(c.ContainerId) is { } grid)
+                    ResizeContainer(grid, Math.Max(0, (int)MathF.Round(grid.Def.Rows * (storage - 1f))));
+        }
+
+        /// <summary>A grid to so many rows over its def's; who has it open is sent it whole.</summary>
+        private void ResizeContainer(GridContainer grid, int extraRows)
+        {
+            if (grid.ExtraRows == extraRows || !grid.Resize(extraRows)) return;
+            if (!_containers.TryGetValue(grid.Id, out var info)) return;
+            foreach (var viewer in info.Viewers) Events.Add(new ContainerStateEvent { Audience = viewer, State = grid.Snapshot() });
+        }
 
         /// <summary>A stat of the team as a whole.</summary>
         private float TeamStat(Stat stat, float baseValue) => _teamStats.Resolve(stat, baseValue);
@@ -152,12 +189,14 @@ namespace PerformativeMail.Sim
                 _teamPerks.Add(perk);
                 _teamStats.Apply(perk);
                 ApplyTeamStats();
+                ApplyContainerRows();
                 foreach (var other in _players) RecomputeWeight(other);
             }
             else
             {
                 p.Perks.Add(perk);
                 p.Stats.Apply(perk);
+                ApplyContainerRows();
                 RecomputeWeight(p);
             }
             Events.Add(new PerkPickedEvent { Player = p.Id, Perk = perk.Index, Card = card, Auto = auto });
@@ -177,6 +216,7 @@ namespace PerformativeMail.Sim
                 p.BoostUntilTick = 0;
                 RecomputeWeight(p);
             }
+            ApplyContainerRows();
             CloseDraft();
             foreach (var p in _players) p.RerollsUsed = 0;
             _perkRng = new RngStream(Settings.Seed, "perks");

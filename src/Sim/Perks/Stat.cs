@@ -30,6 +30,14 @@ namespace PerformativeMail.Sim.Perks
         MeleeDamage,
         /// <summary>Hammer knockback, metres.</summary>
         MeleeKnockback,
+        /// <summary>Jumps a carrier may make off the ground; base 0 (doc 10 §4.1 Bunny Hop: 1).</summary>
+        AirJumps,
+        /// <summary>The speed of a vehicle pedalled on land (the bike), as a share of its def's; base 1.</summary>
+        BikeSpeed,
+        /// <summary>Rows added to the carrier's inventory grid (2×8 → 3×8); base 0 (doc 10 §4.1 Big Pockets).</summary>
+        InventoryRows,
+        /// <summary>Rows added to the cargo grid of the bikes, while any carrier holds it; base 0 (Bike Courier).</summary>
+        BikeCargoRows,
 
         // --- of the team: only a team perk may change these ---
         /// <summary>The shift's quota, ¢.</summary>
@@ -56,6 +64,8 @@ namespace PerformativeMail.Sim.Perks
         SpawnValue,
         /// <summary>Shifts earlier than the map says that a district opens; base 0.</summary>
         DistrictsEarly,
+        /// <summary>The rows of a built chest's and depot's grid, as a share of its def's; base 1 (doc 10 §4.2 Bulk Depot).</summary>
+        StorageRows,
     }
 
     /// <summary>

@@ -145,13 +145,13 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(new[]
             {
-                "long_legs", "quick_hands", "strong_back", "second_wind", "local_knowledge", "postal_sprint",
-                "express_lane", "greased_inserters", "presort",
+                "long_legs", "big_pockets", "quick_hands", "strong_back", "bunny_hop", "bike_courier", "second_wind", "local_knowledge", "postal_sprint",
+                "express_lane", "greased_inserters", "bulk_depot", "presort",
                 "union_rep", "stamp_collector", "fragile_handling", "grace_period", "priority_post", "second_district",
                 "early_warning", "union_muscle", "reinforced", "hot_barrels", "insured",
             }, Db.Perks.Select(p => p.Id));
             for (int i = 0; i < Db.Perks.Count; i++) Assert.Equal(i, Db.Perks[i].Index);
-            Assert.Equal(6, Db.Perks.Count(p => !p.Team));
+            Assert.Equal(9, Db.Perks.Count(p => !p.Team));
             Assert.All(Db.Perks, p => Assert.True(p.Modifiers.Count + p.Rules.Count > 0, p.Id));
             // Doc 12 M4: the rule-flag perks are data over the closed RuleFlag set.
             Assert.Equal(new[] { RuleFlag.InsuredRebuild }, Db.Perk("insured").Rules);
@@ -667,6 +667,61 @@ namespace PerformativeMail.Sim.Tests
             item.DueTick = 1000;
             Assert.Equal(300, DeliveryRules.Evaluate(item, letter, dest, 1, 0, Db, null, 1000).Amount);
             Assert.Equal(100, DeliveryRules.Evaluate(item, letter, dest, 1, 0, Db, null, 1001).Amount);
+        }
+
+        [Fact]
+        public void BigPockets_AddsARowToTheInventory_TwiceAtMost_AndTheCarrierIsSentItWhole()
+        {
+            var world = NewWorld(raids: false);
+            var p = world.AddPlayer("carrier")!;
+            StartRun(world, p);
+            Assert.Equal(2, p.Inventory.Rows);
+            world.Events.Clear();
+            Assert.Equal(OpResult.Ok, world.GrantPerk(p, Db.Perk("big_pockets")));
+            Assert.Equal(3, p.Inventory.Rows);
+            var sent = world.Events.OfType<ContainerStateEvent>().Single(e => e.State.ContainerId == p.Inventory.Id);
+            Assert.Equal((p.Id, (byte)1), (sent.Audience, sent.State.ExtraRows));
+            Assert.Equal(OpResult.Ok, world.GrantPerk(p, Db.Perk("big_pockets")));
+            Assert.Equal(OpResult.PerkMaxed, world.GrantPerk(p, Db.Perk("big_pockets")));
+            Assert.Equal(4, p.Inventory.Rows);
+            // Something in the last row: the mirror built from what was sent holds it, and the hash agrees.
+            Assert.True(p.Inventory.CanPlace(0, 3, 1, 1));
+            var state = p.Inventory.Snapshot();
+            var mirror = new GridContainer(state.ContainerId, Db.Containers[state.DefIndex], state.ExtraRows);
+            mirror.Load(state);
+            Assert.Equal(p.Inventory.ComputeHash(), mirror.ComputeHash());
+        }
+
+        [Fact]
+        public void APerkGrid_KeepsARowWithSomethingInIt_UntilItIsEmpty()
+        {
+            var c = new GridContainer(5, Db.Container("player_inventory"));
+            Assert.True(c.Resize(1));
+            c.Add(new GridEntry { EntryId = 9, X = 0, Y = 2, W = 1, H = 1, Stack = ItemStack.OfItem(Db.Item("log"), 1) });
+            Assert.False(c.Resize(0));
+            Assert.Equal(3, c.Rows);
+            c.Remove(9);
+            Assert.True(c.Resize(0));
+            Assert.Equal(2, c.Rows);
+        }
+
+        [Fact]
+        public void BulkDepot_GivesTheBuiltChestsAndDepotsHalfAgainTheRows()
+        {
+            var world = NewWorld(raids: false);
+            var p = world.AddPlayer("carrier")!;
+            StartRun(world, p);
+            var before = world.AddWorldContainer("chest", 0, 0);
+            Assert.Equal(OpResult.Ok, world.GrantPerk(p, Db.Perk("bulk_depot")));
+            // A map's chest is not a built one: as it was.
+            Assert.Equal(4, before.Rows);
+            Assert.True(world.Give(p.Inventory, ItemStack.OfItem(Db.Item("log"), 20)));
+            Assert.True(world.Give(p.Inventory, ItemStack.OfItem(Db.Item("plank"), 20)));
+            SimDriver.Teleport(p, PerformativeMail.Sim.Run.BuildRules.TileCentre(9), PerformativeMail.Sim.Run.BuildRules.TileCentre(11));
+            SimDriver.StepTicks(world, Player.HistoryLength);
+            Assert.Equal(OpResult.Ok, Request(world, p, SimRequest.PlaceConstruct(0, Db.Building("chest").Index, 10, 12, 0)));
+            var chest = world.GetContainer(world.Constructs.At(10, 12)!.ContainerId)!;
+            Assert.Equal((8, 6), (chest.Cols, chest.Rows));
         }
     }
 }
