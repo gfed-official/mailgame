@@ -3323,7 +3323,11 @@ open items, fixed in its order:
       else a size smaller (11, then 10 px); a name still on another chooses again among all the others. The "Opens in
       shift N" labels keep their N19 placement off the street names. `StreetLabelTests` (no two names meet on the Large
       Island's seeds 1–8 or the Small Island's 1–4 at the 1280×720 map size; a clear name stays in the middle); the
-      boat-route smoke checks the Large Island's names on its map with the real font.
+      boat-route smoke checks the Large Island's names on its map with the real font, in the Lobby and in Prep.
+      Rendered at 1280×720 two more things showed and were fixed: the start district's names moved, so the Lobby's
+      "Opens next shift" found no clear place among its offsets and fell back onto "Slate Street" (it has more offsets
+      now, further out, and the boat-route smoke checks it off the names); and the amber outline of the incoming
+      district was drawn over the names ("Sl te Str t") — the names are drawn after it now.
 - [x] **N23: the GENERATING card stood over the open map for 15 s.** Not a stale draw: the real-time client
       (`ClientRuntime.Update`) never said it had the world drawn — only the fixed ticks of the tests and bots did — so
       every real game's Generating ran out its whole 10 s deadline (longer in wall time at the box's frame rate), with

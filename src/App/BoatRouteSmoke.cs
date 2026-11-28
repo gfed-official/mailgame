@@ -72,7 +72,7 @@ namespace PerformativeMail.App
         {
             var hud = _screen.Hud;
             hud.Refresh();
-            Check(_screen.Map.Visible, "the map the host opened in the Lobby is not open in Prep");
+            Check(_screen.Map.Visible, "the map the host opened in the Lobby is not open");
             // N23: no GENERATING card left on it.
             Check(!hud.Generating.Visible && hud.Generating.Text.Length == 0, $"in Prep the GENERATING card is still up over the map: \"{hud.Generating.Text}\"");
             // N21: no street name on another.
@@ -81,6 +81,10 @@ namespace PerformativeMail.App
             for (int i = 0; i < names.Count; i++)
                 for (int j = i + 1; j < names.Count; j++)
                     Check(!names[i].Intersects(names[j]), $"on the Large Island's map the street names at {names[i]} and {names[j]} lie on each other");
+            // N19's "Opens in shift N" stays off them.
+            foreach (var opens in _screen.Map.OpensLabelRects)
+                foreach (var name in names)
+                    Check(!opens.Intersects(name), $"on the Large Island's map an \"Opens in shift\" label at {opens} lies on a street name at {name}");
             // N22: no plate on the open map.
             var area = _screen.Map.PanelArea();
             foreach (var row in hud.TrackerRects)
@@ -127,7 +131,9 @@ namespace PerformativeMail.App
                     // The Lobby: the host starts the run (at shift 4: the playtest's --shift), with the map open (the ec62063
                     // playtest's N23: the GENERATING card stood on the open map after Prep had begun).
                     if (world.Global.Phase == RunPhase.Lobby && !_screen.Map.Visible) _screen.Map.Toggle();
-                    if (world.Global.Phase == RunPhase.Lobby && client.PendingRequestCount == 0 && _stepFrames % 30 == 5) client.PressGo();
+                    // The map in the Lobby: its plates (N22) and its names (N21) as the playtest saw them.
+                    if (_stepFrames == 20 && world.Global.Phase == RunPhase.Lobby) CheckMap();
+                    if (world.Global.Phase == RunPhase.Lobby && client.PendingRequestCount == 0 && _stepFrames % 30 == 5 && _stepFrames > 25) client.PressGo();
                     if (sim.Run.Phase == RunPhase.Generating && _generatingTick == 0) _generatingTick = sim.Tick;
                     if (world.Global.Phase != RunPhase.Prep || client.PendingRequestCount > 0) break;
                     if (++_prepFrames < 6) break;

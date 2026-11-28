@@ -482,6 +482,10 @@ namespace PerformativeMail.Client.UI
             Vector2.Zero, new Vector2(0f, -16f), new Vector2(0f, 16f), new Vector2(0f, -32f), new Vector2(0f, 32f),
             new Vector2(-60f, 0f), new Vector2(60f, 0f), new Vector2(0f, -48f), new Vector2(0f, 48f),
             new Vector2(-60f, -16f), new Vector2(60f, -16f), new Vector2(-60f, 16f), new Vector2(60f, 16f),
+            // Further out where a district's middle is crowded with street names (the Large Island's start district).
+            new Vector2(0f, -64f), new Vector2(0f, 64f), new Vector2(-60f, 32f), new Vector2(60f, 32f), new Vector2(-60f, -32f),
+            new Vector2(60f, -32f), new Vector2(-100f, 0f), new Vector2(100f, 0f), new Vector2(-60f, 48f), new Vector2(60f, 48f),
+            new Vector2(-100f, 16f), new Vector2(100f, 16f), new Vector2(-100f, -16f), new Vector2(100f, -16f), new Vector2(0f, 80f),
         };
 
         /// <summary>How many edges the outline of the district opening next shift has on the map this frame (0 for none).</summary>
@@ -556,25 +560,6 @@ namespace PerformativeMail.Client.UI
             DrawTextureRect(_texture, MapRect, false);
             DrawLayers(world, scale, At);
 
-            // Street names, once per street: in the middle of its longest stretch, else along it off the names before it.
-            _streetLabels.Clear();
-            _openLabels.Clear();
-            if (_namesMap != map || _namesOrigin != origin || _namesScale != scale)
-            {
-                _names = StreetLabels.Place(map, origin.X, origin.Y, scale, (name, size) => font.GetStringSize(name, HorizontalAlignment.Left, -1, size).X + 6f);
-                _namesMap = map;
-                _namesOrigin = origin;
-                _namesScale = scale;
-            }
-            foreach (var label in _names)
-            {
-                var mid = new Vector2(label.X, label.Y);
-                _streetLabels.Add(new Rect2(label.Box.X0, label.Box.Y0, label.Box.X1 - label.Box.X0, label.Box.Y1 - label.Box.Y0));
-                DrawSetTransform(mid, label.AlongX ? 0f : -Mathf.Pi * 0.5f, Vector2.One);
-                DrawStringOutline(font, new Vector2(-100f, 4f), label.Name, HorizontalAlignment.Center, 200f, label.Size, 3, new Color(0f, 0f, 0f, 0.85f));
-                DrawString(font, new Vector2(-100f, 4f), label.Name, HorizontalAlignment.Center, 200f, label.Size, Ink);
-                DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
-            }
             // House numbers where there is room for them; a ring round the houses of the mail carried.
             bool numbers = scale * SimConstants.TileSize >= 8f;
             foreach (var d in map.Destinations)
@@ -618,6 +603,25 @@ namespace PerformativeMail.Client.UI
             var outline = IncomingOutline(map, shift);
             foreach (var (a, b) in outline) DrawLine(At(a.X, a.Y), At(b.X, b.Y), Palette.Amber, 2.5f);
             IncomingOutlineSegments = outline.Count;
+            // Street names over the outline (the ec62063 playtest read "Sl te Str t" through it), once per street: in the middle of its longest stretch, else along it off the names before it.
+            _streetLabels.Clear();
+            if (_namesMap != map || _namesOrigin != origin || _namesScale != scale)
+            {
+                _names = StreetLabels.Place(map, origin.X, origin.Y, scale, (name, size) => font.GetStringSize(name, HorizontalAlignment.Left, -1, size).X + 6f);
+                _namesMap = map;
+                _namesOrigin = origin;
+                _namesScale = scale;
+            }
+            foreach (var label in _names)
+            {
+                var mid = new Vector2(label.X, label.Y);
+                _streetLabels.Add(new Rect2(label.Box.X0, label.Box.Y0, label.Box.X1 - label.Box.X0, label.Box.Y1 - label.Box.Y0));
+                DrawSetTransform(mid, label.AlongX ? 0f : -Mathf.Pi * 0.5f, Vector2.One);
+                DrawStringOutline(font, new Vector2(-100f, 4f), label.Name, HorizontalAlignment.Center, 200f, label.Size, 3, new Color(0f, 0f, 0f, 0.85f));
+                DrawString(font, new Vector2(-100f, 4f), label.Name, HorizontalAlignment.Center, 200f, label.Size, Ink);
+                DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
+            }
+            _openLabels.Clear();
             // The districts not open yet say when they open.
             foreach (var district in map.Districts)
             {
