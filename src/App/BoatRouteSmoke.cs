@@ -96,6 +96,26 @@ namespace PerformativeMail.App
                 Check(!row.Intersects(area), $"a plate at {row} stands on the open map at {area}");
         }
 
+        private int _paydayFrames;
+
+        /// <summary>
+        /// The 5b33eb0 playtest's N25: at Payday on the Large Island the card's "Mail next shift" line (five kinds, four
+        /// districts) stretched it off both edges at 1280×720. The forecast is two lines now, and the card stays on the screen.
+        /// </summary>
+        private void CheckPaydayCard(ClientWorld world)
+        {
+            var hud = _screen.Hud;
+            string text = hud.OverlayText;
+            Check(text.Contains("\nMail next shift: ~", StringComparison.Ordinal) && text.Contains("\nBy district: District 1 ~", StringComparison.Ordinal),
+                $"at Payday of shift {world.Global.Shift} the card has no two-line mail forecast: \"{text}\"");
+            var view = _screen.Hud.GetViewportRect().Size;
+            Check(view.X <= 1280f, $"the view is {view.X:0} px wide, not 1280");
+            if (hud.OverlayDodgeBox is not { } card) { Check(false, "at Payday there is no card"); return; }
+            bool inside = card.X0 >= Client.UI.Hud.SafeMargin - 1f && card.X1 <= view.X - Client.UI.Hud.SafeMargin + 1f;
+            Check(inside, $"at Payday the card runs from x {card.X0:0} to {card.X1:0}, off the {view.X:0} px screen's margins: \"{text}\"");
+            if (inside) GD.Print($"[smoke] boat route: the Payday card of shift {world.Global.Shift} on the Large Island lies inside the screen (x {card.X0:0} to {card.X1:0} of {view.X:0}), its forecast on two lines");
+        }
+
         private bool _forecastRead;
         private int _forecastFrames;
 
@@ -330,9 +350,17 @@ namespace PerformativeMail.App
                     Check(letters == 3, $"{letters} letters came out into the far town's chest, not 3");
                     Check(sim.InBay(_home!) == _boat, "the boat is not back in the home bay");
                     GD.Print($"[smoke] boat route: the captain sailed the crate to {_farDock!.Label} and lay in the far port's bay, {letters} letters for {_house!.Label} out into the chest by its inserter, the boat back home (the client's boat within {_worstMirror:0.00} m)");
-                    Finish();
+                    // On to Payday (N25 below): the clock stands, so the host's G ends the shift, and the quota is off.
+                    player.Playtest |= PlaytestFlags.NoTimer | PlaytestFlags.NoQuota;
+                    Next();
                     break;
                 }
+                case 9:
+                    if (world.Global.Phase == RunPhase.Delivery && world.ClockStopped && client.PendingRequestCount == 0 && _stepFrames % 30 == 5) client.PressGo();
+                    if (world.Global.Phase != RunPhase.Payday || _paydayFrames++ < 10) break;
+                    CheckPaydayCard(world);
+                    Finish();
+                    break;
             }
         }
 

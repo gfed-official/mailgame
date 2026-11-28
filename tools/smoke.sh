@@ -148,4 +148,5 @@ echo "large island OK"
 # takes the town's letters out; the client follows the boat, the console and the feed say so.
 run_smoke "$work/log-boat-route" "--profile=$work/profile-boat-route.json" --world=large --shift=4 --boat-route
 grep -q "^\[smoke\] boat route: the captain sailed the crate to" "$work/log-boat-route" || { echo "smoke: the boat route to the far town was not sailed" >&2; exit 1; }
+grep -q "^\[smoke\] boat route: the Payday card of shift 4 on the Large Island lies inside the screen" "$work/log-boat-route" || { echo "smoke: the Large Island's Payday card was not checked" >&2; exit 1; }
 echo "boat route OK"

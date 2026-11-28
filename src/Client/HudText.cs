@@ -685,6 +685,17 @@ namespace PerformativeMail.Client
         /// </summary>
         public static string MailForecastCounts(ClientWorld world, MailForecastEvent e)
         {
+            var (kinds, districts) = MailForecastParts(world, e);
+            return districts.Length == 0 ? kinds : kinds + Dot + districts;
+        }
+
+        /// <summary>
+        /// <see cref="MailForecastCounts"/> in its two halves: "~52 Letters · ~31 Postcards", and "District 1 ~41 · District 2
+        /// ~53" (empty for one district). The Payday card writes them on two lines: a Large Island's one line ran off both
+        /// edges of the screen at 1280×720 (the 5b33eb0 playtest's N25).
+        /// </summary>
+        public static (string Kinds, string Districts) MailForecastParts(ClientWorld world, MailForecastEvent e)
+        {
             var kinds = new List<(int Kind, int Count)>();
             var districts = new SortedDictionary<int, int>();
             foreach (var (kind, district, count) in e.Counts)
@@ -693,19 +704,15 @@ namespace PerformativeMail.Client
                 if (at < 0) kinds.Add((kind, count)); else kinds[at] = (kind, kinds[at].Count + count);
                 districts[district] = (districts.TryGetValue(district, out int n) ? n : 0) + count;
             }
-            if (kinds.Count == 0) return "";
+            if (kinds.Count == 0) return ("", "");
             kinds.Sort((a, b) => b.Count != a.Count ? b.Count.CompareTo(a.Count) : a.Kind.CompareTo(b.Kind));
             var parts = new List<string>();
             foreach (var (kind, count) in kinds)
                 parts.Add($"~{count.ToString(CultureInfo.InvariantCulture)} {KindName(world, kind, count)}");
-            string line = string.Join(" · ", parts);
-            if (districts.Count > 1)
-            {
-                var ds = new List<string>();
-                foreach (var (district, count) in districts) ds.Add($"District {district.ToString(CultureInfo.InvariantCulture)} ~{count.ToString(CultureInfo.InvariantCulture)}");
-                line += Dot + string.Join(" · ", ds);
-            }
-            return line;
+            if (districts.Count <= 1) return (string.Join(" · ", parts), "");
+            var ds = new List<string>();
+            foreach (var (district, count) in districts) ds.Add($"District {district.ToString(CultureInfo.InvariantCulture)} ~{count.ToString(CultureInfo.InvariantCulture)}");
+            return (string.Join(" · ", parts), string.Join(" · ", ds));
         }
 
         private static string KindName(ClientWorld world, int kind, int count)
@@ -785,8 +792,11 @@ namespace PerformativeMail.Client
                 lines.Add(char.ToUpperInvariant(line[0]) + line.Substring(1));
             }
             // Doc 09 §2.9's mail forecast for the next shift (design choice 177).
-            if (world.MailForecast is { } forecast && forecast.Shift == next && MailForecastCounts(world, forecast) is { Length: > 0 } counts)
-                lines.Add($"Mail next shift: {counts}");
+            if (world.MailForecast is { } forecast && forecast.Shift == next && MailForecastParts(world, forecast) is { Kinds.Length: > 0 } counts)
+            {
+                lines.Add($"Mail next shift: {counts.Kinds}");
+                if (counts.Districts.Length > 0) lines.Add($"By district: {counts.Districts}");
+            }
             return lines;
         }
 

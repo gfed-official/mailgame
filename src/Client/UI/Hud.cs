@@ -917,6 +917,7 @@ namespace PerformativeMail.Client.UI
                     _earnedLabel = label;
                 }
                 _overlayLines.AddChild(label);
+                if (!earned && i != 0) FitCardLine(label, 18);
                 // The Results' rank line has the XP towards the next rank as a bar under it, filling.
                 if (source is RunResults && Profile != null && i == lines.Count - 1 && lines[i].Contains("Postal Rank", StringComparison.Ordinal))
                 {
@@ -928,6 +929,19 @@ namespace PerformativeMail.Client.UI
             }
             _overlayText = string.Join("\n", lines);
             StepOverlay(0f);
+        }
+
+        /// <summary>
+        /// A line of the Payday / Results card at 18 px, smaller down to 12 until the card stays inside the screen's safe
+        /// margins (the 5b33eb0 playtest's N25: a Large Island's forecast line stretched the card off both edges at 1280×720).
+        /// </summary>
+        private void FitCardLine(Label label, int size)
+        {
+            if (!IsInsideTree()) return;
+            var font = label.GetThemeFont("font");
+            float room = GetViewportRect().Size.X - 2f * SafeMargin - _overlay.GetThemeStylebox("panel").GetMinimumSize().X;
+            while (size > 12 && font.GetStringSize(label.Text, HorizontalAlignment.Left, -1f, size).X > room) size--;
+            label.AddThemeFontSizeOverride("font_size", size);
         }
 
         /// <summary>The overlay's source while it is the Lobby's "How to play" card.</summary>

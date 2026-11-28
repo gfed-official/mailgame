@@ -3372,6 +3372,18 @@ Large Island's map in the Lobby and in Prep looked at. Next: M5.
       counter through the client's cards in shift 4's Prep and checks the feed line: each name once, each count the
       server's, not all alike, the words on the screen. Both fail on 5b33eb0. Design choice 179.
 
+### 9d. Playtest bug of the 5b33eb0 report (`mailgame-harness/results/20261128-001227-5b33eb0/report.md`, 2026-11-28)
+
+- [x] **N25: the Large Island's Payday card ran off both screen edges at 1280×720.** Its last line, "Mail next shift:
+      ~78 Letters · … · ~3 Large Packages  ·  District 1 ~41 · … · District 4 ~27", stretched the card (it sizes itself
+      to its widest line) to x −152 … 1432. The card writes the forecast on two lines now, "Mail next shift: <kinds>" and
+      "By district: <districts>" (`HudText.MailForecastParts`; the Prep map keeps the joined line, which it shrinks),
+      and any line of the Payday / Results card is drawn at 18 px, smaller down to 12 until the card stays inside the
+      screen's 28 px margins (`Hud.FitCardLine`). `PaydayPreviewTests`: on the Large Island at Payday of shift 3 the
+      forecast is the two lines, kinds then all four districts, each line short. The boat-route smoke (1280×720) goes on
+      past the boat to shift 4's Payday (the host's G, clock stood and quota off) and checks the two lines and the card
+      inside the margins: x 171 … 1110 now; with the old one line it fails at −152 … 1432. Design choice 180.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -5101,6 +5113,11 @@ See "Commands" at the bottom (filled in as the tooling lands).
     piece's id would be a distinction nobody can see. (b) "Per street" is the draw's own expectation: each address weighs
     the same (an Apartment Complex its units, a PO Box Bank one), the street streak of a batch left out — it moves
     pieces between streets already in the batch, not the mean much.
+
+180. **N25's Payday forecast, wrap or shrink.** Both, in that order: the kinds and the districts are two lines (a break at
+    the meaning's seam reads better than an autowrap mid-list, and an 18 px card line stays as big as its neighbours);
+    a line still too wide shrinks down to 12 px rather than wrap, as the map's line does. The map's line in Prep stays
+    one line: its panel has one row under the title.
 
 ## Commands
 

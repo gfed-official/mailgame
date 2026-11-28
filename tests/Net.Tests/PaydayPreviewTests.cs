@@ -46,14 +46,37 @@ namespace PerformativeMail.Net.Tests
             string next = Assert.Single(lines, l => l.StartsWith("Next: ", System.StringComparison.Ordinal));
             Assert.StartsWith($"Next: District 2 opens in shift 2  ·  {houses} houses on ", next);
             // Postcards and Large Packages first come in shift 2 (content's unlockShift).
-            Assert.Equal("New mail: Postcards, Large Packages", lines[^2]);
-            Assert.Same(next, lines[^3]);
-            // The mail forecast for the next shift (design choice 177): by kind, most first, then by district.
+            Assert.Equal("New mail: Postcards, Large Packages", lines[^3]);
+            Assert.Same(next, lines[^4]);
+            // The mail forecast for the next shift (design choice 177): by kind, most first, then by district on its own line (N25).
             Assert.Equal(2, w.MailForecast!.Shift);
-            Assert.StartsWith("Mail next shift: ~", lines[^1]);
-            Assert.Contains(" Postcards", lines[^1]);
-            Assert.Contains("  ·  District 1 ~", lines[^1]);
+            Assert.StartsWith("Mail next shift: ~", lines[^2]);
+            Assert.Contains(" Postcards", lines[^2]);
+            Assert.DoesNotContain("District", lines[^2]);
+            Assert.StartsWith("By district: District 1 ~", lines[^1]);
             Assert.Contains(" · District 2 ~", lines[^1]);
+        }
+
+        /// <summary>
+        /// The 5b33eb0 playtest's N25: at Payday of shift 3 on the Large Island the one forecast line (five kinds, four
+        /// districts) ran off both edges of the screen at 1280×720. The kinds and the districts are two lines, each short.
+        /// </summary>
+        [Fact]
+        public void OnTheLargeIsland_TheForecastIsTwoLines_KindsThenDistricts_EachShort()
+        {
+            var (ada, _) = Start(LargeIslandGenerator.LargeIsland, 1, 3);
+            var w = ada.World!;
+            var lines = HudText.SummaryLines(w, w.LastSummary!);
+            Assert.Equal(4, w.MailForecast!.Shift);
+            string kinds = Assert.Single(lines, l => l.StartsWith("Mail next shift: ~", System.StringComparison.Ordinal));
+            string districts = Assert.Single(lines, l => l.StartsWith("By district: ", System.StringComparison.Ordinal));
+            Assert.Equal(lines.IndexOf(kinds) + 1, lines.IndexOf(districts));
+            Assert.DoesNotContain("District", kinds);
+            for (int d = 1; d <= 4; d++) Assert.Contains($"District {d} ~", districts);
+            // The whole forecast is still the map's line (the Prep map shrinks its own to fit).
+            Assert.Equal(HudText.MailForecastCounts(w, w.MailForecast), kinds.Substring("Mail next shift: ".Length) + HudText.Dot + districts.Substring("By district: ".Length));
+            // At 18 px a character is about 9 px: 110 of them stay well inside 1280.
+            Assert.All(lines, l => Assert.True(l.Length <= 110, $"\"{l}\" is {l.Length} characters"));
         }
 
         /// <summary>Doc 01 §2.1 "Preview: … a mail forecast (counts by size class and district)": the map's line in Prep.</summary>
