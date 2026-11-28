@@ -3336,6 +3336,27 @@ open items, fixed in its order:
       boat-route smoke opens the map in the Lobby, presses G, and checks Generating ended by the Ready (well before its
       deadline) and that no GENERATING card is up over the map in Prep.
 
+### 9b. Batch 9's work looked at rendered at 1280×720 (2026-11-27)
+
+No playable leftover is left in PROGRESS or the docs that is not M5 or one of the set-aside items (the Package Cannon
+overlaps the mail cannon, choice 51; the Mail Bat is the hammer, choice 50; liveries, mailbox skins and emotes need art).
+The few unchecked sub-lines of the M1–M2 lists are settled or M5: the Raid phase stays inside Delivery (choice 50),
+terrain flattening has no terrain to flatten on the flat towns, and interest management / the bandwidth figures are M5's
+hardening. So batch 9's new work was looked at rendered instead (`--smoke --shots` SMOKE OK; the boat-route smoke under
+xvfb on the Large Island): the Payday card's "Mail next shift: …" line, the shop's Extended Forecast and PO Repair tiles
+and the hotbar's tags were clean. One break:
+
+- [x] **The free mail forecast ran off the map's panel** in a Large Island Prep: "Mail forecast, shift 4: ~78 Letters ·
+      … · District 3 ~44 ·" with District 4 cut at the panel's end. The line under the map's title is drawn at 15 px,
+      smaller down to 11 until it fits (`MapPanel.RouteFontSize`). The boat-route smoke checks that in Prep the map's
+      line is the forecast and is drawn whole (it fails at the old fixed 15 px).
+
+With that, the docs' playable leftovers are exhausted pending M5.
+
+Batch 10 (the ec62063 playtest's N18/N20, N22, N21, N23; the rendered look at batch 9): Sim.Tests 731 and Net.Tests
+261 green; `tools/smoke.sh` SMOKE OK ×4, BOT OK on both islands; rendered at 1280×720 `--smoke --shots` SMOKE OK and the
+Large Island's map in the Lobby and in Prep looked at. Next: M5.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).

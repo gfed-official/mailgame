@@ -85,6 +85,11 @@ namespace PerformativeMail.App
             foreach (var opens in _screen.Map.OpensLabelRects)
                 foreach (var name in names)
                     Check(!opens.Intersects(name), $"on the Large Island's map an \"Opens in shift\" label at {opens} lies on a street name at {name}");
+            // Batch 9's free mail forecast on the map's line in Prep: whole at 1280×720, every district in it.
+            bool prep = _session.Client.World?.Global.Phase == RunPhase.Prep;
+            Check(!prep || _screen.Map.RouteText.StartsWith("Mail forecast", StringComparison.Ordinal), $"in Prep the map's line reads \"{_screen.Map.RouteText}\", not the mail forecast");
+            if (prep)
+                Check(_screen.Map.RouteTextFits, $"the map's mail forecast runs off its panel: \"{_screen.Map.RouteText}\"");
             // N22: no plate on the open map.
             var area = _screen.Map.PanelArea();
             foreach (var row in hud.TrackerRects)

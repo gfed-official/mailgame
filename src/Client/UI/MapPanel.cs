@@ -69,6 +69,19 @@ namespace PerformativeMail.Client.UI
         public Rect2[] ChipRects { get; } = new Rect2[3];
         /// <summary>The line under the map, as last drawn; empty while it is closed.</summary>
         public string RouteText { get; private set; } = "";
+        /// <summary>Whether the line under the title was drawn whole this frame (the smoke checks the mail forecast's).</summary>
+        public bool RouteTextFits { get; private set; } = true;
+
+        /// <summary>
+        /// The line under the title at 15 px, smaller down to 11 until it fits the panel: the free mail forecast of a
+        /// Large Island's Prep ran off its end at 1280×720 ("… District 3 ~44 ·", the fourth district cut).
+        /// </summary>
+        public static int RouteFontSize(Font font, string text, float width)
+        {
+            int size = 15;
+            while (size > 11 && font.GetStringSize(text, HorizontalAlignment.Left, -1f, size).X > width) size--;
+            return size;
+        }
         public string TitleText { get; private set; } = "";
         /// <summary>The raiders' ways in marked at the last draw, and whether the raid comes by each.</summary>
         public IReadOnlyList<(SpawnEdge Edge, bool Raid)> EdgesDrawn => _edges;
@@ -546,7 +559,9 @@ namespace PerformativeMail.Client.UI
             DrawRect(area, Back);
             var font = GetThemeDefaultFont();
             DrawString(font, area.Position + new Vector2(14f, 24f), TitleText, HorizontalAlignment.Left, area.Size.X - 28f, 17, Ink);
-            DrawString(font, area.Position + new Vector2(14f, 46f), RouteText, HorizontalAlignment.Left, area.Size.X - 28f, 15,
+            int routeSize = RouteFontSize(font, RouteText, area.Size.X - 28f);
+            RouteTextFits = font.GetStringSize(RouteText, HorizontalAlignment.Left, -1f, routeSize).X <= area.Size.X - 28f;
+            DrawString(font, area.Position + new Vector2(14f, 46f), RouteText, HorizontalAlignment.Left, area.Size.X - 28f, routeSize,
                 Guide.Target != null ? Route : new Color(Ink, 0.75f));
             DrawChips(font, area.Position + new Vector2(14f, 56f));
             var inner = new Rect2(area.Position + new Vector2(14f, 84f), area.Size - new Vector2(28f, 94f));
