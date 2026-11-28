@@ -42,7 +42,13 @@ namespace PerformativeMail.Sim
         public Vehicle? Truck;
         /// <summary>The houses of this trip, in order, and the one being driven to or unloaded at.</summary>
         public readonly List<DestinationDef> Houses = new List<DestinationDef>();
+        /// <summary>A captain's: the team's other Small Ports the trip calls at after the docks (design choice 175).</summary>
+        public readonly List<Construct> Ports = new List<Construct>();
+        /// <summary>The leg of the trip: a house of <see cref="Houses"/>, then a port of <see cref="Ports"/>.</summary>
         public int HouseAt;
+        public int Legs => Houses.Count + Ports.Count;
+        /// <summary>The port of the leg being sailed or lain at; null at a house's.</summary>
+        public Construct? PortLeg => HouseAt >= Houses.Count && HouseAt < Legs ? Ports[HouseAt - Houses.Count] : null;
         /// <summary>The way being driven along the streets, and the point next driven at.</summary>
         public readonly List<(float X, float Z)> Path = new List<(float X, float Z)>();
         public int PathAt;
@@ -162,7 +168,7 @@ namespace PerformativeMail.Sim
             }
             if (Tick < d.DepartTick) return;
             PlanTrip(d, truck);
-            if (d.Houses.Count == 0)
+            if (d.Legs == 0)
             {
                 // Nothing in it for the route yet: look again after the same wait.
                 d.LoadSeen = -1;
@@ -171,7 +177,7 @@ namespace PerformativeMail.Sim
             d.Truck = truck;
             truck.NpcDriving = true;
             d.HouseAt = 0;
-            if (!PathTo(d, d.Houses[0]))
+            if (!PathToLeg(d))
             {
                 truck.NpcDriving = false;
                 d.Truck = null;
@@ -188,6 +194,56 @@ namespace PerformativeMail.Sim
             // A captain goes where a boat can lie by the destination, and sail to (doc 04 §3.3).
             RoutePlan.Houses(Map, stops, truck.X, truck.Z,
                 dest => HasMailFor(truck, dest) && (!d.Depot.Def.IsPort || CanSailTo(truck, dest)), d.Houses);
+            d.Ports.Clear();
+            if (!d.Depot.Def.IsPort) return;
+            SeaRoute.Ports(Map, Constructs, d.Depot, stops, Content.Balance.GetFloat("dockZoneReach"), dest => HasMailFor(truck, dest), d.Ports);
+            d.Ports.RemoveAll(port => !CanSailInto(truck, port));
+        }
+
+        /// <summary>A boat can lie in another port's bay: the bay is free and the water joins them.</summary>
+        private bool CanSailInto(Vehicle boat, Construct port)
+        {
+            if (LyingAt(port) is { } there && there != boat) return false;
+            Bay(port, out float bx, out float bz, out _);
+            return WaterNav.Route(Map, Constructs, boat.X, boat.Z, bx, bz, boat.Def.Radius, _sailScratch) >= 0f;
+        }
+
+        /// <summary>
+        /// The boat lying in a port's bay that what stands behind its loading face may unload: parked there, or a captain's
+        /// lying there on its trip.
+        /// </summary>
+        public Vehicle? LyingAt(Construct port)
+        {
+            Bay(port, out float bx, out float bz, out _);
+            foreach (var v in _vehicles)
+            {
+                if (!v.Def.OnWater || !v.Def.LoadingFace || v.Ridden || !Near(v.X, v.Z, bx, bz, 0.25f)) continue;
+                if (!v.NpcDriving || DriverOf(v) is { State: DriverState.Unloading } d && d.PortLeg == port) return v;
+            }
+            return null;
+        }
+
+        private readonly List<DestinationDef> _portHouses = new List<DestinationDef>();
+
+        /// <summary>Whether the boat still holds mail for a house of the route that the port serves.</summary>
+        private bool HasMailForPort(DepotDriver d, Construct port)
+        {
+            var truck = d.Truck!;
+            float reach = Content.Balance.GetFloat("dockZoneReach");
+            RoutePlan.Houses(Map, d.Depot.Filters, truck.X, truck.Z,
+                h => SeaRoute.PortFor(Constructs, d.Depot, h) == port && !WaterNav.Berth(Map, Constructs, h, reach, out _, out _) && HasMailFor(truck, h), _portHouses);
+            return _portHouses.Count > 0;
+        }
+
+        private bool HasMailForLeg(DepotDriver d, int leg) =>
+            leg < d.Houses.Count ? HasMailFor(d.Truck!, d.Houses[leg]) : HasMailForPort(d, d.Ports[leg - d.Houses.Count]);
+
+        /// <summary>The way to the trip's leg: its house, or the other port's bay.</summary>
+        private bool PathToLeg(DepotDriver d)
+        {
+            if (d.PortLeg is not { } port) return PathTo(d, d.Houses[d.HouseAt]);
+            Bay(port, out float bx, out float bz, out _);
+            return PathTo(d, bx, bz);
         }
 
         private readonly List<(float X, float Z)> _sailScratch = new List<(float X, float Z)>();
@@ -264,7 +320,7 @@ namespace PerformativeMail.Sim
             // Doc 10 §6 Street Festival: the crowd lets a driver through at a crawl, as it does a carrier.
             if (!v.Def.OnWater && RoadClosure is var closure && PlayerMovement.Closed(closure.Rect, v.X, v.Z)) speed *= closure.Mult;
             float left = speed * SimConstants.TickDt;
-            float reach = d.State == DriverState.Out ? Content.Balance.GetFloat("npcStopReach") : 0.05f;
+            float reach = d.State == DriverState.Out && d.PortLeg == null ? Content.Balance.GetFloat("npcStopReach") : 0.05f;
             float goalX = d.Path[d.Path.Count - 1].X, goalZ = d.Path[d.Path.Count - 1].Z;
             while (left > 0f && d.PathAt < d.Path.Count)
             {
@@ -296,6 +352,14 @@ namespace PerformativeMail.Sim
             if (d.State == DriverState.Out)
             {
                 d.NextDeliverTick = Tick;
+                if (d.PortLeg is { } port)
+                {
+                    // Into the other port's bay, to lie there while what stands behind its loading face takes the mail out.
+                    Bay(port, out v.X, out v.Z, out v.Heading);
+                    MoveCargo(v);
+                    d.LoadSeen = MailCount(v.Cargo);
+                    d.DepartTick = Tick + SimConstants.SecondsToTicks(Content.Balance.GetDouble("npcDepartWaitSeconds"));
+                }
                 SetState(d, DriverState.Unloading);
                 return;
             }
@@ -318,13 +382,28 @@ namespace PerformativeMail.Sim
                 SetState(d, DriverState.Returning);
                 return;
             }
-            if (Tick < d.NextDeliverTick) return;
-            var house = d.Houses[d.HouseAt];
-            if (DeliverOne(d, house)) return;
-            // Done here: the next house it still has mail for.
-            while (++d.HouseAt < d.Houses.Count)
-                if (HasMailFor(d.Truck!, d.Houses[d.HouseAt])) break;
-            if (d.HouseAt < d.Houses.Count && PathTo(d, d.Houses[d.HouseAt]))
+            if (d.PortLeg != null)
+            {
+                // Doc 11 "waits at stops": lying in the bay while pieces go out, until none is left for the port's houses
+                // or none has gone for a few seconds.
+                int load = MailCount(d.Truck!.Cargo);
+                if (load != d.LoadSeen)
+                {
+                    d.LoadSeen = load;
+                    d.DepartTick = Tick + SimConstants.SecondsToTicks(Content.Balance.GetDouble("npcDepartWaitSeconds"));
+                    if (HasMailForPort(d, d.PortLeg)) return;
+                }
+                else if (Tick < d.DepartTick) return;
+            }
+            else
+            {
+                if (Tick < d.NextDeliverTick) return;
+                if (DeliverOne(d, d.Houses[d.HouseAt])) return;
+            }
+            // Done here: the next leg it still has mail for.
+            while (++d.HouseAt < d.Legs)
+                if (HasMailForLeg(d, d.HouseAt)) break;
+            if (d.HouseAt < d.Legs && PathToLeg(d))
                 SetState(d, DriverState.Out);
             else
             {
@@ -426,11 +505,11 @@ namespace PerformativeMail.Sim
         {
             var to = d.Resume;
             if (to == DriverState.Unloading) to = DriverState.Out;
-            if (to == DriverState.Out && d.HouseAt < d.Houses.Count)
+            if (to == DriverState.Out && d.HouseAt < d.Legs)
             {
-                while (d.HouseAt < d.Houses.Count && !HasMailFor(d.Truck!, d.Houses[d.HouseAt])) d.HouseAt++;
+                while (d.HouseAt < d.Legs && !HasMailForLeg(d, d.HouseAt)) d.HouseAt++;
             }
-            if (to == DriverState.Out && d.HouseAt < d.Houses.Count && PathTo(d, d.Houses[d.HouseAt])) { }
+            if (to == DriverState.Out && d.HouseAt < d.Legs && PathToLeg(d)) { }
             else
             {
                 if (to == DriverState.Out) to = DriverState.Returning;
@@ -453,6 +532,7 @@ namespace PerformativeMail.Sim
             }
             d.Truck = null;
             d.Houses.Clear();
+            d.Ports.Clear();
             d.Path.Clear();
             if (d.State != DriverState.None) SetState(d, DriverState.None);
         }
@@ -471,13 +551,15 @@ namespace PerformativeMail.Sim
 
         private void Tell(DepotDriver d, EntityId by, EntityId audience = default)
         {
+            var port = d.State is DriverState.Out or DriverState.Unloading or DriverState.Passenger or DriverState.Stranded ? d.PortLeg : null;
             var house = d.HouseAt < d.Houses.Count && d.State is DriverState.Out or DriverState.Unloading or DriverState.Passenger or DriverState.Stranded
                 ? d.Houses[d.HouseAt] : null;
             Events.Add(new DriverEvent
             {
                 Audience = audience, X = (ushort)d.Depot.Tx, Y = (ushort)d.Depot.Tz, State = d.State, Vehicle = d.Truck?.Id ?? EntityId.None,
-                House = house?.Id ?? DriverEvent.NoHouse, Houses = (byte)Math.Min(255, d.Houses.Count), At = (byte)Math.Min(255, d.HouseAt),
+                House = house?.Id ?? DriverEvent.NoHouse, Houses = (byte)Math.Min(255, d.Legs), At = (byte)Math.Min(255, d.HouseAt),
                 Delivered = (ushort)Math.Min(ushort.MaxValue, d.Delivered), Player = by,
+                ToPort = port != null, PortX = (ushort)(port?.Tx ?? 0), PortY = (ushort)(port?.Tz ?? 0),
             });
         }
 

@@ -3,7 +3,8 @@
 # deliver -> wallet -> ... -> results), the raid playtest (--shift=2 --no-quota --raid
 # --playtest-package), and the debug world (--debug-world).
 # Exits 0 only if the game printed "SMOKE OK" each time and leaked nothing on its way out, and then
-# a bot played the generated Small Island town (doc 02) of the same seed to "BOT OK", and one the Large Island.
+# a bot played the generated Small Island town (doc 02) of the same seed to "BOT OK", and one the Large Island,
+# and a captain sailed the Large Island's far-town boat route.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -137,3 +138,10 @@ grep -q "^BOT OK$" "$work/log-large" || { echo "smoke: the bot on the Large Isla
 grep -q "on Large Island #$SEED" "$work/log-large" || { echo "smoke: the bot did not play on the Large Island" >&2; exit 1; }
 grep -q "leaked at exit" "$work/log-large" && { echo "smoke: objects leaked at exit (Large Island bot)" >&2; exit 1; }
 echo "large island OK"
+
+# Doc 11 §4 "Motorboat to second town" (design choice 175): on the Large Island the captain of a Small Port in the Post
+# Office's town sails a crate to the far town's Business Dock and lies in the team's second port there, whose inserter
+# takes the town's letters out; the client follows the boat, the console and the feed say so.
+run_smoke "$work/log-boat-route" "--profile=$work/profile-boat-route.json" --world=large --shift=4 --boat-route
+grep -q "^\[smoke\] boat route: the captain sailed the crate to" "$work/log-boat-route" || { echo "smoke: the boat route to the far town was not sailed" >&2; exit 1; }
+echo "boat route OK"

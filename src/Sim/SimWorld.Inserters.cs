@@ -66,6 +66,9 @@ namespace PerformativeMail.Sim
                 return TakeFromContainer(Intake, c, filter, target, oldestFirst: true, out kind);
             // A chest or a depot behind it.
             var behind = Constructs.At(bx, bz);
+            // A Small Port's loading face behind it: the boat lying in the bay is unloaded (design choice 175).
+            if (behind != null && behind.Def.IsPort && PortLoadingTile(behind) == (bx, bz))
+                return LyingAt(behind) is { } boat && TakeFromContainer(boat.Cargo, c, filter, target, oldestFirst: false, out kind);
             if (behind != null && behind.ContainerId != 0 && GetContainer(behind.ContainerId) is { } box)
                 return TakeFromContainer(box, c, filter, target, oldestFirst: false, out kind);
             // The end of a belt running into it.

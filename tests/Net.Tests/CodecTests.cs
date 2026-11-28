@@ -289,7 +289,7 @@ namespace PerformativeMail.Net.Tests
                 new VehicleRemovedEvent { Vehicle = new EntityId(EntityClass.Vehicle, 4) },
                 new DriverEvent
                 {
-                    X = 14, Y = 21, State = DriverState.Unloading, Vehicle = new EntityId(EntityClass.Vehicle, 5), House = 7, Houses = 3, At = 1, Delivered = 9, Player = player,
+                    X = 14, Y = 21, State = DriverState.Unloading, Vehicle = new EntityId(EntityClass.Vehicle, 5), House = 7, Houses = 3, At = 1, Delivered = 9, Player = player, ToPort = true, PortX = 300, PortY = 22,
                 },
                 new MailWaitingEvent { Houses = { (3, 7), (11, 1) } },
                 new ForecastEvent { Shift = 2, Streets = { (1, 14), (4, 9) } },
@@ -357,6 +357,7 @@ namespace PerformativeMail.Net.Tests
             var driver = back.OfType<DriverEvent>().Single();
             Assert.Equal(((byte)14, (byte)21, DriverState.Unloading, new EntityId(EntityClass.Vehicle, 5), (ushort)7, (byte)3, (byte)1, (ushort)9, player),
                 (driver.X, driver.Y, driver.State, driver.Vehicle, driver.House, driver.Houses, driver.At, driver.Delivered, driver.Player));
+            Assert.Equal((true, (ushort)300, (ushort)22), (driver.ToPort, driver.PortX, driver.PortY));
             Assert.Equal(new (ushort, ushort)[] { (3, 7), (11, 1) }, back.OfType<MailWaitingEvent>().Single().Houses);
             var runEvent = back.OfType<RunEventEvent>().Single();
             Assert.Equal(((byte)4, (byte)3, RunEventStage.Paid, (byte)2, 123456), (runEvent.Event, runEvent.Shift, runEvent.Stage, runEvent.Street, runEvent.Amount));

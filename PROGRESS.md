@@ -3240,6 +3240,31 @@ Large Island's M4 work came first:
       where the raiders come in, went up at column 1 (or 2, 3) at the far west end. They are u16 now (protocol m4.8).
       `LargeIslandTests.AWallIsBuiltPastColumn255_WhereItWasAskedFor` (fails with the old byte), `CodecTests` (a construct
       at column 257 in the welcome)
+- [x] **Cargo and mail by Motor Boat to the far town** (doc 11 §4 "Motorboat to second town · Large Island only", doc 04
+      §3.3, doc 10 motorboat / small_port / bp_motorboat; design choice 175). What already worked when looked at: the Large
+      Island's basin runs under the whole south coast, deep under the east half of each town, so a Small Port goes up by
+      the Post Office town's dock and a hired captain sails Cargo to the far town's Business Dock over the water and back
+      (now proved on a through-inlet seed and a road-round-the-head seed). What was missing was the far town's other mail:
+      the dock takes Cargo only. Now **the team's second Small Port is the far town's harbour**: a captain's route may
+      name houses, streets or districts no boat can lie by; each such house is served from the team's port nearest it if
+      that is not the captain's own (`SeaRoute.PortFor`), and after the docks the trip calls at those ports
+      (`DepotDriver.Ports`): the boat sails into the other port's bay and lies there while **an inserter behind the port's
+      loading face** (its back on the face, facing inland) takes the mail out into what stands in front — a chest, a belt,
+      a sorter, a mailbox — and leaves when none is left for that port's houses or none has gone for 4 s
+      (`npcDepartWaitSeconds`), then on or home. The same inserter unloads a boat a carrier leaves in that bay (or any
+      port's), so a carrier can sail the town's mail across too and let the far side's belts take it on. The home port's
+      Route Console offers the streets and districts the team's other ports are nearest; its line counts them ("1 dock,
+      1 other port   ·   … m round trip over the water"); the captain's status says "sailing to the Small Port by 13 Sorrel
+      Walk (2 of 2)", "lying at the Small Port by …: an inserter behind its loading face takes the mail out"; the feed's
+      "The captain sets out with the boat: 2 stops" (stops, not docks). Protocol m4.9 (the driver event names the port
+      of its leg). `FarTownRouteTests` (the crate to the far dock and back on seeds 1 and 2; dock then port, three
+      letters out into the far chest, a Post Office town letter left aboard, the events of the leg; a carrier's boat left
+      in the far bay unloaded by the inserter, none at home), `FarTownFlowTests` (over loopback: the console's choices and
+      line, key 7, the client's status lines of both legs, the feed), `CodecTests`, `CaptainFlowTests`. The smoke:
+      `--smoke --world=large --shift=4 --boat-route` builds the two ports, the inserter and the chest through the
+      client, routes and hires at the real console panel, and follows the captain through Delivery (the client's boat
+      within 0.4 m of the server's, seen lying in the far bay; the crate in the feed; three letters in the chest; the
+      boat back home) — in `tools/smoke.sh` as "boat route OK"
 
 ## How to build and check
 
@@ -4928,6 +4953,20 @@ See "Commands" at the bottom (filled in as the tooling lands).
     §7.1), so it checks only that the look's indices exist; what is open is the client's to know, as with the rank.
     (e) The look is picked in the Lobby (U / J) and sent again on joining, in the Lobby or Prep.
 
+175. **The Motor Boat to the second town (doc 11 §4), what the docs leave open.** Doc 11 gives the route a rate (380 a
+    minute) and doc 04 the port's "loading face; belts and inserters connect", but nothing says how a town's letters get
+    off a boat, and the Business Dock takes Cargo only. Choices: (a) the far town's harbour is a second Small Port the
+    team builds, not a new building; no generated harbour is added (the dock is the island's own far-side quay). (b) An
+    inserter whose back is a port's loading face unloads the boat lying in the bay, the mirror of the inserter that loads
+    it; a belt cannot (a belt ending into the face loads, as before). (c) A house of the route is the far port's if that
+    port is the team's port nearest its mailbox as the crow flies and the captain's own is not; houses the home port is
+    nearest stay off the trip (their mail rides along and home). (d) The docks first, then the ports, each once; at a
+    port the captain waits while pieces go out and leaves once none is left for that port's houses or none has gone for
+    the 4 s a captain waits to set out — so a port with nothing behind its face costs a 4 s stop, not a stuck boat. (e)
+    The inserter takes what its filter and its front allow, also mail that is not the port's; the filter is the player's
+    tool. (f) "Load at a port or Business Dock": loading stays a port's (belt, inserter, hand into the hold); a Business
+    Dock is somewhere to deliver Cargo, not to load from — no doc gives it a loading face.
+
 ## Commands
 
 All from the repo root. `-nodeReuse:false` avoids hangs on stale MSBuild nodes on this machine.
@@ -4993,6 +5032,7 @@ xvfb-run -a -s "-screen 0 1280x720x24" ~/.local/bin/godot --path . --rendering-d
 #   --playtest-stamps     as host, every tier of the Postage Stamps, the whole perk pool and the Large Island are open whatever your Postal Rank
 #                         (--playtest-unlocks says the same)
 #   --playtest-perks=A,B  as host, those perks (content/perks ids) are the first cards of every Draft, whatever the pool
+#   --boat-route          with --smoke --world=large --shift=4: the far-town Motor Boat route's smoke on its own (design choice 175)
 #   --playtest-tips       the onboarding tips (doc 09 §6) as on a first run, on any profile and in any shift (the client's own flag)
 #   --event=ID            as host, the run event ID of content/events (festival, lost_parcels, wildfire, fog on a Large Island, …) comes in every shift it may
 ~/.local/bin/godot --path . -- --shift=2 --no-quota --raid       # host: G, G, and the fight is on

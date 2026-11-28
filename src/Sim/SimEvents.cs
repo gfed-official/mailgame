@@ -582,6 +582,9 @@ namespace PerformativeMail.Sim
         public ushort Delivered;
         /// <summary>Who hired it or took the wheel, when that is what happened.</summary>
         public EntityId Player;
+        /// <summary>A captain's leg to another Small Port (design choice 175): that port's tile.</summary>
+        public bool ToPort;
+        public ushort PortX, PortY;
     }
 
     /// <summary>A carrier's ping (doc 09 §2.6): a mark for everyone at (X, Z) until <see cref="ExpiresTick"/>.</summary>

@@ -91,7 +91,7 @@ namespace PerformativeMail.Net.Tests
             var mirror = a.Vehicles[boat.Id];
             Assert.True(mirror.NpcDriving && mirror.NpcAboard);
             Assert.True(MathF.Abs(mirror.X - boat.X) < 0.6f && MathF.Abs(mirror.Z - boat.Z) < 0.6f, $"here ({mirror.X}, {mirror.Z}), there ({boat.X}, {boat.Z})");
-            Assert.Contains(feed.Entries, e => e.Text == "The captain sets out with the boat: 1 dock");
+            Assert.Contains(feed.Entries, e => e.Text == "The captain sets out with the boat: 1 stop");
             for (int i = 0; i < 60 * 30 && sim.DriverAt(built)!.State != DriverState.Waiting; i++) Run(1);
             Assert.Equal(DriverState.Waiting, sim.DriverAt(built)!.State);
             Run(5);

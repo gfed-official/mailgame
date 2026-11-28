@@ -1581,6 +1581,21 @@ namespace PerformativeMail.Client
         /// <summary>What the crew of a console takes out: a depot's truck, a port's boat.</summary>
         public static string Craft(Construct built) => built.Def.IsPort ? "boat" : "truck";
 
+        /// <summary>"Small Port by 14 Heron Bend": the other port of a captain's leg, by the house nearest it.</summary>
+        private static string PortName(ClientWorld world, DriverEvent d)
+        {
+            var port = world.Constructs.At(d.PortX, d.PortY);
+            if (port == null) return "other Small Port";
+            DestinationDef? near = null;
+            float best = float.MaxValue;
+            foreach (var h in world.Map.Destinations)
+            {
+                float dx = h.MailboxX - port.CentreX, dz = h.MailboxZ - port.CentreZ, dd = dx * dx + dz * dz;
+                if (dd < best) { best = dd; near = h; }
+            }
+            return near == null ? "other Small Port" : $"Small Port by {near.Label}";
+        }
+
         private static bool IsCaptain(ClientWorld world, DriverEvent d) => world.Constructs.At(d.X, d.Y)?.Def.IsPort == true;
 
         /// <summary>The cards of a panel: a sorter's outputs and its overflow, a depot's stops and its driver.</summary>
@@ -1701,7 +1716,7 @@ namespace PerformativeMail.Client
             {
                 int from = (int)world.Content.Balance.GetFloat(captain ? "npcCaptainHireShift" : world.Players.Count <= 1 ? "npcHireShiftSolo" : "npcHireShiftGroup");
                 string note = world.Global.Shift < from ? $"from shift {from.ToString(CultureInfo.InvariantCulture)}"
-                    : captain ? "sails the route to the docks at 60 % of a boat's speed" : "drives the route at 60 % of your speed";
+                    : captain ? "sails the route to the docks and your other Small Ports at 60 % of a boat's speed" : "drives the route at 60 % of your speed";
                 return new[] { $"{head}hire for this shift, {Gold(built.Def.HireCost)}", note };
             }
             return new[] { $"{head}hired for this shift   ·   {d.Delivered.ToString(CultureInfo.InvariantCulture)} delivered", DriverDoing(world, d) };
@@ -1712,6 +1727,12 @@ namespace PerformativeMail.Client
         {
             string house = world.Map.GetDestination(d.House)?.Label ?? "a house";
             string of = d.Houses > 1 ? $" ({(d.At + 1).ToString(CultureInfo.InvariantCulture)} of {d.Houses.ToString(CultureInfo.InvariantCulture)})" : "";
+            if (IsCaptain(world, d) && d.ToPort)
+                switch (d.State)
+                {
+                    case DriverState.Out: return $"sailing to the {PortName(world, d)}{of}";
+                    case DriverState.Unloading: return $"lying at the {PortName(world, d)}{of}: an inserter behind its loading face takes the mail out";
+                }
             if (IsCaptain(world, d))
                 switch (d.State)
                 {
@@ -1779,7 +1800,7 @@ namespace PerformativeMail.Client
                         : $"{(world.Players.TryGetValue(d.Player, out var p) ? p.Name : "Someone")} hired a {crew} for the {site}";
                 case DriverState.Waiting: return $"The {crew} is back at the {site}";
                 case DriverState.Out when was?.State == DriverState.Waiting:
-                    string stops = captain ? (d.Houses == 1 ? "1 dock" : $"{d.Houses.ToString(CultureInfo.InvariantCulture)} docks") : d.Houses == 1 ? "1 house" : $"{d.Houses.ToString(CultureInfo.InvariantCulture)} houses";
+                    string stops = captain ? (d.Houses == 1 ? "1 stop" : $"{d.Houses.ToString(CultureInfo.InvariantCulture)} stops") : d.Houses == 1 ? "1 house" : $"{d.Houses.ToString(CultureInfo.InvariantCulture)} houses";
                     return $"The {crew} sets out with the {craft}: {stops}";
                 case DriverState.Fleeing: return $"The {crew} turns back: raiders near the route";
                 case DriverState.Stranded: return $"The {crew}'s {craft} ran out of fuel";
@@ -1834,7 +1855,9 @@ namespace PerformativeMail.Client
             float reach = world.Content.Balance.GetFloat("dockZoneReach");
             var docks = new List<DestinationDef>();
             Sim.Vehicles.RoutePlan.Houses(world.Map, stops, bx, bz, d => WaterNav.Berth(world.Map, world.Constructs, d, reach, out _, out _), docks);
-            if (docks.Count == 0) return "No stops yet: a captain calls at the docks a boat can lie at";
+            var ports = new List<Construct>();
+            Sim.Vehicles.SeaRoute.Ports(world.Map, world.Constructs, built, stops, reach, null, ports);
+            if (docks.Count == 0 && ports.Count == 0) return "No stops yet: a captain calls at the docks a boat can lie at, and at your other Small Ports for their towns";
             var scratch = new List<(float, float)>();
             float metres = 0f, x = bx, z = bz, radius = 0.5f, speed = 0f;
             foreach (var v in world.Content.Vehicles) if (v.OnWater && v.LoadingFace) { speed = MathF.Max(speed, v.WaterSpeed); radius = v.Radius; }
@@ -1847,10 +1870,20 @@ namespace PerformativeMail.Client
                 x = tx;
                 z = tz;
             }
+            foreach (var p in ports)
+            {
+                Sim.SimWorld.Bay(p, out float tx, out float tz, out _);
+                float leg = WaterNav.Route(world.Map, world.Constructs, x, z, tx, tz, radius, scratch);
+                if (leg < 0f) return "No way over the water to your other Small Port";
+                metres += leg;
+                x = tx;
+                z = tz;
+            }
             float back = WaterNav.Route(world.Map, world.Constructs, x, z, bx, bz, radius, scratch);
             metres += MathF.Max(0f, back);
             speed *= world.Content.Balance.GetFloat("npcSpeedRatio");
             string n = docks.Count == 1 ? "1 dock" : $"{docks.Count.ToString(CultureInfo.InvariantCulture)} docks";
+            if (ports.Count > 0) n = (docks.Count == 0 ? "" : n + ", ") + (ports.Count == 1 ? "1 other port" : $"{ports.Count.ToString(CultureInfo.InvariantCulture)} other ports");
             return $"{n}   ·   {metres.ToString("F0", CultureInfo.InvariantCulture)} m round trip over the water, about {Clock(speed > 0f ? metres / speed : 0f)} at a captain's pace";
         }
 

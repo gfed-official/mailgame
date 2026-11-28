@@ -56,7 +56,7 @@ namespace PerformativeMail.App
             string mapId = "test_street";
             string? forcedEvent = null;
             string[]? forcedPerks = null;
-            bool forceTips = false;
+            bool forceTips = false, boatRoute = false;
             foreach (string arg in OS.GetCmdlineUserArgs())
             {
                 if (arg == "--smoke") smoke = true;
@@ -78,6 +78,8 @@ namespace PerformativeMail.App
                     forcedPerks = arg.Substring(17).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 // Doc 09 §6's onboarding tips on a profile that has played (design choice 173); the client's own, not the server's.
                 else if (arg == "--playtest-tips") forceTips = true;
+                // Doc 11 §4's Motor Boat to the second town, smoked on its own (design choice 175).
+                else if (arg == "--boat-route") boatRoute = true;
                 else if (arg == "--quick") quick = true;
                 // Design choice 119: the showcase map, everything built and running, the debug toggles on.
                 else if (arg == "--debug-world") { debugWorld = true; mapId = "debug_world"; }
@@ -206,6 +208,13 @@ namespace PerformativeMail.App
                     return;
                 }
                 if (!smoke) return;
+                if (boatRoute)
+                {
+                    var route = new BoatRouteSmoke { Name = "BoatRouteSmoke" };
+                    route.Setup(session, screen);
+                    AddChild(route);
+                    return;
+                }
                 var driver = new SmokeDriver { Name = "Smoke", ShotDir = shots };
                 driver.Setup(session, screen);
                 AddChild(driver);

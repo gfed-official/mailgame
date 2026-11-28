@@ -853,6 +853,20 @@ namespace PerformativeMail.Client
                 float reach = Content.Balance.GetFloat("dockZoneReach");
                 foreach (var d in Map.Destinations)
                     if (Map.OpensAt(d, DistrictsEarly) <= now && WaterNav.Berth(Map, Constructs, d, reach, out _, out _)) choices.Add(new MailFilter(FilterKind.Address, d.Id));
+                // The streets and districts the team's other Small Ports are nearest (design choice 175): the boat lies there for them.
+                var streets = new List<int>();
+                var districts = new List<int>();
+                foreach (var d in Map.Destinations)
+                {
+                    if (Map.OpensAt(d, DistrictsEarly) > now || Sim.Vehicles.SeaRoute.PortFor(Constructs, built, d) == null) continue;
+                    if (WaterNav.Berth(Map, Constructs, d, reach, out _, out _)) continue;
+                    if (!streets.Contains(d.Address.Street)) streets.Add(d.Address.Street);
+                    if (!districts.Contains(d.Address.District)) districts.Add(d.Address.District);
+                }
+                foreach (var street in Map.Streets)
+                    if (streets.Contains(street.Id)) choices.Add(new MailFilter(FilterKind.Street, street.Id));
+                foreach (var d in Map.Districts)
+                    if (districts.Contains(d.Id)) choices.Add(new MailFilter(FilterKind.District, d.Id));
                 return choices;
             }
             if (built.Def.HasConsole)

@@ -313,7 +313,7 @@ namespace PerformativeMail.Sim.Net
                     break;
                 case DriverEvent e:
                     w.U8((byte)EventType.Driver);
-                    w.U16(e.X); w.U16(e.Y); w.U8((byte)e.State); w.U32(e.Vehicle.Value); w.U16(e.House); w.U8(e.Houses); w.U8(e.At); w.U16(e.Delivered); w.U32(e.Player.Value);
+                    w.U16(e.X); w.U16(e.Y); w.U8((byte)e.State); w.U32(e.Vehicle.Value); w.U16(e.House); w.U8(e.Houses); w.U8(e.At); w.U16(e.Delivered); w.U32(e.Player.Value); w.Bool(e.ToPort); w.U16(e.PortX); w.U16(e.PortY);
                     break;
                 case TurretFiredEvent e:
                     w.U8((byte)EventType.TurretFired);
@@ -623,7 +623,7 @@ namespace PerformativeMail.Sim.Net
                     return new DriverEvent
                     {
                         X = r.U16(), Y = r.U16(), State = (DriverState)r.U8(), Vehicle = new EntityId(r.U32()), House = r.U16(), Houses = r.U8(), At = r.U8(),
-                        Delivered = r.U16(), Player = new EntityId(r.U32()),
+                        Delivered = r.U16(), Player = new EntityId(r.U32()), ToPort = r.Bool(), PortX = r.U16(), PortY = r.U16(),
                     };
                 case EventType.TurretFired:
                     return new TurretFiredEvent { X = r.U16(), Y = r.U16(), TargetX = r.F32(), TargetZ = r.F32() };
