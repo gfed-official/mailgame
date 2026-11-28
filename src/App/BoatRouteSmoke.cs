@@ -64,6 +64,29 @@ namespace PerformativeMail.App
             _stepFrames = 0;
         }
 
+        private int _prepFrames;
+        private uint _generatingTick;
+
+        /// <summary>The Large Island's map, open from the Lobby into shift 4's Prep, as the ec62063 playtest saw it.</summary>
+        private void CheckMap()
+        {
+            var hud = _screen.Hud;
+            hud.Refresh();
+            Check(_screen.Map.Visible, "the map the host opened in the Lobby is not open in Prep");
+            // N23: no GENERATING card left on it.
+            Check(!hud.Generating.Visible && hud.Generating.Text.Length == 0, $"in Prep the GENERATING card is still up over the map: \"{hud.Generating.Text}\"");
+            // N21: no street name on another.
+            var names = _screen.Map.StreetLabelRects;
+            Check(names.Count > 0, "the Large Island's map writes no street names");
+            for (int i = 0; i < names.Count; i++)
+                for (int j = i + 1; j < names.Count; j++)
+                    Check(!names[i].Intersects(names[j]), $"on the Large Island's map the street names at {names[i]} and {names[j]} lie on each other");
+            // N22: no plate on the open map.
+            var area = _screen.Map.PanelArea();
+            foreach (var row in hud.TrackerRects)
+                Check(!row.Intersects(area), $"a plate at {row} stands on the open map at {area}");
+        }
+
         private static (int X, int Z)? PortSite(SimWorld sim, BuildingDef port, float nearX, bool roomBehind)
         {
             int cx = (int)(nearX / 2f);
@@ -101,9 +124,18 @@ namespace PerformativeMail.App
             switch (_step)
             {
                 case 0:
-                    // The Lobby: the host starts the run (at shift 4: the playtest's --shift).
+                    // The Lobby: the host starts the run (at shift 4: the playtest's --shift), with the map open (the ec62063
+                    // playtest's N23: the GENERATING card stood on the open map after Prep had begun).
+                    if (world.Global.Phase == RunPhase.Lobby && !_screen.Map.Visible) _screen.Map.Toggle();
                     if (world.Global.Phase == RunPhase.Lobby && client.PendingRequestCount == 0 && _stepFrames % 30 == 5) client.PressGo();
+                    if (sim.Run.Phase == RunPhase.Generating && _generatingTick == 0) _generatingTick = sim.Tick;
                     if (world.Global.Phase != RunPhase.Prep || client.PendingRequestCount > 0) break;
+                    if (++_prepFrames < 6) break;
+                    // The client's own Ready ends Generating, not its 10 s deadline (N23's long card).
+                    Check(_generatingTick > 0 && (long)sim.Run.PhaseStartTick - _generatingTick < Sim.Core.SimConstants.SecondsToTicks(content.Balance.GetDouble("generatingSeconds")) / 2,
+                        $"Generating ran from tick {_generatingTick} to {sim.Run.PhaseStartTick}: the client never said it had the world drawn");
+                    CheckMap();
+                    if (_screen.Map.Visible) _screen.Map.Toggle();
                     Check(world.Global.Shift == 4 && world.Map.Id == LargeIslandGenerator.LargeIsland, $"Prep of shift {world.Global.Shift} on {world.Map.Id}, not shift 4 on the Large Island");
                     _session.FixedTicksPerFrame = 2;
                     sim.Economy.AddLoot(2000);

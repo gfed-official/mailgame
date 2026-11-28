@@ -3302,6 +3302,36 @@ Island among them), BOT OK on both islands; rendered at 1280×720 SMOKE OK. Next
 the Package Cannon of doc 10 (`bp_cannon`, a 2 × 2 weapon) overlaps the always-at-hand mail cannon (choice 51), the Mail
 Bat is the hammer (choice 50), truck liveries / mailbox skins / emotes need art; what remains is M5.
 
+### 9a. Playtest bugs of the ec62063 report (`mailgame-harness/results/20261127-161122-ec62063/report.md`, 2026-11-27)
+
+The report played ec62063 (the first of batch 9). Its tests and smoke were green; N17 and N19 passed and stay closed. Its
+open items, fixed in its order:
+
+- [x] **N18 / N20: the hotbar's address tags clipped.** The tag was drawn at 13 px and cut at the stack's edge, so a PO
+      box's "Box 2" read "Box" and "3 Harrow Street, Unit 10"'s "#3-10" read "#3-1" — unit 1's tag. The tag is now drawn
+      whole, at 13 px or smaller down to 8 until it fits the stack (`GridView.MailTagFontSize`). `MailTagTests` pins
+      "#3-10" and "Box 2"; the smoke checks "Box 2", "Box 13", "#3-10", "#12-13" and "#58-12" fit a 1×1 stack in the
+      hotbar's own font (with the old 13 px they did not).
+- [x] **N22: the Lobby's right-hand plates (practice, Cursed Mail, stamps, keys, Look, Kit, seed, rank) stood on the open
+      map**, over the Large Island's east district and its dock. While the map is up, a tracker plate that would stand
+      on its panel is not drawn (`Hud.HideTrackersUnderMap`; the ones under it stay); closing the map brings them back.
+      The world smoke's Lobby map and the boat-route smoke's map check no plate's rectangle meets the map's panel.
+- [x] **N21: street names overprinted each other on the Large Island's map** ("Slate Street" through "Mackerel Mews",
+      "Larch Lane" under "Slate Street" and "Puffin Place"). Every name was written in the middle of its street's longest
+      stretch. `StreetLabels.Place` now places them: the longest streets first, each in the middle of its longest
+      stretch if that is clear, else further along it or along another of its stretches, else just beside the street,
+      else a size smaller (11, then 10 px); a name still on another chooses again among all the others. The "Opens in
+      shift N" labels keep their N19 placement off the street names. `StreetLabelTests` (no two names meet on the Large
+      Island's seeds 1–8 or the Small Island's 1–4 at the 1280×720 map size; a clear name stays in the middle); the
+      boat-route smoke checks the Large Island's names on its map with the real font.
+- [x] **N23: the GENERATING card stood over the open map for 15 s.** Not a stale draw: the real-time client
+      (`ClientRuntime.Update`) never said it had the world drawn — only the fixed ticks of the tests and bots did — so
+      every real game's Generating ran out its whole 10 s deadline (longer in wall time at the box's frame rate), with
+      or without the map. `Update` now sends it, and Prep begins as soon as everybody has the world.
+      `GeneratingFlowTests` (the real-time driver reaches Prep in under a second; it fails without the fix); the
+      boat-route smoke opens the map in the Lobby, presses G, and checks Generating ended by the Ready (well before its
+      deadline) and that no GENERATING card is up over the map in Prep.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -5019,6 +5049,12 @@ See "Commands" at the bottom (filled in as the tooling lands).
     M4's replay rule); it counts the carriers here when it is sent, as the quota preview does. (d) On the map it takes
     the route line, which in Prep with nothing in the hand only said to take mail; no new widget (ADR-0018). (e) A
     Payday that ends the run (the last shift, a missed quota) has none.
+178. **The ec62063 playtest's map and hotbar fixes, what the report leaves open.** (a) A tag that does not fit its stack
+    is drawn smaller (down to 8 px) rather than wrapped or shortened: "#3-10" and "Box 2" stay one word the player
+    reads as the address. (b) The open map hides the tracker plates that would stand on it rather than dimming or
+    moving them: the map is a short look and the plates are back when it closes; plates clear of it stay. (c) A street
+    name may leave its street's middle, its street (beside it) and its size (12 → 10 px) to stay off the others, in that
+    order; the "Opens in shift N" labels are placed after the names, as in N19.
 
 ## Commands
 

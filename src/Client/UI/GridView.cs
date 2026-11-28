@@ -193,6 +193,19 @@ namespace PerformativeMail.Client.UI
             return size;
         }
 
+        private const int MailTagFont = 13, MailTagMinFont = 8;
+
+        /// <summary>
+        /// The address tag's size on a stack: 13 px, smaller down to 8 until it fits whole (the ec62063 playtest's
+        /// N18 / N20: clipped at 13 px, "Box 2" read "Box" and Unit 10's "#3-10" read "#3-1", unit 1's tag).
+        /// </summary>
+        public static int MailTagFontSize(Font font, string tag, float stackWidth)
+        {
+            int size = MailTagFont;
+            while (size > MailTagMinFont && TagWidth(font, tag, size) > stackWidth - 4f) size--;
+            return size;
+        }
+
         public static float TagWidth(Font font, string tag, int size) => font.GetStringSize(tag, HorizontalAlignment.Left, -1f, size).X;
 
         private static void DrawTag(CanvasItem canvas, Font font, Rect2 rect, string tag, Color colour)
@@ -215,7 +228,8 @@ namespace PerformativeMail.Client.UI
                 var dest = world.Map.FindDestination(stack.Address);
                 // The stripe is the colour of the house the mail is addressed to.
                 if (dest != null) canvas.DrawRect(new Rect2(rect.Position + new Vector2(1f, 3f), new Vector2(rect.Size.X - 2f, 6f)), new Color(Palette.HouseColour(dest.Variant), alpha));
-                canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 23f), HudText.MailTag(stack.Address, dest), HorizontalAlignment.Left, rect.Size.X - 3f, 13, ink);
+                string mailTag = HudText.MailTag(stack.Address, dest);
+                canvas.DrawString(font, new Vector2(rect.Position.X + 3f, rect.Position.Y + 23f), mailTag, HorizontalAlignment.Left, -1f, MailTagFontSize(font, mailTag, rect.Size.X), ink);
                 // Doc 05 §6: cursed mail's glowing purple label — a purple rim and its word.
                 if (stack.Cursed)
                 {

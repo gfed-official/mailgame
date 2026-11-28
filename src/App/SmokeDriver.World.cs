@@ -92,6 +92,10 @@ namespace PerformativeMail.App
                         }
                         hud.Refresh();
                         Check(!hud.CrosshairShown, "the crosshair is drawn over the map");
+                        // The ec62063 playtest's N22: the Lobby's plates stood on the open map.
+                        var mapArea = _screen.Map.PanelArea();
+                        foreach (var row in hud.TrackerRects)
+                            Check(!row.Intersects(mapArea), $"a Lobby plate at {row} stands on the open map at {mapArea}");
                         Shot("map-incoming");
                         break;
                     }

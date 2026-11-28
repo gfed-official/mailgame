@@ -324,6 +324,8 @@ namespace PerformativeMail.Client.UI
         private ProgressBar _hold = null!;
         private MatchMark _mark = null!;
         private GridView _hotbar = null!;
+        /// <summary>The font the hotbar draws its stacks in (the smoke checks the mail tags fit).</summary>
+        public Font HotbarFont => _hotbar.GetThemeDefaultFont();
         private HFlowContainer _recipeBar = null!;
         private const float RecipeBarHalfWidth = 280f, RecipeBarHeight = 94f;
         /// <summary>A recipe card's width: half the bar, less the gap between two.</summary>
@@ -647,6 +649,7 @@ namespace PerformativeMail.Client.UI
             _crosshair.Visible = !_overlay.Visible && !_draft.Visible && MapOpen?.Invoke() != true;
             var panel = PanelBox();
             LayoutTrackers(panel);
+            HideTrackersUnderMap();
             // A lost host freezes the world where it stood (doc 06 §5); the banner says why nothing moves.
             bool lost = _client!.State == ClientState.Disconnected;
             string hint = lost ? HudText.HostLostHint : HudText.PhaseHint(world);
@@ -1087,6 +1090,18 @@ namespace PerformativeMail.Client.UI
                 t.FitText();
                 k++;
             }
+        }
+
+        /// <summary>
+        /// The open map is over the trackers that stand on it (the ec62063 playtest's N22: the Lobby's rows covered the
+        /// Large Island's east district and its dock); they are back once it is closed.
+        /// </summary>
+        private void HideTrackersUnderMap()
+        {
+            if (MapOpen?.Invoke() != true || MapArea == null || !IsInsideTree()) return;
+            var map = MapArea();
+            foreach (var row in _trackerRows)
+                if (row.Visible && row.GetGlobalRect().Intersects(map)) row.Visible = false;
         }
 
         /// <summary>The shown tracker lines whose words run past their plate.</summary>

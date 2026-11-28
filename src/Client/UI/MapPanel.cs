@@ -467,6 +467,11 @@ namespace PerformativeMail.Client.UI
         }
 
         private readonly List<Rect2> _streetLabels = new List<Rect2>(), _openLabels = new List<Rect2>();
+        /// <summary>The street names' places, worked out again only when the map or its size changes.</summary>
+        private List<StreetLabels.Label> _names = new List<StreetLabels.Label>();
+        private WorldMap? _namesMap;
+        private Vector2 _namesOrigin;
+        private float _namesScale;
         /// <summary>Where the street names were written on the map, last drawn.</summary>
         public IReadOnlyList<Rect2> StreetLabelRects => _streetLabels;
         /// <summary>Where the districts not open yet say when they open, last drawn.</summary>
@@ -551,22 +556,23 @@ namespace PerformativeMail.Client.UI
             DrawTextureRect(_texture, MapRect, false);
             DrawLayers(world, scale, At);
 
-            // Street names, once per street: in the middle of its longest stretch.
+            // Street names, once per street: in the middle of its longest stretch, else along it off the names before it.
             _streetLabels.Clear();
             _openLabels.Clear();
-            var longest = new Dictionary<string, StreetDef>();
-            foreach (var s in map.Streets)
-                if (!longest.TryGetValue(s.Name, out var l) || Math.Max(s.Rect.W, s.Rect.H) > Math.Max(l.Rect.W, l.Rect.H)) longest[s.Name] = s;
-            foreach (var s in longest.Values)
+            if (_namesMap != map || _namesOrigin != origin || _namesScale != scale)
             {
-                RoutingGraph.CentreLine(s, out float x0, out float z0, out float x1, out float z1);
-                var mid = At((x0 + x1) * 0.5f, (z0 + z1) * 0.5f);
-                bool alongX = s.Rect.W >= s.Rect.H;
-                float nameWidth = font.GetStringSize(s.Name, HorizontalAlignment.Left, -1, 12).X + 6f;
-                _streetLabels.Add(alongX ? new Rect2(mid.X - nameWidth * 0.5f, mid.Y - 9f, nameWidth, 16f) : new Rect2(mid.X - 9f, mid.Y - nameWidth * 0.5f, 16f, nameWidth));
-                DrawSetTransform(mid, alongX ? 0f : -Mathf.Pi * 0.5f, Vector2.One);
-                DrawStringOutline(font, new Vector2(-100f, 4f), s.Name, HorizontalAlignment.Center, 200f, 12, 3, new Color(0f, 0f, 0f, 0.85f));
-                DrawString(font, new Vector2(-100f, 4f), s.Name, HorizontalAlignment.Center, 200f, 12, Ink);
+                _names = StreetLabels.Place(map, origin.X, origin.Y, scale, (name, size) => font.GetStringSize(name, HorizontalAlignment.Left, -1, size).X + 6f);
+                _namesMap = map;
+                _namesOrigin = origin;
+                _namesScale = scale;
+            }
+            foreach (var label in _names)
+            {
+                var mid = new Vector2(label.X, label.Y);
+                _streetLabels.Add(new Rect2(label.Box.X0, label.Box.Y0, label.Box.X1 - label.Box.X0, label.Box.Y1 - label.Box.Y0));
+                DrawSetTransform(mid, label.AlongX ? 0f : -Mathf.Pi * 0.5f, Vector2.One);
+                DrawStringOutline(font, new Vector2(-100f, 4f), label.Name, HorizontalAlignment.Center, 200f, label.Size, 3, new Color(0f, 0f, 0f, 0.85f));
+                DrawString(font, new Vector2(-100f, 4f), label.Name, HorizontalAlignment.Center, 200f, label.Size, Ink);
                 DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
             }
             // House numbers where there is room for them; a ring round the houses of the mail carried.

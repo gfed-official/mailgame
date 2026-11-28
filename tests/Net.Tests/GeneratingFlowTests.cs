@@ -58,5 +58,28 @@ namespace PerformativeMail.Net.Tests
             // Prep's own Ready starts afresh: nobody is ready for the shift yet.
             Assert.False(world.LocalReady || guest.World.LocalReady);
         }
+
+        /// <summary>
+        /// The ec62063 playtest's N23: in a real game (the real-time driver, not the tests' ticks) the client never said
+        /// it had the world drawn, so Generating always ran out its 10 s with the card over the open map.
+        /// </summary>
+        [Fact]
+        public void TheRealTimeClientSaysItHasTheWorld_AndPrepBeginsAtOnce()
+        {
+            var hub = new LoopbackHub();
+            var server = new ServerRuntime(Shared.Content, new SimSettings { Seed = 5, MapId = WorldGenerator.SmallIsland, Draft = false, Raids = false, Generating = true }, hub);
+            var host = new ClientRuntime(Shared.Content, hub.CreateClient(), "Ada");
+            const double frame = 1.0 / 60.0;
+            void Run(int frames)
+            {
+                for (int i = 0; i < frames; i++) { host.Update(frame); server.Update(frame); }
+            }
+            Run(30);
+            Assert.NotEqual(0u, host.PressGo());
+            // Well under a second, not the 10 s deadline.
+            Run(50);
+            Assert.Equal(RunPhase.Prep, server.World.Run.Phase);
+            Assert.Equal(RunPhase.Prep, host.World!.Global.Phase);
+        }
     }
 }

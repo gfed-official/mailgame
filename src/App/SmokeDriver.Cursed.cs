@@ -128,6 +128,13 @@ namespace PerformativeMail.App
                     var font = ThemeDB.FallbackFont;
                     float stack = Client.UI.GridView.Cell - 10f;
                     Check(Client.UI.GridView.TagWidth(font, "CURSED", Client.UI.GridView.TagFontSize(font, "CURSED", stack)) <= stack - 6f, "CURSED does not fit a 1×1 stack");
+                    // The ec62063 playtest's N18 / N20: "Box 2" read "Box" and "#3-10" read "#3-1", unit 1's tag.
+                    var hotbarFont = hud.HotbarFont;
+                    foreach (string tag in new[] { "Box 2", "Box 13", "#3-10", "#12-13", "#58-12" })
+                    {
+                        int size = Client.UI.GridView.MailTagFontSize(hotbarFont, tag, stack);
+                        Check(Client.UI.GridView.TagWidth(hotbarFont, tag, size) <= stack - 4f, $"the mail tag \"{tag}\" does not fit a 1×1 stack at {size} px");
+                    }
                     Shot("cursed-prompt");
                     _cursePromptSeen = true;
                 }

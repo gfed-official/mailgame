@@ -19,6 +19,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal("Box 13", HudText.MailTag(new AddressId(a.District, a.Street, a.Number, 13), bank));
             Assert.NotEqual(HudText.MailTag(new AddressId(a.District, a.Street, a.Number, 2), bank), HudText.MailTag(new AddressId(a.District, a.Street, a.Number, 3), bank));
             Assert.Equal("#12-3", HudText.MailTag(new AddressId(4, 2, 12, 3), null));
+            // The ec62063 playtest's N18 / N20: Unit 10 is not unit 1, and a box keeps its number.
+            Assert.Equal("#3-10", HudText.MailTag(new AddressId(4, 2, 3, 10), null));
+            Assert.Equal("Box 2", HudText.MailTag(new AddressId(a.District, a.Street, a.Number, 2), bank));
         }
     }
 }

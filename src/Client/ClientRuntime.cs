@@ -176,6 +176,9 @@ namespace PerformativeMail.Client
         public void Update(double deltaSeconds)
         {
             _transport.Poll(this);
+            // The ec62063 playtest's N23: only the fixed ticks said the world was drawn, so a real game's
+            // Generating always ran out its 10 s (the card over the open map for 15 s at a low frame rate).
+            StepGenerating();
             _accumulator += deltaSeconds;
             int ticks = 0;
             while (_accumulator >= SimConstants.TickDt)
