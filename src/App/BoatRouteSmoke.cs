@@ -96,6 +96,61 @@ namespace PerformativeMail.App
                 Check(!row.Intersects(area), $"a plate at {row} stands on the open map at {area}");
         }
 
+        private bool _forecastRead;
+        private int _forecastFrames;
+
+        /// <summary>
+        /// The 785048b playtest's N24: in Prep the host buys the Extended Forecast at the counter (the client's cards), and
+        /// the feed's line names each street once ("Larch Lane" was there twice, a street cut by cross streets being several
+        /// ids), each with the server's estimate for the name, not all alike, and its words on the screen.
+        /// </summary>
+        private void BuyForecast(ClientRuntime client, ClientWorld world, SimWorld sim, Sim.Players.Player player)
+        {
+            var po = world.Map.PostOffice;
+            var forecast = world.Content.ShopItem("forecast");
+            _forecastFrames++;
+            if (_forecastFrames == 1)
+            {
+                player.Move.X = po.ShopX + 1f;
+                player.Move.Z = po.ShopZ;
+                return;
+            }
+            if (_forecastFrames == 20)
+            {
+                Check(client.OpenShop(), "the host beside the counter could not put the shop's cards up");
+                Check(client.Buy(forecast) != 0, $"the Extended Forecast was not to be bought ({world.ShopState(forecast)})");
+                return;
+            }
+            string head = $"Forecast, shift {world.Global.Shift}: ";
+            var line = _session.Feed.Entries.FirstOrDefault(e => e.Text.StartsWith(head, StringComparison.Ordinal))?.Text;
+            if (line == null)
+            {
+                if (_forecastFrames > 600) { Check(false, "no forecast in the feed 10 s after the Extended Forecast was bought"); _forecastRead = true; client.CloseShop(); }
+                return;
+            }
+            if (_forecastFrames < 30) return;
+            client.CloseShop();
+            _forecastRead = true;
+            var parts = line.Substring(head.Length).Split(" · ");
+            var named = parts.Where(p => p.StartsWith('~')).Select(p => p.Substring(p.IndexOf(' ') + 1)).ToList();
+            Check(named.Count >= 2 && named.Count == named.Distinct().Count(), $"the Extended Forecast does not name each street once: \"{line}\"");
+            var sent = sim.LastForecast!.Streets.Select(e => (Name: world.Map.GetStreet(e.Street)!.Name, (int)e.Count)).ToList();
+            Check(sent.Count == sent.Select(e => e.Name).Distinct().Count(), $"the server's forecast has a street name twice: {string.Join(", ", sent)}");
+            var byName = sent.GroupBy(e => e.Name).ToDictionary(g => g.Key, g => (double)g.Sum(e => e.Item2));
+            foreach (var part in parts.Where(p => p.StartsWith('~')))
+            {
+                int space = part.IndexOf(' ');
+                string name = part.Substring(space + 1);
+                Check(byName.TryGetValue(name, out double want) && part.Substring(1, space - 1) == ((int)Math.Round(want)).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    $"the forecast says {part}, the server reckons {(byName.TryGetValue(name, out double w) ? w.ToString("0.0") : "none")} for {name}");
+            }
+            Check(sim.LastForecast!.Streets.Select(s => s.Count).Distinct().Count() > 1, $"every street of the Large Island's forecast has the same count: \"{line}\"");
+            float right = _screen.GetViewport().GetVisibleRect().End.X;
+            Check(_screen.Hud.FeedWordRects.Any(r => r.End.X <= right), "the forecast's feed line is not on the screen");
+            Check(_screen.Hud.FeedWordRects.All(r => r.End.X <= right), $"a feed line runs off the right edge ({right}): \"{line}\"");
+            GD.Print($"[smoke] boat route: the Extended Forecast on the Large Island: \"{line}\"");
+        }
+
         private static (int X, int Z)? PortSite(SimWorld sim, BuildingDef port, float nearX, bool roomBehind)
         {
             int cx = (int)(nearX / 2f);
@@ -245,6 +300,7 @@ namespace PerformativeMail.App
                     break;
                 }
                 case 7:
+                    if (!_forecastRead && world.Global.Phase == RunPhase.Prep) { BuyForecast(client, world, sim, player); break; }
                     if (world.Global.Phase == RunPhase.Prep && client.PendingRequestCount == 0 && _stepFrames % 30 == 5) client.PressGo();
                     if (world.Global.Phase == RunPhase.Delivery) Next();
                     break;

@@ -306,13 +306,18 @@ namespace PerformativeMail.Sim.Mail
 
         /// <summary>
         /// About how many pieces a Delivery of <paramref name="shift"/> worth <paramref name="spawnValue"/> brings each
-        /// street (doc 10 §4.3 Forecast Desk): each kind's share of the value over its price, spread evenly over the
-        /// houses open to it. An estimate, drawing nothing from the streams. Streets with none are left out.
+        /// street (doc 10 §4.3 Forecast Desk): each kind's share of the value over its price, spread over the addresses
+        /// open to it as the draw weighs them, by street name (the pieces of one street under the first's id). An estimate,
+        /// drawing nothing from the streams. Streets with none are left out.
         /// </summary>
         public Dictionary<int, double> Forecast(int shift, int spawnValue)
         {
             var streets = new Dictionary<int, double>();
-            Estimate(shift, spawnValue, (kind, d, each) => streets[d.Street.Id] = (streets.TryGetValue(d.Street.Id, out double n) ? n : 0) + each);
+            Estimate(shift, spawnValue, (kind, d, each) =>
+            {
+                int street = _map.FirstStreetNamed(d.Street);
+                streets[street] = (streets.TryGetValue(street, out double n) ? n : 0) + each;
+            });
             return streets;
         }
 
@@ -331,7 +336,10 @@ namespace PerformativeMail.Sim.Mail
             return counts;
         }
 
-        /// <summary>Each kind's share of the value over its price, spread evenly over the destinations open to it: what each gets.</summary>
+        /// <summary>
+        /// Each kind's share of the value over its price, spread over the destinations open to it as the draw weighs them
+        /// (an Apartment Complex its units, a house or a PO Box Bank one): what each gets.
+        /// </summary>
         private void Estimate(int shift, int spawnValue, Action<MailKindDef, DestinationDef, double> add)
         {
             var mix = _content.MailMix;
@@ -345,11 +353,16 @@ namespace PerformativeMail.Sim.Mail
                 CollectEligible(kind);
                 if (_eligible.Count == 0) continue;
                 double price = 0;
-                foreach (var d in _eligible) price += kind.BaseValue * (1.0 + mix.DistanceMultiplierPerDistrict * (d.Address.District - 1)) * shiftMult;
-                price /= _eligible.Count;
+                int weight = 0;
+                foreach (var d in _eligible)
+                {
+                    price += Weight(d) * kind.BaseValue * (1.0 + mix.DistanceMultiplierPerDistrict * (d.Address.District - 1)) * shiftMult;
+                    weight += Weight(d);
+                }
+                price /= weight;
                 if (price <= 0) continue;
-                double each = spawnValue * share.Value / price / _eligible.Count;
-                foreach (var d in _eligible) add(kind, d, each);
+                double pieces = spawnValue * share.Value / price;
+                foreach (var d in _eligible) add(kind, d, pieces * Weight(d) / weight);
             }
             _shift = was;
         }

@@ -3357,6 +3357,21 @@ Batch 10 (the ec62063 playtest's N18/N20, N22, N21, N23; the rendered look at ba
 261 green; `tools/smoke.sh` SMOKE OK ×4, BOT OK on both islands; rendered at 1280×720 `--smoke --shots` SMOKE OK and the
 Large Island's map in the Lobby and in Prep looked at. Next: M5.
 
+### 9c. Playtest bug of the 785048b report (`mailgame-harness/results/20261127-201002-785048b/report.md`, 2026-11-27)
+
+- [x] **N24: the Extended Forecast listed "Larch Lane" twice on the Large Island**, every street at "~14". Two causes.
+      The Large Island cuts a street into pieces between its cross streets, each piece its own street id under the one
+      name, and the forecast was by id; and the estimate spread each kind's pieces evenly over the destinations open to
+      it, while the draw weighs an Apartment Complex by its units — so equal pieces of houses all read the same ~14.
+      `MailSpawner.Forecast` now counts by name (under the name's first id, `WorldMap.FirstStreetNamed`), and the
+      estimate weighs each destination as the draw does (the free mail forecast by kind and district too). Seed 1, shift
+      4: "~14 Larch Lane · ~14 Larch Lane · ~14 Sorrel Walk · ~14 Mackerel Mews · 12 more streets" is now "~46 Harrow
+      Street · ~44 Larch Lane · ~36 Sorrel Walk · ~33 Mackerel Mews". `StreetForecastTests`: each name once under its
+      first id, and the forecast is what 12 real Deliveries bring each name (within 25%; the old estimate was a quarter
+      of it on the busiest street). The boat-route smoke (Large Island, 1280×720 window) buys the Extended Forecast at the
+      counter through the client's cards in shift 4's Prep and checks the feed line: each name once, each count the
+      server's, not all alike, the words on the screen. Both fail on 5b33eb0. Design choice 179.
+
 ## How to build and check
 
 See "Commands" at the bottom (filled in as the tooling lands).
@@ -5080,6 +5095,12 @@ See "Commands" at the bottom (filled in as the tooling lands).
     moving them: the map is a short look and the plates are back when it closes; plates clear of it stay. (c) A street
     name may leave its street's middle, its street (beside it) and its size (12 → 10 px) to stay off the others, in that
     order; the "Opens in shift N" labels are placed after the names, as in N19.
+
+179. **The N24 forecast by street, what the report leaves open.** (a) Merged by name, not told apart: the player reads
+    a street by its name and the addresses run along the whole name ("13 Larch Lane" is one street on the sign), so a
+    piece's id would be a distinction nobody can see. (b) "Per street" is the draw's own expectation: each address weighs
+    the same (an Apartment Complex its units, a PO Box Bank one), the street streak of a batch left out — it moves
+    pieces between streets already in the batch, not the mean much.
 
 ## Commands
 

@@ -264,6 +264,18 @@ namespace PerformativeMail.Sim.World
             return null;
         }
 
+        /// <summary>
+        /// The first street (lowest id) of the map with this one's name: a street that cross streets cut into pieces is
+        /// several ids under one name (Large Island), and what a player reads is the name.
+        /// </summary>
+        public int FirstStreetNamed(StreetDef street)
+        {
+            int id = street.Id;
+            foreach (var s in Streets)
+                if (s.Id < id && s.Name == street.Name) id = s.Id;
+            return id;
+        }
+
         public StreetDef? GetStreet(int id)
         {
             for (int i = 0; i < Streets.Count; i++)
