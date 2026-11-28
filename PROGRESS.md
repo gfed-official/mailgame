@@ -3292,6 +3292,15 @@ Large Island's M4 work came first:
       `MailForecastTests` (every Prep, for everybody, the open districts, the same estimate as the streets'; at Payday
       the next shift's, none after the last), `PaydayPreviewTests` (the card's line; the map's line in Prep, gone in
       Delivery), `CodecTests`; the smoke checks the Payday card has the line whenever a shift follows
+- Looked at rendered at 1280×720 (`--smoke --shots`, SMOKE OK): the Payday card with its forecast line fits; the shop's
+  Supplies row takes the two services, but the PO Repair's tile wore a "×1000" badge (its HP) and a clipped name —
+  services have no count badge now and the tile reads "PO Repair" (`ShopFlowTests`)
+
+Batch 9 (the Large Island's columns past 255; the far-town Motor Boat route; the shop's services; the free mail
+forecast): Sim.Tests 731 and Net.Tests 257 green; `tools/smoke.sh` SMOKE OK ×4 (the new `--boat-route` stage on the Large
+Island among them), BOT OK on both islands; rendered at 1280×720 SMOKE OK. Next: the docs' playable leftovers are thin —
+the Package Cannon of doc 10 (`bp_cannon`, a 2 × 2 weapon) overlaps the always-at-hand mail cannon (choice 51), the Mail
+Bat is the hammer (choice 50), truck liveries / mailbox skins / emotes need art; what remains is M5.
 
 ## How to build and check
 

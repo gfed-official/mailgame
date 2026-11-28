@@ -185,6 +185,9 @@ namespace PerformativeMail.Net.Tests
             Assert.Equal(HudText.ShopSection.Supplies, HudText.ShopSectionOf(forecast));
             Assert.Equal(("Once a shift, for the whole team", "ONCE A SHIFT"), (HudText.ShopNote(a, forecast), HudText.ShopTag(a, forecast)));
             Assert.Equal("From shift 2", HudText.ShopNote(a, repair));
+            // The tile: no count badge for the repair's 1000 HP, a name that fits.
+            Assert.Equal(("", "PO Repair", "PR"), (HudText.ShopCountBadge(repair), HudText.ShopTileName(repair), HudText.Monogram(HudText.ShopTileName(repair))));
+            Assert.Equal(("", "Extended Forecast"), (HudText.ShopCountBadge(forecast), HudText.ShopTileName(forecast)));
             Assert.NotEqual(0u, ada.Buy(forecast));
             s.Run(10);
             Assert.Equal(("Bought this shift", "BOUGHT"), (HudText.ShopNote(a, forecast), HudText.ShopTag(a, forecast)));

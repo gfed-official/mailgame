@@ -1404,12 +1404,14 @@ namespace PerformativeMail.Client
             string name = def.Name;
             if (name.StartsWith("Blueprint: ", StringComparison.Ordinal)) name = name.Substring(11);
             else if (name.EndsWith(" Blueprint", StringComparison.Ordinal)) name = name.Substring(0, name.Length - 10);
+            // A tile has room for two short words: "Emergency PO Repair" is the PO Repair there.
+            else if (name.StartsWith("Emergency ", StringComparison.Ordinal)) name = name.Substring(10);
             int times = name.LastIndexOf(" ×", StringComparison.Ordinal);
             return times > 0 ? name.Substring(0, times) : name;
         }
 
         /// <summary>The count badge, "×20"; empty for one.</summary>
-        public static string ShopCountBadge(ShopItemDef def) => def.Count > 1 ? "×" + def.Count.ToString(CultureInfo.InvariantCulture) : "";
+        public static string ShopCountBadge(ShopItemDef def) => def.Kind != ShopKind.Service && def.Count > 1 ? "×" + def.Count.ToString(CultureInfo.InvariantCulture) : "";
 
         /// <summary>A letter-mark until there are icons: the initials of two words ("Repair Hammer" RH), else two letters ("Axe" Ax).</summary>
         public static string Monogram(string name)
