@@ -165,7 +165,17 @@ namespace PerformativeMail.Sim.Content
             held != null && held.HarvestsResource(Resource) && held.SwingSeconds > 0f ? held.SwingSeconds : handSeconds;
     }
 
-    public enum ShopKind : byte { Blueprint = 0, Item = 1, Vehicle = 2 }
+    public enum ShopKind : byte { Blueprint = 0, Item = 1, Vehicle = 2, Service = 3 }
+
+    /// <summary>What a <see cref="ShopKind.Service"/> entry does when bought (doc 10 §3 services).</summary>
+    public enum ShopService : byte
+    {
+        None = 0,
+        /// <summary>Extended Forecast: the coming Delivery's mail by street, for the whole team (at Payday the next shift's).</summary>
+        Forecast = 1,
+        /// <summary>Emergency PO Repair: the Post Office's HP up by the entry's amount at once.</summary>
+        PostOfficeRepair = 2,
+    }
 
     /// <summary>
     /// Something a carrier rides (doc 04 §3.1, doc 10 §1.3): an arcade body with a top speed on
@@ -423,6 +433,10 @@ namespace PerformativeMail.Sim.Content
         public ItemDef? Item { get; init; }
         /// <summary>What a <see cref="ShopKind.Vehicle"/> entry parks by the counter.</summary>
         public VehicleDef? Vehicle { get; init; }
+        /// <summary>What a <see cref="ShopKind.Service"/> entry does; <see cref="Count"/> is its amount (the PO repair's HP).</summary>
+        public ShopService Service { get; init; }
+        /// <summary>Doc 10 §3 "per shift": bought once a shift by the team.</summary>
+        public bool OncePerShift { get; init; }
         /// <summary>A blueprint the team must own before the counter sells this (doc 10 §3: the Mail Truck needs bp_truck).</summary>
         public ShopItemDef? Requires { get; internal set; }
         public int Count { get; init; }

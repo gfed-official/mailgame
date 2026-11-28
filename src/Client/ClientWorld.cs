@@ -629,6 +629,10 @@ namespace PerformativeMail.Client
         public List<ShopItemDef> ShopSpecials { get; } = new List<ShopItemDef>();
         /// <summary>What the team has bought of the entries sold once per run.</summary>
         public List<ShopItemDef> ShopOwned { get; } = new List<ShopItemDef>();
+        /// <summary>The services sold once a shift, and the shift each was last bought in (doc 10 §3 "per shift").</summary>
+        public Dictionary<ShopItemDef, int> ShopBoughtShift { get; } = new Dictionary<ShopItemDef, int>();
+
+        public bool BoughtThisShift(ShopItemDef def) => def.OncePerShift && ShopBoughtShift.TryGetValue(def, out int at) && at == Global.Shift;
         /// <summary>The local player stands at the counter with its cards up. Theirs alone: the server keeps no such state.</summary>
         public bool ShopOpen { get; internal set; }
         /// <summary>Purchases on their way: the card waits for the server's word.</summary>
@@ -670,7 +674,9 @@ namespace PerformativeMail.Client
         public OpResult ShopState(ShopItemDef def)
         {
             if (!ShopServes) return OpResult.WrongPhase;
-            var verdict = ShopRules.Check(def, Global.Shift, IsSpecial(def), ShopOwned.Contains(def));
+            var verdict = ShopRules.Check(def, Global.Shift, IsSpecial(def), ShopOwned.Contains(def) || BoughtThisShift(def));
+            if (verdict != OpResult.Ok) return verdict;
+            verdict = ShopRules.ServiceCheck(def, Global.Phase, Global.Shift, HudText.ShiftCount(this), PostOfficeHp, PostOfficeMaxHp);
             if (verdict != OpResult.Ok) return verdict;
             if (def.Requires != null && !ShopOwned.Contains(def.Requires)) return OpResult.NeedsBlueprint;
             int same = 0;
@@ -703,6 +709,7 @@ namespace PerformativeMail.Client
         {
             ShopSpecials.Clear();
             ShopOwned.Clear();
+            ShopBoughtShift.Clear();
             ShopPending.Clear();
             ShopOpen = false;
         }

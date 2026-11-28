@@ -165,6 +165,63 @@ namespace PerformativeMail.Net.Tests
             return n;
         }
 
+        /// <summary>Doc 10 §3's services through the client (design choice 176): the tiles' notes and tags, the feed.</summary>
+        [Fact]
+        public void TheServices_AreBoughtAtTheCounter_TheirCardsAndTheFeedSaySo()
+        {
+            var s = new Session(Shared.Content);
+            var ada = s.Join("Ada");
+            var a = ada.World!;
+            var feed = new EventFeed();
+            ada.EventReceived += e => feed.OnEvent(a, e);
+            s.ToPrep();
+            s.Sim.Economy.AddLoot(1000);
+            s.ToTheCounter(ada);
+            Assert.True(ada.OpenShop());
+            s.Run(5);
+            var forecast = s.Item("forecast");
+            var repair = s.Item("po_repair");
+            Assert.Contains(forecast, a.ShopShelf);
+            Assert.Equal(HudText.ShopSection.Supplies, HudText.ShopSectionOf(forecast));
+            Assert.Equal(("Once a shift, for the whole team", "ONCE A SHIFT"), (HudText.ShopNote(a, forecast), HudText.ShopTag(a, forecast)));
+            Assert.Equal("From shift 2", HudText.ShopNote(a, repair));
+            Assert.NotEqual(0u, ada.Buy(forecast));
+            s.Run(10);
+            Assert.Equal(("Bought this shift", "BOUGHT"), (HudText.ShopNote(a, forecast), HudText.ShopTag(a, forecast)));
+            Assert.Contains(feed.Entries, e => e.Text.StartsWith("You bought Extended Forecast  -100 g", StringComparison.Ordinal));
+            Assert.Contains(feed.Entries, e => e.Text.StartsWith("Forecast, shift 1: ~", StringComparison.Ordinal));
+
+            // Shift 2: the Post Office hurt in Delivery, mended at Payday by the counter's service.
+            s.StartDelivery();
+            s.MeetTheQuota(ada);
+            s.Sim.Run.PhaseEndTick = s.Sim.Tick + 1;
+            Assert.True(s.RunUntil(() => s.Sim.Run.Phase == RunPhase.Payday, 5));
+            s.Sim.Run.PhaseEndTick = s.Sim.Tick + 1;
+            Assert.True(s.RunUntil(() => s.Sim.Run.Phase == RunPhase.Prep, 5));
+            Assert.Equal(2, s.Sim.Run.Shift);
+            s.Run(10);
+            Assert.Equal(("Once a shift, for the whole team", "ONCE A SHIFT"), (HudText.ShopNote(a, forecast), HudText.ShopTag(a, forecast)));
+            s.ToTheCounter(ada);
+            Assert.True(ada.OpenShop());
+            s.Run(5);
+            Assert.Equal(("The Post Office is unhurt", "UNHURT"), (HudText.ShopNote(a, repair), HudText.ShopTag(a, repair)));
+            s.StartDelivery();
+            s.Sim.DamagePostOffice(1500f);
+            s.MeetTheQuota(ada);
+            s.Sim.Run.PhaseEndTick = s.Sim.Tick + 1;
+            Assert.True(s.RunUntil(() => s.Sim.Run.Phase == RunPhase.Payday, 5));
+            s.Run(10);
+            if (!a.ShopOpen) Assert.True(ada.OpenShop());
+            s.Run(5);
+            Assert.True(a.ShopOpen);
+            Assert.Equal(OpResult.Ok, a.ShopState(repair));
+            Assert.NotEqual(0u, ada.Buy(repair));
+            s.Run(10);
+            Assert.Equal(s.Sim.PostOfficeMaxHp - 500f, s.Sim.PostOfficeHp);
+            Assert.Equal((int)(s.Sim.PostOfficeMaxHp - 500f), a.PostOfficeHp);
+            Assert.Contains(feed.Entries, e => e.Text == "You bought Emergency PO Repair  -200 g   ·   the Post Office +1000 HP");
+        }
+
         [Fact]
         public void TheShelfsNumberKeys_DoNotChangeWithTheSpecials_InTheGamesOwnCatalogue()
         {

@@ -48,6 +48,8 @@ namespace PerformativeMail.App
         }
 
         /// <summary>A frame of Prep. Returns true while the visit to the counter goes on: the go key waits for it.</summary>
+        private int _shopForecastAt = -1;
+
         private bool StepShop()
         {
             var client = _session.Client;
@@ -80,7 +82,7 @@ namespace PerformativeMail.App
             var panel = _screen.Inventory.Shop;
             int price = world.ShopPrice(_shopCard), count = _shopCard.Count;
             // The counter is opened and closed as a player does it: through the prompt, with a press of interact.
-            _session.Interaction.Update(1.0 / 60.0, (_shopStep == 2 || _shopStep == 9) && _shopFrames == 0, false);
+            _session.Interaction.Update(1.0 / 60.0, (_shopStep == 2 || _shopStep == 10) && _shopFrames == 0, false);
             hud.Refresh();
             var prompt = _session.Interaction.Prompt;
             bool settled = client.PendingRequestCount == 0 && world.Global.Wallet == server.Economy.Wallet;
@@ -237,11 +239,37 @@ namespace PerformativeMail.App
                     Check(server.Economy.Wallet == want, $"with {_shopGathered} for what was gathered the wallet is {server.Economy.Wallet}, expected {want}");
                     Check(_shopGathered > 0 == _harvestVisits > 0, $"the counter paid {_shopGathered} for what was gathered on {_harvestVisits} rounds of the nodes");
                     Check(panel.Text == HudText.ShopText(world), "the shop's cards did not follow the wallet");
+                    // Doc 10 §3's Extended Forecast (design choice 176): its card clicked, the coming Delivery's mail by street in the feed.
+                    var forecast = world.Content.ShopItem("forecast");
+                    int at = world.ShopShelf.ToList().IndexOf(forecast);
+                    server.Economy.AddLoot(forecast.Price);
+                    _shopWallet = server.Economy.Wallet;
+                    _shopForecastAt = at;
                     NextShopStep();
                     break;
                 }
 
                 case 9:
+                {
+                    var forecast = world.Content.ShopItem("forecast");
+                    if (_shopFrames == 4)
+                    {
+                        Check(_shopForecastAt >= 0 && HudText.ShopNote(world, forecast) == "Once a shift, for the whole team", $"the Extended Forecast's card is not on the shelf to buy ({HudText.ShopNote(world, forecast)})");
+                        panel.Click(_shopForecastAt);
+                        Check(panel.LastRequestId != 0, "a click on the Extended Forecast's card sent no request");
+                        break;
+                    }
+                    string head = $"Forecast, shift {world.Global.Shift}: ";
+                    if (_shopFrames < 4 || !settled || !_session.Feed.Entries.Any(e => e.Text.StartsWith(head, StringComparison.Ordinal))) break;
+                    Check(server.Economy.Wallet == _shopWallet - world.ShopPrice(forecast), $"the Extended Forecast took the wallet from {_shopWallet} to {server.Economy.Wallet}");
+                    Check(HudText.ShopNote(world, forecast) == "Bought this shift" && HudText.ShopTag(world, forecast) == "BOUGHT", $"the Extended Forecast's card says \"{HudText.ShopNote(world, forecast)}\" once bought");
+                    Check(panel.Text == HudText.ShopText(world), "the shop's cards did not follow the purchase");
+                    GD.Print($"[smoke] shop: the Extended Forecast bought by its card: \"{_session.Feed.Entries.First(e => e.Text.StartsWith(head, StringComparison.Ordinal)).Text}\"");
+                    NextShopStep();
+                    break;
+                }
+
+                case 10:
                     // The press was this frame's.
                     if (_shopFrames < 4) break;
                     Check(!world.ShopOpen && !_screen.Inventory.Visible, "the press of interact did not take the cards down");

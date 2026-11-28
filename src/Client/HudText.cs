@@ -1304,13 +1304,15 @@ namespace PerformativeMail.Client
             switch (world.ShopState(def))
             {
                 case OpResult.ShopLocked: return $"From shift {def.FromShift}";
-                case OpResult.AlreadyOwned: return "The team owns it";
+                case OpResult.AlreadyOwned: return def.OncePerShift ? "Bought this shift" : "The team owns it";
+                case OpResult.FullHealth: return "The Post Office is unhurt";
                 case OpResult.CantAfford: return "Not enough gold";
                 case OpResult.DoesNotFit: return "No room in your pockets";
-                case OpResult.WrongPhase: return "The counter is closed";
+                case OpResult.WrongPhase: return def.Service == ShopService.Forecast && world.ShopServes ? "No shift left to forecast" : "The counter is closed";
                 case OpResult.OnePerCarrier: return $"A {def.Name} for each of you already";
             }
             if (def.Kind == ShopKind.Vehicle) return "One for each carrier   ·   parked by the counter";
+            if (def.OncePerShift) return "Once a shift, for the whole team";
             return def.OncePerRun ? "Once per run, for the whole team" : "";
         }
 
@@ -1385,14 +1387,15 @@ namespace PerformativeMail.Client
             switch (world.ShopState(def))
             {
                 case OpResult.ShopLocked: return "SHIFT " + def.FromShift.ToString(CultureInfo.InvariantCulture);
-                case OpResult.AlreadyOwned: return "OWNED";
+                case OpResult.AlreadyOwned: return def.OncePerShift ? "BOUGHT" : "OWNED";
+                case OpResult.FullHealth: return "UNHURT";
                 case OpResult.DoesNotFit: return "NO ROOM";
-                case OpResult.WrongPhase: return "CLOSED";
+                case OpResult.WrongPhase: return def.Service == ShopService.Forecast && world.ShopServes ? "LAST SHIFT" : "CLOSED";
                 case OpResult.OnePerCarrier: return "1 EACH";
                 case OpResult.NeedsBlueprint: return "NEEDS BLUEPRINT";
             }
             if (world.IsSpecial(def)) return SpecialWord;
-            return def.OncePerRun ? "ONCE A RUN" : "";
+            return def.OncePerRun ? "ONCE A RUN" : def.OncePerShift ? "ONCE A SHIFT" : "";
         }
 
         /// <summary>A tile's lines for the smoke, top down: key and name, the chip (and the struck price), the tag.</summary>
@@ -1471,7 +1474,8 @@ namespace PerformativeMail.Client
             string who = me ? "You" : world.Players.TryGetValue(player, out var p) ? p.Name : "Someone";
             // A grant (the smoke, a test) costs nothing: it was given, not bought.
             if (price == 0) return me ? $"You were given {def.Name}" : $"{who} was given {def.Name}";
-            return $"{who} bought {def.Name}  -{Gold(price)}";
+            string what = def.Service == ShopService.PostOfficeRepair ? $"   ·   the Post Office +{def.Count.ToString(CultureInfo.InvariantCulture)} HP" : "";
+            return $"{who} bought {def.Name}  -{Gold(price)}{what}";
         }
 
         /// <summary>The event feed's line for a sale.</summary>

@@ -19,6 +19,8 @@ namespace PerformativeMail.Sim
         private readonly List<ShopItemDef> _shopSpecials = new List<ShopItemDef>();
         private readonly List<ShopItemDef> _shopOwned = new List<ShopItemDef>();
         private readonly List<ShopItemDef> _shopCandidates = new List<ShopItemDef>();
+        /// <summary>The services sold once a shift (doc 10 §3 "per shift") and the shift each was last bought in.</summary>
+        private readonly Dictionary<ShopItemDef, int> _shopBoughtShift = new Dictionary<ShopItemDef, int>();
 
         /// <summary>The shift's specials, in the order of ContentDb.ShopItems.</summary>
         public IReadOnlyList<ShopItemDef> ShopSpecials => _shopSpecials;
@@ -46,6 +48,9 @@ namespace PerformativeMail.Sim
             return true;
         }
 
+        /// <summary>Whether a service sold once a shift was bought in this one.</summary>
+        public bool BoughtThisShift(ShopItemDef def) => def.OncePerShift && _shopBoughtShift.TryGetValue(def, out int at) && at == Run.Shift;
+
         /// <summary>What the entry costs this shift.</summary>
         public int ShopPrice(ShopItemDef def) =>
             ShopRules.Price(def, _shopSpecials.Contains(def), ShopRules.DiscountPermille(Content.Balance));
@@ -55,6 +60,7 @@ namespace PerformativeMail.Sim
         {
             _shopSpecials.Clear();
             _shopOwned.Clear();
+            _shopBoughtShift.Clear();
             _shopRng = new RngStream(Settings.Seed, "shop");
         }
 
@@ -102,7 +108,9 @@ namespace PerformativeMail.Sim
             if (r.Count >= Content.ShopItems.Count) return OpResult.BadRequest;
             var def = Content.ShopItems[r.Count];
             bool special = _shopSpecials.Contains(def);
-            var verdict = ShopRules.Check(def, Run.Shift, special, _shopOwned.Contains(def));
+            var verdict = ShopRules.Check(def, Run.Shift, special, _shopOwned.Contains(def) || BoughtThisShift(def));
+            if (verdict != OpResult.Ok) return verdict;
+            verdict = ShopRules.ServiceCheck(def, Run.Phase, Run.Shift, ShiftCount, (int)MathF.Ceiling(PostOfficeHp), (int)PostOfficeMaxHp);
             if (verdict != OpResult.Ok) return verdict;
             if (def.Requires != null && !_shopOwned.Contains(def.Requires)) return OpResult.NeedsBlueprint;
             int same = 0;
@@ -128,7 +136,14 @@ namespace PerformativeMail.Sim
             }
             Economy.Spend(price);
             if (def.OncePerRun) _shopOwned.Add(def);
+            if (def.OncePerShift) _shopBoughtShift[def] = Run.Shift;
             Events.Add(new ShopBoughtEvent { Player = player.Id, Item = def.Index, Price = (ushort)price });
+            switch (def.Service)
+            {
+                // Bought in Prep: the coming Delivery's; at Payday: the next shift's (doc 10 §3 "next shift's mail").
+                case ShopService.Forecast: SendForecast(Run.Phase == RunPhase.Payday ? Run.Shift + 1 : Run.Shift); break;
+                case ShopService.PostOfficeRepair: PostOfficeHp = MathF.Min(PostOfficeMaxHp, PostOfficeHp + def.Count); break;
+            }
             return OpResult.Ok;
         }
 

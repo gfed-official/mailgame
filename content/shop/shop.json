@@ -48,5 +48,9 @@
   { "id": "bp_pipes", "name": "Blueprint: Pneumatics", "description": "Pneumatic pipes: inlets send mail to outlets.", "kind": "blueprint", "price": 700,
     "grants": { "blueprint": "bp_pipes" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] },
   { "id": "bp_turret", "name": "Blueprint: Turret", "description": "Turrets: 12 damage twice a second at raiders within 18 m.", "kind": "blueprint", "price": 600,
-    "grants": { "blueprint": "bp_turret" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] }
+    "grants": { "blueprint": "bp_turret" }, "availability": { "fromShift": 3, "slot": "fixed" }, "tags": ["blueprint"] },
+  { "id": "forecast", "name": "Extended Forecast", "description": "The coming Delivery's mail, street by street, for the whole team (at Payday: the next shift's).", "kind": "service", "price": 100,
+    "grants": { "service": "forecast" }, "availability": { "fromShift": 1, "slot": "fixed" }, "oncePerShift": true, "tags": ["service"] },
+  { "id": "po_repair", "name": "Emergency PO Repair", "description": "The Post Office +1000 HP at once.", "kind": "service", "price": 200,
+    "grants": { "service": "po_repair", "amount": 1000 }, "availability": { "fromShift": 2, "slot": "fixed" }, "tags": ["service"] }
 ]

@@ -59,6 +59,8 @@ grep -q "^\[smoke\] ruin: the Wooden Wall broken in shift 2's Delivery rebuilt i
 # Postage Stamps and Cursed Mail (doc 01 §6, doc 05 §6): the stamp set in the Lobby, a cursed letter's mini-raid at the wrong mailbox.
 grep -q "^\[smoke\] stamps: Cursed Mail set in the Lobby" "$work/log-playtest" || { echo "smoke: the Cursed Mail stamp was not set in the Lobby" >&2; exit 1; }
 grep -q "^\[smoke\] cursed mail: a cursed Letter put in the wrong mailbox" "$work/log-playtest" || { echo "smoke: no cursed letter brought a mini-raid" >&2; exit 1; }
+# Doc 10 §3's Extended Forecast (design choice 176): bought by its card, the coming Delivery's mail by street in the feed.
+grep -q "^\[smoke\] shop: the Extended Forecast bought by its card" "$work/log" || { echo "smoke: the Extended Forecast was not bought at the counter" >&2; exit 1; }
 # The Repair Hammer (doc 05 §4): the rebuilt wall hurt and mended through the HUD, for a Log.
 grep -q "^\[smoke\] repair: the Wooden Wall mended" "$work/log-playtest" || { echo "smoke: no wall was mended with the Repair Hammer" >&2; exit 1; }
 # Between them the two runs take a card of the Draft both ways: by its key, and with a click on it.

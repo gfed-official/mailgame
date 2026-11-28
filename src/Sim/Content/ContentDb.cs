@@ -1115,6 +1115,7 @@ namespace PerformativeMail.Sim.Content
                         var kind = ShopKind.Item;
                         ItemDef? item = null;
                         VehicleDef? vehicle = null;
+                        var service = ShopService.None;
                         int count = 0;
                         bool hasGrants = e.TryGetProperty("grants", out var grants) && grants.ValueKind == JsonValueKind.Object;
                         if (!hasGrants) ctx.Error($"'{id}': missing 'grants' object");
@@ -1139,10 +1140,19 @@ namespace PerformativeMail.Sim.Content
                                 string vehicleId = J.Str(ctx, grants, "vehicle");
                                 if (!db._vehiclesById.TryGetValue(vehicleId, out vehicle)) ctx.Error($"'{id}': grants unknown vehicle '{vehicleId}'");
                                 break;
-                            // Doc 08 §2.8 names two more kinds; nothing can honour them yet (no hire, no Post Office HP).
-                            case "hire":
+                            // Doc 10 §3's services: the Extended Forecast, the Emergency PO Repair (amount: HP).
                             case "service":
-                                ctx.Error($"'{id}': kind '{kindName}' is not sold yet");
+                                kind = ShopKind.Service;
+                                if (!hasGrants) break;
+                                string serviceId = J.Str(ctx, grants, "service");
+                                service = serviceId switch { "forecast" => ShopService.Forecast, "po_repair" => ShopService.PostOfficeRepair, _ => ShopService.None };
+                                if (service == ShopService.None) ctx.Error($"'{id}': grants unknown service '{serviceId}' (forecast, po_repair)");
+                                count = J.Int(ctx, grants, "amount", 0);
+                                if (service == ShopService.PostOfficeRepair && count < 1) ctx.Error($"'{id}': a PO repair needs grants.amount >= 1 (HP)");
+                                break;
+                            // Hires are made at a depot's or a port's console (doc 10 §3), not at the counter.
+                            case "hire":
+                                ctx.Error($"'{id}': kind 'hire' is not sold at the counter (hire at a Route Console)");
                                 break;
                             default:
                                 ctx.Error($"'{id}': unknown kind '{kindName}'");
@@ -1174,6 +1184,8 @@ namespace PerformativeMail.Sim.Content
                             Price = J.Int(ctx, e, "price"),
                             Item = item,
                             Vehicle = vehicle,
+                            Service = service,
+                            OncePerShift = J.Bool(ctx, e, "oncePerShift", false),
                             Count = count,
                             FromShift = fromShift,
                             Rotating = rotating,

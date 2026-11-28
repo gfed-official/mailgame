@@ -35,7 +35,7 @@ namespace PerformativeMail.Sim.Tests
         {
             Assert.Equal(Program.ExitOk, Run(_dir, "content"));
             Assert.StartsWith("content OK: 6 mail kinds, 4 destination types, 14 containers, 17 items, 2 maps", _out.ToString());
-            Assert.Contains("25 shop entries, 6 resource nodes, 27 buildings, 4 vehicles, 3 kits, 8 stamps, 9 run events;", _out.ToString());
+            Assert.Contains("27 shop entries, 6 resource nodes, 27 buildings, 4 vehicles, 3 kits, 8 stamps, 9 run events;", _out.ToString());
             Assert.Contains($"content hash {TestContent.Db.ContentHash:x8}", _out.ToString());
             Assert.Equal("", _err.ToString());
         }

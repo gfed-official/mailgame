@@ -158,7 +158,7 @@ namespace PerformativeMail.Sim.Tests
         {
             // The tools came with harvesting (HarvestTests); they are never a special, so the roll is as it was; so is the Repair Hammer (RepairTests).
             // So did the Fortify blueprint with building (FortifyTests), the Shovel with the beach and the Bike (VehicleTests).
-            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "repair_hammer", "slingshot", "bike", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_truck", "mail_truck", "bp_rowboat", "rowboat", "bp_motorboat", "motorboat", "bp_oil", "bp_pipes", "bp_turret" },
+            Assert.Equal(new[] { "bandage_x3", "plank_x20", "rope_x10", "glass_x10", "iron_ingot_x10", "oil_can_x3", "first_aid_kit", "axe", "pickaxe", "shovel", "repair_hammer", "slingshot", "bike", "bp_defense", "bp_fast_belts", "bp_sorting", "bp_truck", "mail_truck", "bp_rowboat", "rowboat", "bp_motorboat", "motorboat", "bp_oil", "bp_pipes", "bp_turret", "forecast", "po_repair" },
                 Db.ShopItems.Select(s => s.Id).ToArray());
             for (int i = 0; i < Db.ShopItems.Count; i++) Assert.Equal(i, Db.ShopItems[i].Index);
 
@@ -214,6 +214,8 @@ namespace PerformativeMail.Sim.Tests
                 Entry("early", "rope", 5, 80, "\"availability\": { \"fromShift\": 0 }"),
                 "{ \"id\": \"trike\", \"name\": \"Trike\", \"kind\": \"vehicle\", \"price\": 200, \"grants\": { \"vehicle\": \"trike\" } }",
                 "{ \"id\": \"porter\", \"name\": \"Porter\", \"kind\": \"hire\", \"price\": 200, \"grants\": { } }",
+                "{ \"id\": \"oracle\", \"name\": \"Oracle\", \"kind\": \"service\", \"price\": 200, \"grants\": { \"service\": \"oracle\" } }",
+                "{ \"id\": \"patch\", \"name\": \"Patch\", \"kind\": \"service\", \"price\": 200, \"grants\": { \"service\": \"po_repair\" } }",
                 "{ \"id\": \"luck\", \"name\": \"Luck\", \"kind\": \"wish\", \"price\": 200, \"grants\": { } }",
                 "{ \"id\": \"bare\", \"name\": \"Bare\", \"kind\": \"item\", \"price\": 200 }",
                 "{ \"id\": \"bp_other\", \"name\": \"B\", \"kind\": \"blueprint\", \"price\": 200, \"grants\": { \"blueprint\": \"bp_defense\" } }",
@@ -233,7 +235,9 @@ namespace PerformativeMail.Sim.Tests
             Assert.Contains("'sideways': availability.slot must be 'fixed', 'rotating' or 'kit', not 'weekly'", all);
             Assert.Contains("'early': availability.fromShift must be >= 1", all);
             Assert.Contains("'trike': grants unknown vehicle 'trike'", all);
-            Assert.Contains("'porter': kind 'hire' is not sold yet", all);
+            Assert.Contains("'porter': kind 'hire' is not sold at the counter (hire at a Route Console)", all);
+            Assert.Contains("'oracle': grants unknown service 'oracle' (forecast, po_repair)", all);
+            Assert.Contains("'patch': a PO repair needs grants.amount >= 1 (HP)", all);
             Assert.Contains("'luck': unknown kind 'wish'", all);
             Assert.Contains("'bare': missing 'grants' object", all);
             Assert.Contains("'bp_other': a blueprint grants itself", all);

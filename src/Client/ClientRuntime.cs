@@ -1362,6 +1362,7 @@ namespace PerformativeMail.Client
                     if (e.Item >= _content.ShopItems.Count) break;
                     var bought = _content.ShopItems[e.Item];
                     if (bought.OncePerRun && !world.ShopOwned.Contains(bought)) world.ShopOwned.Add(bought);
+                    if (bought.OncePerShift) world.ShopBoughtShift[bought] = world.Global.Shift;
                     break;
                 case NodeHarvestedEvent e:
                     world.Nodes.Set(e.Node, e.HitsLeft);

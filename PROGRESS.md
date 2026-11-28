@@ -3265,6 +3265,21 @@ Large Island's M4 work came first:
       client, routes and hires at the real console panel, and follows the captain through Delivery (the client's boat
       within 0.4 m of the server's, seen lying in the far bay; the crate in the feed; three letters in the chest; the
       boat back home) — in `tools/smoke.sh` as "boat route OK"
+- [x] **The shop's services** (doc 10 §3 `forecast`, `po_repair`; doc 08 §2.8 kind "service"; design choice 176), the
+      next leftover named in the docs (choice 160: "the Extended Forecast is a shop service … that does not exist yet").
+      **Extended Forecast** (100 g, from shift 1, once a shift for the team): bought in Prep it tells everybody the coming
+      Delivery's mail by street, the Forecast Desk's estimate ("Forecast, shift 2: ~14 Larch Lane · ~9 Heron Bend · …");
+      at Payday the next shift's; at the last shift's Payday there is none to tell ("No shift left to forecast", tag LAST
+      SHIFT). **Emergency PO Repair** (200 g, from shift 2, as often as wanted): the Post Office +1000 HP at once, up to
+      its full bar; not while it is unhurt ("The Post Office is unhurt", tag UNHURT); the feed "You bought Emergency PO
+      Repair  -200 g   ·   the Post Office +1000 HP". Both are content (`"kind": "service"`, `grants.service`,
+      `grants.amount`, `"oncePerShift"`; the validator refuses an unknown service or a repair without an amount; "hire"
+      is still refused at the counter: hires are made at the consoles), at the end of the catalogue so no card's number
+      key moved, drawn at the end of the Supplies row. Found on the way: the counter's "already owned" check only looked
+      at once-a-run entries. `ShopServiceTests` (content; the forecast for everybody, once a shift, the next shift's at
+      Payday, none at the last; the repair from shift 2, +1000, capped, not unhurt), `ShopFlowTests` (the cards' notes
+      and tags, the feed, the Post Office's HP on the client), `ShopTests` / `ContentValidatorTests` pins; the smoke's
+      shop visit buys the Extended Forecast by a click on its card and sees the forecast in the feed
 
 ## How to build and check
 
@@ -4966,6 +4981,15 @@ See "Commands" at the bottom (filled in as the tooling lands).
     The inserter takes what its filter and its front allow, also mail that is not the port's; the filter is the player's
     tool. (f) "Load at a port or Business Dock": loading stays a port's (belt, inserter, hand into the hold); a Business
     Dock is somewhere to deliver Cargo, not to load from — no doc gives it a loading face.
+
+176. **The shop's services, what doc 10 §3 leaves open.** (a) "Shows next shift's mail by street": bought in Prep, the
+    shift about to be delivered (that is the next Delivery, and Forecast Desk tells the same); bought at Payday, the
+    shift after; the same estimate as Forecast Desk (no RNG stream drawn ahead, so the replay rule holds), one feed line
+    for everybody (ADR-0018: no panel). (b) "Per shift" is once a shift for the whole team, whoever buys; Prep and that
+    shift's Payday are one shift. (c) Emergency PO Repair has no limit ("no" in the once-per-run column) but is refused
+    at full HP, and caps at the bar; in Prep the Post Office mends itself anyway, so it is the Payday buy after a hard
+    raid. (d) Services are not specials (not tagged) and have no number key while the shelf has more than twelve cards
+    before them; a click buys.
 
 ## Commands
 

@@ -52,9 +52,20 @@ namespace PerformativeMail.Sim.Run
         {
             if ((def.Rotating && !special) || def.KitOnly) return OpResult.BadRequest;
             if (def.FromShift > shift) return OpResult.ShopLocked;
-            if (def.OncePerRun && owned) return OpResult.AlreadyOwned;
+            if ((def.OncePerRun || def.OncePerShift) && owned) return OpResult.AlreadyOwned;
             return OpResult.Ok;
         }
+
+        /// <summary>
+        /// Doc 10 §3's services: the Extended Forecast needs a Delivery still to come (at the last shift's Payday there is
+        /// none); the Emergency PO Repair a Post Office that is hurt. Ok for every other kind of entry.
+        /// </summary>
+        public static OpResult ServiceCheck(ShopItemDef def, RunPhase phase, int shift, int shifts, int poHp, int poMaxHp) => def.Service switch
+        {
+            ShopService.Forecast when phase == RunPhase.Payday && shift >= shifts => OpResult.WrongPhase,
+            ShopService.PostOfficeRepair when poHp >= poMaxHp => OpResult.FullHealth,
+            _ => OpResult.Ok,
+        };
 
         /// <summary>
         /// A vehicle has one driver (doc 04 §3.1): the counter sells the team one of each kind for

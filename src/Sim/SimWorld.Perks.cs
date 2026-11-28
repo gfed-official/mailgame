@@ -195,12 +195,18 @@ namespace PerformativeMail.Sim
         private void SendForecast()
         {
             if (!TeamHas(RuleFlag.ForecastDesk) || Map.Debug != null) return;
-            int quota = QuotaFormula.Quota(Content.Balance, Run.Shift, QuotaHeads(Math.Max(1, PresentCount)));
+            SendForecast(Run.Shift);
+        }
+
+        /// <summary>The forecast of a shift's Delivery to everybody (Forecast Desk's, or the shop's Extended Forecast).</summary>
+        private void SendForecast(int shift)
+        {
+            int quota = QuotaFormula.Quota(Content.Balance, shift, QuotaHeads(Math.Max(1, PresentCount)));
             int value = (int)Math.Round(quota * Content.MailMix.SpawnOverhead * TeamStat(Stat.SpawnValue, 1f));
             Spawner.DistrictsEarly = DistrictsEarly;
-            var e = new ForecastEvent { Shift = (byte)Run.Shift };
+            var e = new ForecastEvent { Shift = (byte)shift };
             var streets = new List<(int Street, double Count)>();
-            foreach (var kv in Spawner.Forecast(Run.Shift, value)) streets.Add((kv.Key, kv.Value));
+            foreach (var kv in Spawner.Forecast(shift, value)) streets.Add((kv.Key, kv.Value));
             streets.Sort((a, b) => b.Count != a.Count ? b.Count.CompareTo(a.Count) : a.Street.CompareTo(b.Street));
             foreach (var (street, count) in streets)
             {
