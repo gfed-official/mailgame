@@ -1353,6 +1353,9 @@ namespace PerformativeMail.Client
                         picked.DraftPerk = _content.Perks[e.Perk];
                     }
                     break;
+                case MailForecastEvent e:
+                    world.MailForecast = e;
+                    break;
                 case ShopOfferEvent e:
                     world.ShopSpecials.Clear();
                     foreach (byte item in e.Specials)

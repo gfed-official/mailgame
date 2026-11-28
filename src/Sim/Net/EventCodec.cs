@@ -81,6 +81,7 @@ namespace PerformativeMail.Sim.Net
         SlingshotFired = 71,
         Forecast = 72,
         RunEvent = 73,
+        MailForecast = 74,
     }
 
     /// <summary>Wire format of reliable sim events. The audience is not sent: the server routes by it.</summary>
@@ -362,6 +363,12 @@ namespace PerformativeMail.Sim.Net
                 case RunEventEvent e:
                     w.U8((byte)EventType.RunEvent);
                     w.U8(e.Event); w.U8(e.Shift); w.U8((byte)e.Stage); w.U8(e.Street); w.I32(e.Amount);
+                    break;
+                case MailForecastEvent e:
+                    w.U8((byte)EventType.MailForecast);
+                    w.U8(e.Shift);
+                    w.U16((ushort)e.Counts.Count);
+                    foreach (var (kind, district, count) in e.Counts) { w.U16(kind); w.U8(district); w.U16(count); }
                     break;
                 case ForecastEvent e:
                     w.U8((byte)EventType.Forecast);
@@ -649,6 +656,13 @@ namespace PerformativeMail.Sim.Net
                     return new TurretOperatedEvent { X = r.U16(), Y = r.U16(), Player = new EntityId(r.U32()) };
                 case EventType.RunEvent:
                     return new RunEventEvent { Event = r.U8(), Shift = r.U8(), Stage = (RunEventStage)r.U8(), Street = r.U8(), Amount = r.I32() };
+                case EventType.MailForecast:
+                {
+                    var e = new MailForecastEvent { Shift = r.U8() };
+                    int n = r.U16();
+                    for (int i = 0; i < n; i++) e.Counts.Add((r.U16(), r.U8(), r.U16()));
+                    return e;
+                }
                 case EventType.Forecast:
                 {
                     var e = new ForecastEvent { Shift = r.U8() };

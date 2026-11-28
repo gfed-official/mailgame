@@ -3280,6 +3280,18 @@ Large Island's M4 work came first:
       Payday, none at the last; the repair from shift 2, +1000, capped, not unhurt), `ShopFlowTests` (the cards' notes
       and tags, the feed, the Post Office's HP on the client), `ShopTests` / `ContentValidatorTests` pins; the smoke's
       shop visit buys the Extended Forecast by a click on its card and sees the forecast in the feed
+- [x] **The free mail forecast** (doc 01 §2.1 "Preview: the map shows … a 'mail forecast' (counts by size class and
+      district)", doc 09 §2.9 Payday's "mail forecast for the next shift", doc 12 M4 "Payday … forecast"; design choice
+      177), the last two of choice 160's "still to do". As each Prep begins every team hears about how many pieces of
+      each kind the coming Delivery brings each district (`MailForecastEvent`, protocol m4.10; the Forecast Desk's
+      estimate by kind instead of by street, `MailSpawner.ForecastByKind`; no stream drawn, so `ReplayTests` stand), and
+      at a Payday the run goes on from, the next shift's; a joiner hears the last one. The M map's line under its title
+      reads it in Prep while no mail is in the hand ("Mail forecast, shift 3: ~52 Letters · ~20 Postcards · ~6 Small
+      Packages  ·  District 1 ~30 · District 2 ~26 · District 3 ~22"), the way to the mail's house once some is; the
+      Payday card ends "Mail next shift: …". No feed line (the Extended Forecast's streets stay the shop's).
+      `MailForecastTests` (every Prep, for everybody, the open districts, the same estimate as the streets'; at Payday
+      the next shift's, none after the last), `PaydayPreviewTests` (the card's line; the map's line in Prep, gone in
+      Delivery), `CodecTests`; the smoke checks the Payday card has the line whenever a shift follows
 
 ## How to build and check
 
@@ -4990,6 +5002,14 @@ See "Commands" at the bottom (filled in as the tooling lands).
     at full HP, and caps at the bar; in Prep the Post Office mends itself anyway, so it is the Payday buy after a hard
     raid. (d) Services are not specials (not tagged) and have no number key while the shelf has more than twelve cards
     before them; a click buys.
+
+177. **The free mail forecast, what doc 01 §2.1 / doc 09 §2.9 leave open.** (a) "Size class" is the mail kind (letters,
+    postcards, small and large packages, Cargo: the kinds are the size classes). (b) It is free and for every team —
+    the docs put it in the Prep preview and on the Payday card for all — while the Extended Forecast and Forecast Desk
+    keep the street-by-street detail. (c) An estimate, rounded, like Forecast Desk's (no stream drawn ahead: doc 12
+    M4's replay rule); it counts the carriers here when it is sent, as the quota preview does. (d) On the map it takes
+    the route line, which in Prep with nothing in the hand only said to take mail; no new widget (ADR-0018). (e) A
+    Payday that ends the run (the last shift, a missed quota) has none.
 
 ## Commands
 

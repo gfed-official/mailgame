@@ -37,7 +37,7 @@ namespace PerformativeMail.Sim.Net
         /// changes the protocol hash and makes old builds fail the connect check (doc 06 §2).
         /// </summary>
         private const string Schema =
-            "m4.9;Driver:+u8 toPort,u16 portX,u16 portY;m4.8;tile x,y u16 in requests, events and the welcome's constructs (the Large Island is 260 wide);m4.7;Player:+u8 look with the kit;Summary:+u8 n,{u16 dest,u16 count};Global:+mode in the flags (practice 4, daily 8),u16 dailyDay,u16 events;" +
+            "m4.10;MailForecast:u8 shift,u16 n,{u16 kind,u8 district,u16 count};m4.9;Driver:+u8 toPort,u16 portX,u16 portY;m4.8;tile x,y u16 in requests, events and the welcome's constructs (the Large Island is 260 wide);m4.7;Player:+u8 look with the kit;Summary:+u8 n,{u16 dest,u16 count};Global:+mode in the flags (practice 4, daily 8),u16 dailyDay,u16 events;" +
             "Hello:u32 hash,str name,u8 playtest,u8 startShift,u64 account,u8 rank,u32 startWallet;Playtest:noTimer,atMailbox,noQuota,raidNow,packages,materials,allStamps;" +
             "Inputs:u8 n,u16 ack,u16 enemyAck,u32 firstSeq,u16 view,{i8 mx,i8 mz,u16 yaw,u8 buttons,u8 held};" +
             "Buttons:sprint,jump,interact,attack,alt;" +

@@ -618,6 +618,17 @@ namespace PerformativeMail.Sim
         public readonly List<(ushort Street, ushort Count)> Streets = new List<(ushort, ushort)>();
     }
 
+    /// <summary>
+    /// Doc 01 §2.1 "mail forecast (counts by size class and district)", doc 09 §2.9 Payday's "mail forecast for the next
+    /// shift" (design choice 177): as Prep begins, about how many pieces of each kind the coming Delivery brings each
+    /// district, and at Payday the next shift's — for every team, free. The Forecast Desk's estimate, by kind.
+    /// </summary>
+    public sealed class MailForecastEvent : SimEvent
+    {
+        public byte Shift;
+        public readonly List<(ushort Kind, byte District, ushort Count)> Counts = new List<(ushort, byte, ushort)>();
+    }
+
     /// <summary>What a run event (doc 10 §6) did: the feed's line, the banner, the tracker.</summary>
     public enum RunEventStage : byte
     {

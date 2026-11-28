@@ -680,6 +680,51 @@ namespace PerformativeMail.Client
         }
 
         /// <summary>
+        /// The free mail forecast of a shift (doc 01 §2.1 "counts by size class and district"; design choice 177): "~52
+        /// Letters · ~14 Postcards · ~6 Small Packages   ·   District 1 ~40 · District 2 ~32"; empty for none.
+        /// </summary>
+        public static string MailForecastCounts(ClientWorld world, MailForecastEvent e)
+        {
+            var kinds = new List<(int Kind, int Count)>();
+            var districts = new SortedDictionary<int, int>();
+            foreach (var (kind, district, count) in e.Counts)
+            {
+                int at = kinds.FindIndex(k => k.Kind == kind);
+                if (at < 0) kinds.Add((kind, count)); else kinds[at] = (kind, kinds[at].Count + count);
+                districts[district] = (districts.TryGetValue(district, out int n) ? n : 0) + count;
+            }
+            if (kinds.Count == 0) return "";
+            kinds.Sort((a, b) => b.Count != a.Count ? b.Count.CompareTo(a.Count) : a.Kind.CompareTo(b.Kind));
+            var parts = new List<string>();
+            foreach (var (kind, count) in kinds)
+                parts.Add($"~{count.ToString(CultureInfo.InvariantCulture)} {KindName(world, kind, count)}");
+            string line = string.Join(" · ", parts);
+            if (districts.Count > 1)
+            {
+                var ds = new List<string>();
+                foreach (var (district, count) in districts) ds.Add($"District {district.ToString(CultureInfo.InvariantCulture)} ~{count.ToString(CultureInfo.InvariantCulture)}");
+                line += Dot + string.Join(" · ", ds);
+            }
+            return line;
+        }
+
+        private static string KindName(ClientWorld world, int kind, int count)
+        {
+            if (kind >= world.Content.MailKinds.Count) return "pieces";
+            string name = world.Content.MailKinds[kind].Name;
+            // Cargo is a mass noun.
+            return count == 1 || name == "Cargo" ? name : Plural(name);
+        }
+
+        /// <summary>The map's line in Prep with no mail in the hand: "Mail forecast, shift 2: ~52 Letters · …"; empty otherwise.</summary>
+        public static string MapForecast(ClientWorld world)
+        {
+            if (world.Global.Phase != RunPhase.Prep || world.MailForecast is not { } e || e.Shift != world.Global.Shift) return "";
+            string counts = MailForecastCounts(world, e);
+            return counts.Length == 0 ? "" : $"Mail forecast, shift {e.Shift.ToString(CultureInfo.InvariantCulture)}: {counts}";
+        }
+
+        /// <summary>
         /// Doc 09 §2.9 "upcoming district preview and mail forecast for the next shift": "Next: District 3 opens in shift
         /// 3  ·  13 houses on Fern Hollow, Quay Street +1", then, when there is any, "By the ferry  ·  New mail: Cargo for the
         /// Business Docks  ·  an Apartment Complex (10 units)". Nothing after the last shift or a missed quota that ends
@@ -739,6 +784,9 @@ namespace PerformativeMail.Client
                 string line = string.Join(Dot, extras);
                 lines.Add(char.ToUpperInvariant(line[0]) + line.Substring(1));
             }
+            // Doc 09 §2.9's mail forecast for the next shift (design choice 177).
+            if (world.MailForecast is { } forecast && forecast.Shift == next && MailForecastCounts(world, forecast) is { Length: > 0 } counts)
+                lines.Add($"Mail next shift: {counts}");
             return lines;
         }
 

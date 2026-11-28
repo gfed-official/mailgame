@@ -962,6 +962,10 @@ namespace PerformativeMail.App
                     Check(hud.EarnedShown.StartsWith("Earned ", StringComparison.Ordinal) && hud.EarnedShown.EndsWith($" of {HudText.Gold(summary.Quota)}", StringComparison.Ordinal),
                         $"at Payday the earned line reads \"{hud.EarnedShown}\"");
                     Check(hud.HintText.Contains(summary.QuotaMet ? "uota met" : "Quota missed", StringComparison.Ordinal), $"at Payday the HUD hint is \"{hud.HintText}\"");
+                    // Doc 09 §2.9's mail forecast for the next shift (design choice 177), on the card whenever a shift follows.
+                    bool follows = summary.Shift < HudText.ShiftCount(world) && (summary.QuotaMet || world.QuotaWaived);
+                    Check(!follows || hud.OverlayText.Contains("\nMail next shift: ~", StringComparison.Ordinal), $"at Payday of shift {summary.Shift} the card has no mail forecast for the next shift: \"{hud.OverlayText}\"");
+                    if (follows && _forecastSeen++ == 0) GD.Print($"[smoke] payday: the card's mail forecast \"{lines[^1]}\"");
                     Shot($"payday{summary.Shift}");
                     break;
                 }
@@ -1282,6 +1286,8 @@ namespace PerformativeMail.App
                 + $"rejected {_bot.RequestsRejected}; {_screen.Hud.WalletText}; {_screen.Hud.QuotaText}; "
                 + $"{server.Tick - _startTick} ticks, prediction rms {client.PredictionErrorRms:0.000} m");
         }
+
+        private int _forecastSeen;
 
         private void Check(bool ok, string failure)
         {

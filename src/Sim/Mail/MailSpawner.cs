@@ -312,8 +312,30 @@ namespace PerformativeMail.Sim.Mail
         public Dictionary<int, double> Forecast(int shift, int spawnValue)
         {
             var streets = new Dictionary<int, double>();
+            Estimate(shift, spawnValue, (kind, d, each) => streets[d.Street.Id] = (streets.TryGetValue(d.Street.Id, out double n) ? n : 0) + each);
+            return streets;
+        }
+
+        /// <summary>
+        /// Doc 01 §2.1 "mail forecast (counts by size class and district)": the same estimate as <see cref="Forecast"/>,
+        /// by kind and district.
+        /// </summary>
+        public Dictionary<(int Kind, int District), double> ForecastByKind(int shift, int spawnValue)
+        {
+            var counts = new Dictionary<(int, int), double>();
+            Estimate(shift, spawnValue, (kind, d, each) =>
+            {
+                var key = (kind.Index, d.Address.District);
+                counts[key] = (counts.TryGetValue(key, out double n) ? n : 0) + each;
+            });
+            return counts;
+        }
+
+        /// <summary>Each kind's share of the value over its price, spread evenly over the destinations open to it: what each gets.</summary>
+        private void Estimate(int shift, int spawnValue, Action<MailKindDef, DestinationDef, double> add)
+        {
             var mix = _content.MailMix;
-            if (spawnValue <= 0 || !TrySharesFor(shift, out var shares)) return streets;
+            if (spawnValue <= 0 || !TrySharesFor(shift, out var shares)) return;
             int was = _shift;
             _shift = shift;
             double shiftMult = 1.0 + mix.ShiftMultiplierPerShift * (shift - 1);
@@ -327,10 +349,9 @@ namespace PerformativeMail.Sim.Mail
                 price /= _eligible.Count;
                 if (price <= 0) continue;
                 double each = spawnValue * share.Value / price / _eligible.Count;
-                foreach (var d in _eligible) streets[d.Street.Id] = (streets.TryGetValue(d.Street.Id, out double n) ? n : 0) + each;
+                foreach (var d in _eligible) add(kind, d, each);
             }
             _shift = was;
-            return streets;
         }
 
         /// <summary>Doc 01 §6 Heavy Load: each package kind's share goes to the next larger package kind; set by the world from its stamps.</summary>

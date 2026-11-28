@@ -284,6 +284,7 @@ namespace PerformativeMail.Server
             World.SendPipeStates(player.Id);
             World.SendVehicleFuel(player.Id);
             World.SendDrivers(player.Id);
+            World.SendMailForecast(player.Id);
             World.SendMailWaiting(player.Id);
             Log?.Invoke(back ? $"{player.Name} is back as {player.Id}{PlaytestNote(player)}" : $"{name} joined as {player.Id}{PlaytestNote(player)}");
         }

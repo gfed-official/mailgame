@@ -201,12 +201,9 @@ namespace PerformativeMail.Sim
         /// <summary>The forecast of a shift's Delivery to everybody (Forecast Desk's, or the shop's Extended Forecast).</summary>
         private void SendForecast(int shift)
         {
-            int quota = QuotaFormula.Quota(Content.Balance, shift, QuotaHeads(Math.Max(1, PresentCount)));
-            int value = (int)Math.Round(quota * Content.MailMix.SpawnOverhead * TeamStat(Stat.SpawnValue, 1f));
-            Spawner.DistrictsEarly = DistrictsEarly;
             var e = new ForecastEvent { Shift = (byte)shift };
             var streets = new List<(int Street, double Count)>();
-            foreach (var kv in Spawner.Forecast(shift, value)) streets.Add((kv.Key, kv.Value));
+            foreach (var kv in Spawner.Forecast(shift, ForecastValue(shift))) streets.Add((kv.Key, kv.Value));
             streets.Sort((a, b) => b.Count != a.Count ? b.Count.CompareTo(a.Count) : a.Street.CompareTo(b.Street));
             foreach (var (street, count) in streets)
             {
@@ -214,6 +211,43 @@ namespace PerformativeMail.Sim
                 if (n > 0) e.Streets.Add(((ushort)street, (ushort)Math.Min(n, ushort.MaxValue)));
             }
             LastForecast = e;
+            Events.Add(e);
+        }
+
+        /// <summary>The value a shift's Delivery is reckoned to spawn, as Delivery will reckon it (the quota of those here now, the team's perks).</summary>
+        private int ForecastValue(int shift)
+        {
+            int quota = QuotaFormula.Quota(Content.Balance, shift, QuotaHeads(Math.Max(1, PresentCount)));
+            Spawner.DistrictsEarly = DistrictsEarly;
+            return (int)Math.Round(quota * Content.MailMix.SpawnOverhead * TeamStat(Stat.SpawnValue, 1f));
+        }
+
+        /// <summary>The free mail forecast (design choice 177) last sent; null before the first.</summary>
+        public MailForecastEvent? LastMailForecast { get; private set; }
+
+        /// <summary>Doc 01 §2.1 / doc 09 §2.9: about how many pieces of each kind a shift's Delivery brings each district, to everybody.</summary>
+        private void SendMailForecast(int shift)
+        {
+            if (Map.Debug != null) return;
+            var e = new MailForecastEvent { Shift = (byte)shift };
+            var counts = new List<(int Kind, int District, double Count)>();
+            foreach (var kv in Spawner.ForecastByKind(shift, ForecastValue(shift))) counts.Add((kv.Key.Kind, kv.Key.District, kv.Value));
+            counts.Sort((a, b) => a.District != b.District ? a.District.CompareTo(b.District) : a.Kind.CompareTo(b.Kind));
+            foreach (var (kind, district, count) in counts)
+            {
+                int n = (int)Math.Round(count);
+                if (n > 0) e.Counts.Add(((ushort)kind, (byte)Math.Min(district, 255), (ushort)Math.Min(n, ushort.MaxValue)));
+            }
+            LastMailForecast = e;
+            Events.Add(e);
+        }
+
+        /// <summary>Who joins hears the last mail forecast.</summary>
+        public void SendMailForecast(EntityId player)
+        {
+            if (LastMailForecast is not { } last || (Run.Phase != RunPhase.Prep && Run.Phase != RunPhase.Payday)) return;
+            var e = new MailForecastEvent { Audience = player, Shift = last.Shift };
+            e.Counts.AddRange(last.Counts);
             Events.Add(e);
         }
 

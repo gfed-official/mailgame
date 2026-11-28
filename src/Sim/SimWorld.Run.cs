@@ -179,6 +179,7 @@ namespace PerformativeMail.Sim
             EnterPhase(RunPhase.Prep, b.GetForShift("prepSeconds", Run.Shift));
             PrepEvents();
             SendForecast();
+            SendMailForecast(Run.Shift);
             StockPlaytesters();
         }
 
@@ -265,6 +266,8 @@ namespace PerformativeMail.Sim
             Run.LastSummary = summary;
             Events.Add(new ShiftSummaryEvent { Summary = summary });
             EnterPhase(RunPhase.Payday, Content.Balance.GetDouble("paydaySeconds"));
+            // Doc 09 §2.9: the next shift's mail, if the run goes on to one.
+            if (Run.Shift < ShiftCount && (summary.QuotaMet || QuotaWaived)) SendMailForecast(Run.Shift + 1);
         }
 
         private void EndPayday()

@@ -629,6 +629,8 @@ namespace PerformativeMail.Client
         public List<ShopItemDef> ShopSpecials { get; } = new List<ShopItemDef>();
         /// <summary>What the team has bought of the entries sold once per run.</summary>
         public List<ShopItemDef> ShopOwned { get; } = new List<ShopItemDef>();
+        /// <summary>The free mail forecast the server last sent (design choice 177): a shift's mail by kind and district.</summary>
+        public MailForecastEvent? MailForecast { get; internal set; }
         /// <summary>The services sold once a shift, and the shift each was last bought in (doc 10 §3 "per shift").</summary>
         public Dictionary<ShopItemDef, int> ShopBoughtShift { get; } = new Dictionary<ShopItemDef, int>();
 

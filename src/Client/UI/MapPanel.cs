@@ -112,7 +112,7 @@ namespace PerformativeMail.Client.UI
             }
             var world = _client.World;
             Guide.Update(world, _client.Input.HeldSlot);
-            RouteText = Guide.Line(world, _move);
+            RouteText = Guide.Target == null && HudText.MapForecast(world) is { Length: > 0 } forecast ? forecast : Guide.Line(world, _move);
             TitleText = MapGuide.Title(world);
             MouseFilter = Editing ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
             Layers.UpdateEdited(world, Editing ? Editor.Console : null);
